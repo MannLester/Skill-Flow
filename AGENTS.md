@@ -47,10 +47,12 @@ npm run doctor
 `npm run verify` is the automated gate: strict TypeScript, ESLint (including
 cyclomatic complexity capped at 10), the complete Jest suite, and an Android
 Expo export. Existing complexity debt is recorded in
-`eslint-suppressions.json` with a matching committed ceiling; missing, stale,
-new, or increased suppressions fail lint without relying on a remote Git ref.
-After removing a suppressed violation, run `npm run lint:prune` and commit both
-reduced suppression files.
+`eslint-suppressions.json` with a matching committed ceiling. Lint compares
+both files against committed `HEAD` and parent artifacts, so paired additions
+or increases fail without relying on a remote Git ref. CI and shallow checkouts
+must retain at least one parent commit; missing, malformed, or stale history
+fails closed. After removing a violation, run `npm run lint:prune` and commit
+both reduced suppression files.
 
 The Android Expo export only proves that the JavaScript bundle and assets can
 be produced. It does not install the app, exercise native behavior, or prove

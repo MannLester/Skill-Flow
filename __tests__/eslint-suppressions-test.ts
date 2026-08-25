@@ -1,103 +1,111 @@
 type SuppressionMap = Record<string, Record<string, { count: number }>>;
-type ReadFile = (filePath: string, encoding: string) => string;
-type WriteFile = (filePath: string, contents: string, encoding: string) => void;
+type TrustedState = { ref: string; suppressions: SuppressionMap; ceiling: SuppressionMap };
+type TrustedHistory = { head: TrustedState | null; parents: TrustedState[] };
 
 const committedSuppressions = jest.requireActual('../eslint-suppressions.json') as SuppressionMap;
 const {
-  ceilingFileName,
-  loadSuppressionState,
-  ratchetCeiling,
-  suppressionFileName,
+  parseTrustedState,
+  validateAgainstHistory,
+  validateSuppressionState,
   validateSuppressions,
   validateSynchronizedCeiling,
 } = jest.requireActual('../scripts/check-eslint-suppressions.cjs') as {
-  ceilingFileName: string;
-  loadSuppressionState: (projectRoot: string, readFile?: ReadFile) => {
-    suppressions: SuppressionMap;
-    ceiling: SuppressionMap;
-  };
-  ratchetCeiling: (projectRoot: string, readFile?: ReadFile, writeFile?: WriteFile) => void;
-  suppressionFileName: string;
+  parseTrustedState: (ref: string, suppressions: string | null, ceiling: string | null) => TrustedState | null;
+  validateAgainstHistory: (suppressions: SuppressionMap, history: TrustedHistory) => string[];
+  validateSuppressionState: (
+    suppressions: SuppressionMap,
+    ceiling: SuppressionMap,
+    history: TrustedHistory,
+  ) => string[];
   validateSuppressions: (suppressions: SuppressionMap, ceiling: SuppressionMap) => string[];
   validateSynchronizedCeiling: (suppressions: SuppressionMap, ceiling: SuppressionMap) => string[];
 };
 
-function cloneCommittedSuppressions(): SuppressionMap {
+function cloneBaseline(): SuppressionMap {
   return JSON.parse(JSON.stringify(committedSuppressions)) as SuppressionMap;
 }
 
-function stateReader(suppressions: SuppressionMap, ceiling: SuppressionMap): ReadFile {
-  return (filePath) => JSON.stringify(filePath.endsWith(ceilingFileName) ? ceiling : suppressions);
+function trustedState(ref = 'base'): TrustedState {
+  return { ref, suppressions: cloneBaseline(), ceiling: cloneBaseline() };
 }
 
-describe('ESLint suppression ceiling', () => {
-  it('rejects a new file, rule, or increased count', () => {
-    const suppressions = cloneCommittedSuppressions();
-    const ceiling = cloneCommittedSuppressions();
+function trustedHistory(): { head: TrustedState; parents: TrustedState[] } {
+  return { head: trustedState('HEAD'), parents: [trustedState('parent')] };
+}
+
+describe('ESLint suppression trust anchor', () => {
+  it('rejects a paired new file, rule, or count increase', () => {
+    const suppressions = cloneBaseline();
+    const ceiling = cloneBaseline();
     suppressions['src/new-screen.tsx'] = { complexity: { count: 1 } };
-    suppressions['src/app/settings.tsx'].noUnexpectedRule = { count: 1 };
+    ceiling['src/new-screen.tsx'] = { complexity: { count: 1 } };
+    suppressions['src/app/settings.tsx'].newRule = { count: 1 };
+    ceiling['src/app/settings.tsx'].newRule = { count: 1 };
     suppressions['src/context/session.tsx'].complexity.count = 7;
+    ceiling['src/context/session.tsx'].complexity.count = 7;
 
-    expect(validateSuppressions(suppressions, ceiling)).toEqual(expect.arrayContaining([
-      'src/new-screen.tsx: new suppression file is not allowed.',
-      'src/app/settings.tsx (noUnexpectedRule): new suppression rule is not allowed.',
-      'src/context/session.tsx (complexity): suppression count increased from 6 to 7.',
-    ]));
-  });
-
-  it('fails when the committed ceiling is missing or malformed', () => {
-    const missingCeiling: ReadFile = (filePath) => {
-      if (filePath.endsWith(ceilingFileName)) throw new Error('ENOENT');
-      return JSON.stringify(committedSuppressions);
-    };
-    const malformedCeiling: ReadFile = (filePath) => (
-      filePath.endsWith(ceilingFileName) ? '{invalid' : JSON.stringify(committedSuppressions)
-    );
-
-    expect(() => loadSuppressionState('/project', missingCeiling)).toThrow(
-      `Unable to read required ${ceilingFileName}: ENOENT`,
-    );
-    expect(() => loadSuppressionState('/project', malformedCeiling)).toThrow(
-      `Unable to parse ${ceilingFileName}`,
+    expect(validateSuppressionState(suppressions, ceiling, trustedHistory())).toEqual(
+      expect.arrayContaining([
+        'against trusted HEAD: src/new-screen.tsx: new suppression file is not allowed.',
+        'against trusted HEAD: src/app/settings.tsx (newRule): new suppression rule is not allowed.',
+        'against trusted HEAD: src/context/session.tsx (complexity): suppression count increased from 6 to 7.',
+      ]),
     );
   });
 
-  it('fails closed when the committed ceiling is stale', () => {
-    const suppressions = cloneCommittedSuppressions();
-    const staleCeiling = cloneCommittedSuppressions();
-    suppressions['src/context/session.tsx'].complexity.count = 5;
-
-    expect(validateSynchronizedCeiling(suppressions, staleCeiling)).toEqual([
-      'src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5. Run npm run lint:prune.',
+  it('fails closed when parent history is unavailable', () => {
+    const history = { head: trustedState('HEAD'), parents: [] };
+    expect(validateAgainstHistory(cloneBaseline(), history)).toEqual([
+      'No trusted parent suppression state is available; fetch parent history before linting.',
     ]);
   });
 
-  it('ratchets only downward and writes a synchronized committed ceiling', () => {
-    const suppressions = cloneCommittedSuppressions();
-    const ceiling = cloneCommittedSuppressions();
-    suppressions['src/context/session.tsx'].complexity.count = 5;
-    delete suppressions['src/app/settings.tsx'];
-    let written = '';
-    const writeFile: WriteFile = (_filePath, contents) => { written = contents; };
+  it('rejects malformed, incomplete, or stale trusted artifacts', () => {
+    expect(() => parseTrustedState('parent', '{bad', '{}')).toThrow(
+      'Unable to parse parent:eslint-suppressions.json',
+    );
+    expect(() => parseTrustedState('parent', '{}', null)).toThrow(
+      'Trusted parent has an incomplete suppression baseline.',
+    );
 
-    ratchetCeiling('/project', stateReader(suppressions, ceiling), writeFile);
-
-    expect(validateSynchronizedCeiling(suppressions, JSON.parse(written) as SuppressionMap)).toEqual([]);
-
-    suppressions['src/context/session.tsx'].complexity.count = 7;
-    expect(() => ratchetCeiling('/project', stateReader(suppressions, ceiling), writeFile)).toThrow(
-      'suppression count increased from 6 to 7',
+    const staleParent = trustedState('parent');
+    staleParent.suppressions['src/context/session.tsx'].complexity.count = 5;
+    expect(validateAgainstHistory(cloneBaseline(), {
+      head: trustedState('HEAD'),
+      parents: [staleParent],
+    })).toContain(
+      'trusted parent: src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5.',
     );
   });
 
-  it('loads the two committed files without consulting a remote Git ref', () => {
-    const readFile = stateReader(committedSuppressions, committedSuppressions);
-    const state = loadSuppressionState('/offline-shallow-clone', readFile);
+  it('permits pruning but rejects ratcheting back above trusted history', () => {
+    const suppressions = cloneBaseline();
+    const ceiling = cloneBaseline();
+    suppressions['src/context/session.tsx'].complexity.count = 5;
+    ceiling['src/context/session.tsx'].complexity.count = 5;
+    delete suppressions['src/app/settings.tsx'];
+    delete ceiling['src/app/settings.tsx'];
 
-    expect(state).toEqual({
-      suppressions: committedSuppressions,
-      ceiling: committedSuppressions,
-    });
-    expect(suppressionFileName).toBe('eslint-suppressions.json');
+    expect(validateSuppressionState(suppressions, ceiling, trustedHistory())).toEqual([]);
+
+    const prunedHistory = trustedHistory();
+    prunedHistory.head.suppressions = cloneBaseline();
+    prunedHistory.head.ceiling = cloneBaseline();
+    prunedHistory.head.suppressions['src/context/session.tsx'].complexity.count = 5;
+    prunedHistory.head.ceiling['src/context/session.tsx'].complexity.count = 5;
+    expect(validateAgainstHistory(cloneBaseline(), prunedHistory)).toContain(
+      'against trusted HEAD: src/context/session.tsx (complexity): suppression count increased from 5 to 6.',
+    );
+  });
+
+  it('still rejects unsynchronized current files before checking history', () => {
+    const suppressions = cloneBaseline();
+    const ceiling = cloneBaseline();
+    suppressions['src/context/session.tsx'].complexity.count = 5;
+
+    expect(validateSynchronizedCeiling(suppressions, ceiling)).toEqual([
+      'src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5.',
+    ]);
+    expect(validateSuppressions(suppressions, ceiling)).toEqual([]);
   });
 });
