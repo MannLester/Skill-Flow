@@ -25,7 +25,7 @@ npm run convex:dev
 
 `convex:bootstrap` starts the pinned backend and dashboard images, waits for a healthy backend, generates a local admin key, and saves it to the ignored `.env.local` file with mode `0600` without printing it. Later starts can use `npm run convex:up`. The dashboard is available at `http://127.0.0.1:6791`.
 
-`convex:dev` is deliberately local-only. Its wrapper reads and validates `CONVEX_SELF_HOSTED_URL` and `CONVEX_SELF_HOSTED_ADMIN_KEY`, rejects cloud deployment fields and target-overriding flags, then runs the pinned local Convex CLI with that ignored environment file. Run `convex:bootstrap` first.
+`convex:dev` is deliberately local-only. Its wrapper reads and validates `CONVEX_SELF_HOSTED_URL` and `CONVEX_SELF_HOSTED_ADMIN_KEY`, rejects cloud deployment fields and target-overriding flags, disables CLI telemetry and external version checks, then runs the pinned local Convex CLI with that ignored environment file. Run `convex:bootstrap` first.
 
 Useful commands:
 

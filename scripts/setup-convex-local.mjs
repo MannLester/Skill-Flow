@@ -41,8 +41,7 @@ function resolvePort(name, fallback) {
   return String(port);
 }
 
-function resolveHttpOrigin(name, fallback) {
-  const value = process.env[name] ?? fallback;
+function parseHttpOrigin(name, value) {
   let url;
   try {
     url = new URL(value);
@@ -53,6 +52,10 @@ function resolveHttpOrigin(name, fallback) {
     throw new Error(`${name} must be an HTTP or HTTPS origin without credentials.`);
   }
   return url.origin;
+}
+
+function resolveHttpOrigin(name, fallback) {
+  return parseHttpOrigin(name, process.env[name] ?? fallback);
 }
 
 const projectName = resolveProjectName();
@@ -176,14 +179,15 @@ function validateSelfHostedEnvironment() {
   if (values.get("CONVEX_DEPLOYMENT") || values.get("CONVEX_DEPLOY_KEY")) {
     throw new Error("Local Convex configuration contains cloud deployment fields; refusing to run.");
   }
-  if (resolveHttpOrigin("CONVEX_SELF_HOSTED_URL", url) !== backendOrigin) {
+  const normalizedUrl = parseHttpOrigin("CONVEX_SELF_HOSTED_URL", url);
+  if (normalizedUrl !== backendOrigin) {
     throw new Error("Local Convex URL does not match the selected project's configured backend origin.");
   }
+  return { adminKey, url: normalizedUrl };
 }
 
 function bootstrap() {
-  requireExplicitOriginsForLanBinding();
-  runDocker(["up", "-d", "--wait"]);
+  startServices();
   const adminKey = runDocker(["exec", "-T", "backend", "./generate_admin_key.sh"], true);
   if (!adminKey) {
     throw new Error("Convex did not return a local admin key.");
@@ -211,18 +215,32 @@ function runConvexDev(argumentsList) {
   if (forbidden) {
     throw new Error(`${forbidden} is controlled by the self-hosted wrapper and cannot be overridden.`);
   }
-  validateSelfHostedEnvironment();
+  const selfHostedEnvironment = validateSelfHostedEnvironment();
+  const environment = {
+    ...process.env,
+    CI: "1",
+    CONVEX_SELF_HOSTED_ADMIN_KEY: selfHostedEnvironment.adminKey,
+    CONVEX_SELF_HOSTED_URL: selfHostedEnvironment.url,
+    CONVEX_VERSION_API_ORIGIN: selfHostedEnvironment.url,
+  };
+  delete environment.CONVEX_DEPLOYMENT;
+  delete environment.CONVEX_DEPLOY_KEY;
   execFileSync(
     process.execPath,
     [convexCli, "dev", "--env-file", localEnvironmentFile, ...argumentsList],
-    { cwd: projectRoot, env: process.env, stdio: "inherit" },
+    { cwd: projectRoot, env: environment, stdio: "inherit" },
   );
+}
+
+function startServices() {
+  requireExplicitOriginsForLanBinding();
+  runDocker(["up", "-d", "--wait"]);
 }
 
 async function main() {
   const [action = "bootstrap", ...argumentsList] = process.argv.slice(2);
   if (action === "bootstrap") bootstrap();
-  else if (action === "up") runDocker(["up", "-d", "--wait"]);
+  else if (action === "up") startServices();
   else if (action === "down") runDocker(["down"]);
   else if (action === "status") runDocker(["ps"]);
   else if (action === "logs") runDocker(["logs", "--follow", "backend", "dashboard"]);
