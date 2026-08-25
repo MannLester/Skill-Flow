@@ -1,0 +1,50 @@
+name: skillflow-convex
+
+x-skillflow-labels: &skillflow-labels
+  com.skillflow.owner: "${SKILLFLOW_CONVEX_OWNER:-developer}"
+  com.skillflow.project: "${SKILLFLOW_CONVEX_PROJECT:-skillflow-convex}"
+
+services:
+  backend:
+    image: ghcr.io/get-convex/convex-backend@sha256:1f2044e3eac463ac78973b136c0baf72d4ada602611d853d6f99f280e29e0a98
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    ports:
+      - "${CONVEX_BIND_ADDRESS:-127.0.0.1}:${CONVEX_PORT:-3210}:3210"
+      - "${CONVEX_BIND_ADDRESS:-127.0.0.1}:${CONVEX_SITE_PROXY_PORT:-3211}:3211"
+    volumes:
+      - convex-data:/convex/data
+    labels: *skillflow-labels
+    environment:
+      - APPLICATION_MAX_CONCURRENT_MUTATIONS=${APPLICATION_MAX_CONCURRENT_MUTATIONS:-16}
+      - APPLICATION_MAX_CONCURRENT_NODE_ACTIONS=${APPLICATION_MAX_CONCURRENT_NODE_ACTIONS:-16}
+      - APPLICATION_MAX_CONCURRENT_QUERIES=${APPLICATION_MAX_CONCURRENT_QUERIES:-16}
+      - APPLICATION_MAX_CONCURRENT_V8_ACTIONS=${APPLICATION_MAX_CONCURRENT_V8_ACTIONS:-16}
+      - CONVEX_CLOUD_ORIGIN=${CONVEX_CLOUD_ORIGIN:-http://127.0.0.1:3210}
+      - CONVEX_SITE_ORIGIN=${CONVEX_SITE_ORIGIN:-http://127.0.0.1:3211}
+      - DISABLE_METRICS_ENDPOINT=${DISABLE_METRICS_ENDPOINT:-true}
+      - DOCUMENT_RETENTION_DELAY=${DOCUMENT_RETENTION_DELAY:-172800}
+      - RUST_LOG=${RUST_LOG:-info}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3210/version"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  dashboard:
+    image: ghcr.io/get-convex/convex-dashboard@sha256:284a2638e0c1a4ec0c2327d8219776f3a426ca5824b81686ae4d9454dc0ce8ed
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    ports:
+      - "127.0.0.1:${CONVEX_DASHBOARD_PORT:-6791}:6791"
+    environment:
+      - NEXT_PUBLIC_DEPLOYMENT_URL=${CONVEX_CLOUD_ORIGIN:-http://127.0.0.1:3210}
+    labels: *skillflow-labels
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  convex-data:
+    labels: *skillflow-labels

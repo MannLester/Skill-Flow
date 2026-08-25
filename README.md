@@ -14,6 +14,65 @@ npm install
 npm start
 ```
 
+## Local Convex
+
+Local development uses the official self-hosted Convex backend and dashboard in Docker. Production will remain a separate PM-owned Convex Cloud deployment.
+
+```sh
+npm run convex:bootstrap
+npm run convex:dev
+```
+
+`convex:bootstrap` starts the pinned backend and dashboard images, waits for a healthy backend, generates a local admin key, and saves it to the ignored `.env.local` file with mode `0600` without printing it. Later starts can use `npm run convex:up`. The dashboard is available at `http://127.0.0.1:6791`.
+
+`convex:dev` is deliberately local-only. Its wrapper reads and validates `CONVEX_SELF_HOSTED_URL` and `CONVEX_SELF_HOSTED_ADMIN_KEY`, rejects cloud deployment fields and target-overriding flags, disables CLI telemetry and external version checks, then runs the pinned local Convex CLI with that ignored environment file. Run `convex:bootstrap` first.
+
+Useful commands:
+
+```sh
+npm run convex:status
+npm run convex:health
+npm run convex:logs
+npm run convex:down
+```
+
+All commands accept the same optional port variables: `CONVEX_PORT`, `CONVEX_SITE_PROXY_PORT`, and `CONVEX_DASHBOARD_PORT`. Bootstrap writes matching URLs, and `convex:health` checks the selected backend port.
+
+### Isolated improvement-loop resources
+
+The ordinary commands use the developer-owned Compose project `skillflow-convex`. An improvement-loop run must export a unique run ID and, when the developer ports are occupied, unique ports before every Convex command:
+
+```sh
+export SKILLFLOW_LOOP_RUN_ID=20260825-a
+export CONVEX_PORT=3320
+export CONVEX_SITE_PROXY_PORT=3321
+export CONVEX_DASHBOARD_PORT=6891
+npm run convex:bootstrap
+npm run convex:health
+npm run convex:status
+```
+
+This creates the Compose project `skillflow-loop-20260825-a`, adds project and owner labels to its containers and volume, and writes its credentials to the ignored `.convex/skillflow-loop-20260825-a.env` instead of the developer's `.env.local`. Keep the same variables exported for `convex:dev`, `up`, `down`, `status`, `logs`, and `health` so every command targets the same owned resources. `SKILLFLOW_CONVEX_PROJECT` may select an explicit project name when no loop run ID is used. Never use `docker compose down -v`; volume deletion requires explicit approval after ownership is verified.
+
+The default public URL works for web on the development machine. Android needs a host-reachable URL:
+
+- Android emulator: `EXPO_PUBLIC_CONVEX_URL=http://10.0.2.2:3210`
+- Physical device: use the development machine's LAN address. Explicitly set `CONVEX_BIND_ADDRESS=0.0.0.0`, `CONVEX_CLOUD_ORIGIN=http://<LAN-IP>:3210`, and `CONVEX_SITE_ORIGIN=http://<LAN-IP>:3211` in the shell that starts Docker, then set `EXPO_PUBLIC_CONVEX_URL=http://<LAN-IP>:3210`. This exposes the development backend to the local network, so return to the loopback defaults afterward.
+
+Do not commit `.env.local` or `.convex/`. `CONVEX_SELF_HOSTED_ADMIN_KEY` is privileged and must never use the `EXPO_PUBLIC_` prefix. Removing a `<compose-project>_convex-data` Docker volume permanently deletes that project's local Convex data and requires explicit approval.
+
+### Updating the pinned images
+
+Backend and dashboard images must stay on matching official Convex releases and immutable `sha256` digests. To update them:
+
+1. Select one official self-hosted Convex release and its matching backend and dashboard tags.
+2. Pull both tagged images, inspect their `RepoDigests`, and replace both digest references in `infra/convex/compose.yml` in the same change. Never commit a mutable tag.
+3. Run `docker compose -f infra/convex/compose.yml config --quiet` and `config --images` to confirm the resolved references.
+4. Bootstrap a new loop-owned project with unused ports, then run `npm run convex:health`, `npm run convex:status`, and `npm run convex:dev -- --once`. Confirm both resources carry the expected Compose project and SkillFlow ownership labels.
+5. Run the repository verification gate. Preserve the test volume unless its exact ownership is proven and deletion is separately approved.
+
+Clerk is not configured yet. Mann must provision the Clerk development and production applications before the Clerk integration tickets can proceed; see [the agent-ready backlog](docs/tickets/BACKLOG.md).
+
 ## Seeded demo accounts
 
 - Student Designer: `alex@skillflow.demo` / `demo123`
