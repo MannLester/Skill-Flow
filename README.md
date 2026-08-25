@@ -118,6 +118,11 @@ bootstrap digest. After fixing a violation, run `npm run lint:prune` and commit
 all reduced complexity baseline files. Both squash merges and merge commits are
 supported.
 
+The complexity rule is pinned to error level with maximum 10, and pruning
+checks that policy before modifying baselines. New inline complexity disable
+directives fail the gate. Only an exact inherited, identity-bound inline
+exception could remain; the current baseline contains none.
+
 The Android Expo export checks that the JavaScript bundle and assets can be
 produced. It does not install the app or prove native runtime behavior. Every
 user-visible change still needs a manual Android emulator/device walkthrough

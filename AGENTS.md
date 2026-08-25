@@ -65,6 +65,12 @@ After removing a violation, run `npm run lint:prune` and commit all reduced
 complexity baseline files. The check is independent of squash-versus-merge
 strategy.
 
+The complexity rule must remain exactly an error with maximum 10. The prune
+command checks that policy before changing any baseline. Inline complexity
+disable directives are rejected unless an exact inherited function identity
+is already recorded as a trusted inline exception; this repository currently
+has no such exceptions.
+
 The Android Expo export only proves that the JavaScript bundle and assets can
 be produced. It does not install the app, exercise native behavior, or prove
 that a user can complete a flow. Every user-visible change still requires a

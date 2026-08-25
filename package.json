@@ -50,7 +50,7 @@
     "convex:health": "node -- scripts/setup-convex-local.mjs health",
     "convex:dev": "node -- scripts/setup-convex-local.mjs dev",
     "lint": "node -- scripts/check-eslint-suppressions.cjs && node -- scripts/check-eslint-complexity-debt.cjs && eslint . --max-warnings 0 --suppressions-location eslint-suppressions.json",
-    "lint:prune": "eslint . --max-warnings 0 --suppressions-location eslint-suppressions.json --prune-suppressions && node -- scripts/check-eslint-suppressions.cjs --ratchet && node -- scripts/check-eslint-complexity-debt.cjs --prune",
+    "lint:prune": "node -- scripts/check-eslint-complexity-debt.cjs --policy-only && eslint . --max-warnings 0 --suppressions-location eslint-suppressions.json --prune-suppressions && node -- scripts/check-eslint-suppressions.cjs --ratchet && node -- scripts/check-eslint-complexity-debt.cjs --prune",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
     "verify": "npm run typecheck && npm run lint && npm test -- --watch=false && npx expo export --platform android",

@@ -29,6 +29,7 @@ const identityBaseline = {
     complexity: 12,
     sourceHash: 'a'.repeat(64),
   }],
+  inlineExceptions: [],
 };
 
 function git(root, args) {
@@ -249,6 +250,7 @@ describe('ESLint suppression Git base contract', () => {
         line: 2,
         sourceHash: 'b'.repeat(64),
       }],
+      inlineExceptions: [],
     };
     writeIdentityBaseline(root, added);
     await expect(checkComplexityDebt(root, { baseRef, baseSha, liveBaseline: added })).rejects.toThrow(
@@ -272,7 +274,7 @@ describe('ESLint suppression Git base contract', () => {
     roots.push(root);
     const baseSha = git(root, ['rev-parse', baseRef]);
     git(root, ['checkout', '-b', 'feature']);
-    const reduced = { version: 1, violations: [] };
+    const reduced = { version: 1, violations: [], inlineExceptions: [] };
     await pruneComplexityDebt(root, { baseRef, baseSha, liveBaseline: reduced });
     expect(JSON.parse(fs.readFileSync(path.join(root, identityFile), 'utf8'))).toEqual(reduced);
     await expect(checkComplexityDebt(root, {

@@ -8,7 +8,7 @@ const ts = require('typescript');
 const { loadBaseContext } = require('./check-eslint-suppressions.cjs');
 
 const baselineFileName = 'eslint-complexity-baseline.json';
-const bootstrapBaselineDigest = '12a1b4787db44e8007bf9d3c3ecc33f7229891547709ee64a8b9a5fc49f30b6a';
+const bootstrapBaselineDigest = 'f07f83fc6a2b7e2a853ba944bdeb9d479c00c7bd7224355dc66385fc6dd67056';
 
 function isFunctionLike(node) {
   return ts.isFunctionDeclaration(node)
@@ -53,8 +53,8 @@ function complexityFromMessage(message) {
 }
 
 function createIdentity(projectRoot, result, diagnostic) {
-  if (!result.source) throw new Error(`ESLint did not return source for ${result.filePath}.`);
-  const sourceFile = ts.createSourceFile(result.filePath, result.source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const source = result.source ?? fs.readFileSync(result.filePath, 'utf8');
+  const sourceFile = ts.createSourceFile(result.filePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const offset = sourceFile.getPositionOfLineAndCharacter(diagnostic.line - 1, diagnostic.column - 1);
   const node = findFunctionNode(sourceFile, offset);
   if (!node) throw new Error(`Unable to locate complex function at ${result.filePath}:${diagnostic.line}.`);
@@ -65,7 +65,7 @@ function createIdentity(projectRoot, result, diagnostic) {
     nodeType: diagnostic.nodeType,
     name: functionName(node, sourceFile),
     complexity: complexityFromMessage(diagnostic.message),
-    sourceHash: hash(result.source.slice(node.getStart(sourceFile), node.end)),
+    sourceHash: hash(source.slice(node.getStart(sourceFile), node.end)),
   };
 }
 
@@ -77,12 +77,35 @@ function sortIdentities(identities) {
   return [...identities].sort((left, right) => identityKey(left).localeCompare(identityKey(right)));
 }
 
+function validateComplexityRule(rule) {
+  if (!Array.isArray(rule) || rule[0] !== 2 || !isRecord(rule[1])) return false;
+  return rule[1].max === 10 && Object.keys(rule[1]).length === 1;
+}
+
+async function assertComplexityPolicy(eslint, results) {
+  for (const result of results) {
+    const config = await eslint.calculateConfigForFile(result.filePath);
+    if (!validateComplexityRule(config?.rules?.complexity)) {
+      throw new Error(`ESLint complexity policy for ${result.filePath} must be exactly error/max 10.`);
+    }
+  }
+}
+
 async function collectComplexityDebt(projectRoot) {
-  const results = await new ESLint({ cwd: projectRoot }).lintFiles(['.']);
-  const identities = results.flatMap((result) => result.messages
+  const eslint = new ESLint({ cwd: projectRoot });
+  const results = await eslint.lintFiles(['.']);
+  await assertComplexityPolicy(eslint, results);
+  const violations = results.flatMap((result) => result.messages
     .filter((message) => message.ruleId === 'complexity')
     .map((message) => createIdentity(projectRoot, result, message)));
-  return { version: 1, violations: sortIdentities(identities) };
+  const inlineExceptions = results.flatMap((result) => result.suppressedMessages
+    .filter((message) => message.ruleId === 'complexity')
+    .map((message) => createIdentity(projectRoot, result, message)));
+  return {
+    version: 1,
+    violations: sortIdentities(violations),
+    inlineExceptions: sortIdentities(inlineExceptions),
+  };
 }
 
 function isRecord(value) {
@@ -104,14 +127,19 @@ function parseBaseline(contents, label) {
   } catch (error) {
     throw new Error(`Unable to parse ${label}: ${error.message}`);
   }
-  if (!isRecord(parsed) || parsed.version !== 1 || !Array.isArray(parsed.violations)) {
+  if (!isRecord(parsed) || parsed.version !== 1
+    || !Array.isArray(parsed.violations) || !Array.isArray(parsed.inlineExceptions)) {
     throw new Error(`${label} must use complexity baseline version 1.`);
   }
-  const issues = parsed.violations.flatMap((identity, index) => validateIdentity(identity, `${label}[${index}]`));
+  const identities = [...parsed.violations, ...parsed.inlineExceptions];
+  const issues = identities.flatMap((identity, index) => validateIdentity(identity, `${label}[${index}]`));
   if (issues.length > 0) throw new Error(issues.join('\n'));
-  const sorted = sortIdentities(parsed.violations);
-  if (new Set(sorted.map(identityKey)).size !== sorted.length) throw new Error(`${label} contains duplicate identities.`);
-  return { version: 1, violations: sorted };
+  if (new Set(identities.map(identityKey)).size !== identities.length) throw new Error(`${label} contains duplicate identities.`);
+  return {
+    version: 1,
+    violations: sortIdentities(parsed.violations),
+    inlineExceptions: sortIdentities(parsed.inlineExceptions),
+  };
 }
 
 function readBaseline(projectRoot) {
@@ -147,11 +175,23 @@ function compareIdentitySets(current, allowed, addedLabel, staleLabel) {
   ];
 }
 
+function compareBaselines(current, allowed, stale = true) {
+  return [
+    ...compareIdentitySets(current, allowed, 'new complexity debt', stale ? 'stale complexity identity' : undefined),
+    ...compareIdentitySets(
+      { violations: current.inlineExceptions },
+      { violations: allowed.inlineExceptions },
+      'new inline complexity disable',
+      stale ? 'stale inline complexity exception' : undefined,
+    ),
+  ];
+}
+
 function validateBaseBaseline(projectRoot, current, context) {
   const base = readBaseBaseline(projectRoot, context);
   if (context.state && !base) return [`Base ${context.baseRef} is missing ${baselineFileName}.`];
   if (!context.state && base) return [`Base ${context.baseRef} has an identity baseline without suppression artifacts.`];
-  if (base) return compareIdentitySets(current, base, 'new complexity debt');
+  if (base) return compareBaselines(current, base, false);
   if (!context.bootstrapEligible) return [`Base ${context.baseRef} has no trusted complexity identity baseline.`];
   if (hash(JSON.stringify(current)) === bootstrapBaselineDigest) return [];
   return ['Initial complexity identities differ from the pinned bootstrap baseline.'];
@@ -164,7 +204,7 @@ function formatIssues(issues) {
 async function checkComplexityDebt(projectRoot, options = {}) {
   const current = readBaseline(projectRoot);
   const live = options.liveBaseline ?? await collectComplexityDebt(projectRoot);
-  const liveIssues = compareIdentitySets(live, current, 'new or changed complex function', 'stale baseline entry');
+  const liveIssues = compareBaselines(live, current);
   const baseIssues = validateBaseBaseline(projectRoot, current, loadBaseContext(projectRoot, options));
   const issues = [...liveIssues, ...baseIssues];
   if (issues.length > 0) throw new Error(formatIssues(issues));
@@ -173,7 +213,7 @@ async function checkComplexityDebt(projectRoot, options = {}) {
 async function pruneComplexityDebt(projectRoot, options = {}) {
   const current = readBaseline(projectRoot);
   const live = options.liveBaseline ?? await collectComplexityDebt(projectRoot);
-  const additions = compareIdentitySets(live, current, 'new or changed complex function');
+  const additions = compareBaselines(live, current, false);
   const baseIssues = validateBaseBaseline(projectRoot, live, loadBaseContext(projectRoot, options));
   const issues = [...additions, ...baseIssues];
   if (issues.length > 0) throw new Error(formatIssues(issues));
@@ -184,6 +224,8 @@ async function main() {
   try {
     if (process.argv.includes('--print')) {
       console.log(JSON.stringify(await collectComplexityDebt(process.cwd()), null, 2));
+    } else if (process.argv.includes('--policy-only')) {
+      await collectComplexityDebt(process.cwd());
     } else if (process.argv.includes('--prune')) {
       await pruneComplexityDebt(process.cwd());
     } else {
@@ -198,12 +240,14 @@ async function main() {
 module.exports = {
   checkComplexityDebt,
   collectComplexityDebt,
+  compareBaselines,
   compareIdentitySets,
   createIdentity,
   identityKey,
   parseBaseline,
   pruneComplexityDebt,
   validateBaseBaseline,
+  validateComplexityRule,
 };
 
 if (require.main === module) main();

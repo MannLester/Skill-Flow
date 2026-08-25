@@ -1,12 +1,18 @@
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { describe, expect, it } = require('@jest/globals');
 const {
+  compareBaselines,
   compareIdentitySets,
   createIdentity,
   parseBaseline,
+  validateComplexityRule,
 } = require('../scripts/check-eslint-complexity-debt.cjs');
 
 const projectRoot = path.resolve('virtual-project');
+const checkerPath = path.resolve('scripts/check-eslint-complexity-debt.cjs');
 const diagnostic = {
   ruleId: 'complexity',
   message: "Function 'inherited' has a complexity of 12. Maximum allowed is 10.",
@@ -24,7 +30,27 @@ function identityFor(source, overrides = {}) {
 }
 
 function baseline(violations) {
-  return { version: 1, violations };
+  return { version: 1, violations, inlineExceptions: [] };
+}
+
+function makeLintProject(max, source) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complexity-policy-'));
+  fs.writeFileSync(
+    path.join(root, 'eslint.config.js'),
+    `module.exports = [{ rules: { complexity: ['error', { max: ${max} }] } }];\n`,
+    'utf8',
+  );
+  fs.writeFileSync(path.join(root, 'probe.js'), source, 'utf8');
+  return root;
+}
+
+function collectFromProject(root) {
+  const output = execFileSync(process.execPath, [checkerPath, '--print'], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return JSON.parse(output);
 }
 
 describe('identity-aware complexity debt', () => {
@@ -65,12 +91,77 @@ describe('identity-aware complexity debt', () => {
     ]);
   });
 
+  it('rejects a new inline complexity disable but preserves an exact inherited exception', () => {
+    const inlineIdentity = identityFor(original);
+    const current = baseline([]);
+    const live = { ...baseline([]), inlineExceptions: [inlineIdentity] };
+    expect(compareBaselines(live, current)).toContain(
+      'new inline complexity disable: src/example.ts:1',
+    );
+    expect(compareBaselines(live, live)).toEqual([]);
+
+    const replaced = identityFor(original.replace('inherited', 'replacement'));
+    expect(compareBaselines(
+      { ...baseline([]), inlineExceptions: [replaced] },
+      live,
+    )).toContain('new inline complexity disable: src/example.ts:1');
+  });
+
+  it('pins the ESLint complexity policy to error/max 10 exactly', () => {
+    expect(validateComplexityRule([2, { max: 10 }])).toBe(true);
+    expect(validateComplexityRule([1, { max: 10 }])).toBe(false);
+    expect(validateComplexityRule([2, { max: 100 }])).toBe(false);
+    expect(validateComplexityRule([2, { max: 10, variant: 'modified' }])).toBe(false);
+  });
+
+  it('collects an inline-disabled complexity-12 function as an exception candidate', async () => {
+    const source = `// eslint-disable-next-line complexity
+function hidden(values) {
+  if (values[0]) return 0;
+  if (values[1]) return 1;
+  if (values[2]) return 2;
+  if (values[3]) return 3;
+  if (values[4]) return 4;
+  if (values[5]) return 5;
+  if (values[6]) return 6;
+  if (values[7]) return 7;
+  if (values[8]) return 8;
+  if (values[9]) return 9;
+  return values[10] ? 10 : 11;
+}
+hidden([]);\n`;
+    const root = makeLintProject(10, source);
+    try {
+      const collected = collectFromProject(root);
+      expect(collected.violations).toEqual([]);
+      expect(collected.inlineExceptions).toEqual([
+        expect.objectContaining({ file: 'probe.js', name: 'hidden', complexity: 12 }),
+      ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects max 100 before collecting or pruning debt', async () => {
+    const root = makeLintProject(100, 'function simple() { return true; }\n');
+    try {
+      expect(() => collectFromProject(root)).toThrow();
+      try {
+        collectFromProject(root);
+      } catch (error) {
+        expect(error.stderr).toContain('must be exactly error/max 10');
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('fails closed for malformed baseline data', () => {
     expect(() => parseBaseline('{bad', 'baseline')).toThrow('Unable to parse baseline');
     expect(() => parseBaseline('{"version":2,"violations":[]}', 'baseline')).toThrow(
       'must use complexity baseline version 1',
     );
-    expect(() => parseBaseline('{"version":1,"violations":[{}]}', 'baseline')).toThrow(
+    expect(() => parseBaseline('{"version":1,"violations":[{}],"inlineExceptions":[]}', 'baseline')).toThrow(
       'has invalid identity fields',
     );
   });
