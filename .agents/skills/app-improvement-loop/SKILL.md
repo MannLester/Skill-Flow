@@ -1,47 +1,40 @@
 ---
 name: app-improvement-loop
-description: Run a bounded evidence-driven improvement cycle on an existing application by exercising the real UI, qualifying one problem, creating or selecting an issue, implementing and verifying a focused fix, obtaining independent review, and opening a PR without merging. Use when a user explicitly asks an agent to autonomously improve, dogfood, or iterate on a running app; do not use for read-only audits or a preselected implementation task.
+description: Run a continuous evidence-driven delivery pipeline on an existing application through separate scout, builder, QA, and release agents, producing independently verified PRs for human merge. Use only when the user explicitly asks to autonomously dogfood or improve the running app; do not use for read-only audits or a preselected implementation task.
 ---
 
 # App Improvement Loop
 
-Improve the product through observed behavior rather than code inspection alone. Never merge.
+Continuously improve observed product behavior through independent delivery roles. Source inspection supports evidence but never replaces real UI use.
 
-## Resolve the local contract
+## Resolve authorization and the repository contract
 
-Read all applicable repository instructions. If the repository defines an improvement-loop playbook, read it completely and follow its stricter project-specific sources, journeys, commands, protected areas, labels, queue cap, and stopping rules. Otherwise read [references/default-protocol.md](references/default-protocol.md).
+Read all applicable repository instructions. When the repository defines an improvement-loop playbook, read it completely and treat it as the operational authority for sources, roles, worktrees, issue/ref ownership, commands, protected scope, QA evidence, release checks, rebasing, and stopping conditions. This repository uses `docs/IMPROVEMENT_LOOP.md`; otherwise use [references/default-protocol.md](references/default-protocol.md).
 
-The request must explicitly ask to run the loop before making external issue, branch, push, or PR changes. A request to explain, design, audit, or preview the loop is read-only. Loop authorization never includes merging, auto-merge, production deployment, production/shared data mutation, credentials, or destructive actions outside an isolated agent-owned environment.
+The user must explicitly invoke the loop before any issue, branch, push, or PR mutation. That invocation authorizes only the repository-scoped actions its playbook permits and never authorizes merging. It also never authorizes production, credentials, shared/production data, destructive actions outside proven agent-owned resources, subjective decisions, protection bypasses, or changes to human-authored PRs.
 
-## Run bounded iterations
+## Keep roles and workspaces independent
 
-At the start of each run:
+Keep the repository root clean and orchestration-only. Use a clean scout worktree from current `origin/main` and one dedicated worktree per claimed issue lane.
 
-- verify repository/remote identity, scoped write permission, and ownership of issues/branches/PRs; never modify human-authored PRs or force-push
-- inspect current issues, open loop-authored PRs, source authority, working tree, and available runtime targets
-- fetch the exact approved remote base; preserve and report a dirty tree instead of resetting, stashing, overwriting, or absorbing it
-- use a clean checkout and branch each implementation from that fetched base
-- establish an isolated resettable test environment with a unique run ID and read-back ownership proof for every disposable resource; missing reset/seed support is a blocker, not permission to clear shared state
-- stop implementation when the repository's open-PR cap is reached, counting the conservative union of loop labels, loop branch prefixes, and run markers so a missing label cannot bypass the cap
+- Scouts exercise the real UI through all required roles/platforms and file deduplicated evidence issues; they do not implement.
+- A builder owns one issue worktree, implements and pushes that focused change, and does not QA, release, or merge it.
+- QA does not implement the lane, edits no code, reviews issue/spec and repository standards, reruns the full gate, and verifies real UI/screenshots on the exact pushed SHA.
+- Release does not implement or QA the lane, edits no code, opens or updates its ready PR only when ownership, SHA-bound QA, full verification, configured checks, protection, and mergeability all pass, and never merges it.
 
-Each iteration must produce at most one issue, one branch, one focused change, and one PR. Before creating an issue for a newly discovered defect, derive the repository-defined deterministic fingerprint (or the default protocol's canonical fingerprint), atomically reserve a finding ref, and embed its exact marker in the issue. A conflicting or orphaned reservation blocks issue creation. Claim the issue separately with a host-supported atomic create-if-absent operation, then re-read the finding reservation, issue, issue claim, linked PRs, and open queue before editing. On GitHub, use deterministic refs at the fetched base SHA through the Git Data create-ref API. Never update, delete, or force a claim ref to take ownership. If atomic claiming is unavailable, stop before editing. Work may continue without waiting for humans to merge only when the next ticket is independent across files, behavior, schemas/APIs, fixtures/seeds, dependencies, and acceptance criteria. Unknown overlap blocks. Never stack the next branch on an unmerged PR unless the project explicitly authorizes stacked changes.
+Unknown dependency or overlap blocks concurrent building. There is no fixed run, lane, or open-PR cap; use all available safe isolated agent/resource capacity when independence is proven.
 
-## Observe before selecting work
+Apply the repository's delivery priorities before selection. Split oversized work into verifiable dependency-linked child issues, each with its own lane. A high-quality PR stays focused, has focused coverage plus the full gate, includes real UI evidence when applicable, and has an independent QA decision.
 
-Run the application and complete the repository's role × flow × state matrix. At minimum cover applicable happy, loading/empty, validation/error, recovery, and persistence/restart states, with screenshots and runtime logs. Use the product's primary platform when available and disclose any fallback. Inspect interactions, navigation, accessibility, and feedback. Do not call a screen functional merely because it renders or tests pass.
+## Run the continuous cycle
 
-Select work severity-first. Search issues and PRs for duplicates. Implement only reproducible objective defects or approved requirements. If behavior is unspecified, evidence conflicts, or the change is subjective or protected, create a proposal-only issue and do not implement it.
+1. Fetch and record current `origin/main`; verify remote scope, a clean root, role assignments, existing issues/PRs, and ownership of all worktrees/resources.
+2. Dogfood both application roles through the repository's flow/state matrix on its primary platform. Capture screenshots and runtime logs; rendering is not proof of function.
+3. Select objective work severity-first. Search duplicates, atomically reserve the deterministic finding, create or enrich one evidence-complete issue, and atomically claim its issue branch before edits. Subjective, disputed, or protected behavior is proposal-only.
+4. Create the issue worktree at the recorded base. The builder makes the smallest complete fix, adds meaningful regression coverage, runs focused checks, commits, pushes, and hands off the exact head SHA.
+5. QA independently reviews that head against both standards and the issue/spec, runs the committed full gate and required integration/native checks, and repeats affected real journeys with screenshots/logs. Findings return to the builder; any new commit invalidates the prior QA decision.
+6. Release reads back current ownership and evidence, opens or updates the issue-linked agent-loop PR, waits for configured checks, and refuses stale evidence, failures, conflicts, unreviewed commits, protected scope, or ambiguous/human ownership. It leaves the ready PR for a human merge decision.
+7. Continue other proven-independent lanes without waiting. After a human merge, refresh `origin/main`; agents may update their own clean queued lanes, but conflicts or ambiguous rebases require human direction and every changed head requires fresh QA.
+8. Keep scouting and delivering independent ready PRs until explicitly stopped or safely blocked.
 
-Read [references/evidence-templates.md](references/evidence-templates.md) when creating an issue or PR.
-
-## Implement, verify, and review
-
-Create an issue-linked branch from the latest base and make the smallest complete fix within the approved stack. Use focused feedback checks during development and the full repository gate before the PR. Re-run the real affected journey and inspect screenshots and runtime errors.
-
-Open a draft PR with its issue, scope, evidence, checks, manual states, and unavailable verification. Then delegate review to a distinct available agent that did not implement the change. The reviewer checks repository standards and issue acceptance criteria. Address valid findings, rerun affected verification, and only then mark it ready. If no independent reviewer is available, keep the PR draft and report the blocker. Neither builder nor reviewer merges.
-
-Do not retry credential, permission, ownership, production, destructive, or protected-scope blockers. Record whether they need a human decision (`proposal-only`) or external state change (`blocked`). A safely retryable environment failure gets at most three total non-destructive attempts, including the first; record each attempt before moving on. Never escape by weakening tests, suppressing errors, changing acceptance criteria, or hiding failed verification.
-
-## Stop and hand off
-
-Stop when the per-run PR limit or open-PR cap is reached, three new issues produced no PR, no meaningful unblocked work remains, safe product evaluation is unavailable, or only proposal/protected work remains. Draft and ready PRs count toward the open cap; closed/merged PRs do not. Every PR created in this invocation counts toward the run limit, while updates to an existing agent-owned PR do not. Provide a run report covering journeys, terminal evidence, issues, branches/PRs, review findings, verification, blocked work, queue conflicts, and human decisions needed.
+Read [references/evidence-templates.md](references/evidence-templates.md) when filing an issue or preparing a PR. Report role identities, SHAs, worktrees/resources, journeys/screenshots, issues, QA results, checks, PRs/merges, rebases, and blockers. Never label partial or unavailable verification as a pass.

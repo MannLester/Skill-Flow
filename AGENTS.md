@@ -24,14 +24,16 @@ These instructions apply to every agent working in this repository.
 
 ## Evidence-driven improvement loop
 
-Run the autonomous improvement loop only when the user explicitly invokes it. Follow `docs/IMPROVEMENT_LOOP.md` as the complete protocol. That invocation authorizes issue creation, issue-branch pushes, and opening or updating at most three focused PRs in this repository; it never authorizes merging.
+Run the continuous improvement pipeline only when the user explicitly invokes it. Follow `docs/IMPROVEMENT_LOOP.md` as the complete protocol. That invocation authorizes evidence-backed issue creation and agent-owned issue branches and PRs inside this repository; it never authorizes merging. It also does not authorize production, credentials, destructive/shared-data changes, protected scope, subjective product decisions, or modifying human-authored PRs.
 
-- Evaluate the running app through both roles instead of reviewing source alone.
-- Select work severity-first and keep each iteration to one issue and one PR.
-- Permit at most three open agent-loop PRs and only independent, non-overlapping queued work.
-- Require independent agent review before a PR is considered ready for humans.
-- Use only dedicated resettable local test resources.
-- Keep subjective, unspecified, protected, production, or destructive changes proposal-only until a human approves them.
+- Keep the repository root clean and orchestration-only. Every scout baseline and issue lane uses a dedicated worktree from the latest `origin/main`.
+- Use distinct roles: scouts dogfood both roles and file deduplicated evidence; one builder owns each issue lane; a different QA agent reviews the exact head and reruns the full gate plus real UI/screenshots; a release agent opens or updates a high-quality ready PR for humans.
+- Builders cannot QA or release their own work. QA never implements. Release never edits code or merges and must refuse stale/missing evidence, failures, conflicts, protected scope, ambiguous ownership, or human-authored PRs.
+- Treat the thesis and supplied screenshots as product references. Source inspection supports evidence but never replaces human-style interaction with the real app, screenshots, and runtime-error checks.
+- Prioritize the foundational local Dockerized Convex work. Mann owns Convex Cloud and Clerk provisioning. Until Clerk is ready, keep AsyncStorage authoritative for the live UI; backend work may add the approved domain schema, indexes, deterministic lifecycle seeds, and an isolated development-only reset. Scout the UI, but while that backend foundation is in progress implement only Critical or High journey defects.
+- Allow agents to split an oversized issue into small, verifiable, dependency-linked child issues before building. Use all available safe isolated agent/resource capacity for independent issue lanes, with one issue and worktree each, only when dependencies, files, behavior, schemas/APIs, fixtures, and acceptance criteria do not overlap.
+- Agents continue with independent issues without waiting for merges. After a human merges, refresh `origin/main`; agents may update their own clean, independent queued lanes after base changes, but conflicts or ambiguous rebase decisions return to humans. Any changed head requires fresh QA.
+- Pause a lane only for overlap, dependencies, stale conflicts, failed verification, unsafe resources, or protected PM-owned work.
 
 ## Verification
 

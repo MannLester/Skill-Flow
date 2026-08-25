@@ -1,96 +1,81 @@
-# Evidence-driven improvement loop
+# Continuous evidence-driven improvement pipeline
 
-This playbook defines how an explicitly invoked agent may inspect and improve SkillFlow autonomously. One **run** creates at most three PRs. One **iteration** creates at most one issue, branch, fix, and PR.
+This playbook governs an explicitly invoked autonomous SkillFlow improvement pipeline. It continuously dogfoods the real product and delivers objective fixes through independent roles as verified, ready PRs for human merge decisions.
 
-## Authorization boundary
+## Authorization and safety boundary
 
-An explicit request to run this playbook authorizes the agent to create SkillFlow GitHub issues, create and push issue branches, and open or update at most three PRs. It does not authorize merging, production deployment or credentials, changes to shared/production data, destructive schema migrations, or expansion into protected work.
+An explicit request to run this pipeline authorizes repository-scoped issue creation, agent-owned branches and worktrees, pushes, and PR creation/updates. It never authorizes merging, including auto-merge or indirect merge automation. It also never authorizes:
 
-Humans decide whether and when to merge. Humans also own rebasing queued PRs. The agent must not merge indirectly through auto-merge, API calls, workflow edits, or administrator actions.
+- production deployment, production/shared data, credentials, or administrator accounts
+- destructive or incompatible migrations, real payments, external AI, or identity-verification changes
+- subjective or unspecified product decisions without separate human approval
+- modifying, force-pushing, closing, or merging a human-authored PR
+- bypassing branch protection, required checks, reviews, or merge conflicts
+- destructive cleanup outside resources whose exact agent ownership was read back
 
-## Run preconditions
+Ambiguous ownership is not agent ownership. Protected or subjective work becomes `proposal-only`; missing credentials or external state becomes `blocked`. Continue other independent lanes when safe.
 
-Before evaluating the app:
+## Current delivery priorities
 
-1. Read `AGENTS.md`, this playbook, applicable ADRs, active issues, and open agent-loop PRs. Read `CONTEXT.md` when it exists; its absence is not a blocker.
-2. Verify the Git remote resolves to `MannLester/Skill-Flow`, GitHub access is scoped to that repository, and the agent can identify which artifacts it owns. Never modify a human-authored PR, force-push, or write to another repository.
-3. Fetch `origin/main`. Confirm the working tree is clean and start each implementation branch from that exact ref. Preserve and report a dirty tree; never reset, stash, overwrite, or absorb it into loop work. Never use an open PR branch as the next iteration's base.
-4. Stop implementation when three open loop-authored PRs exist, whether draft or ready for review. Count the union of PRs labeled `agent-loop`, PRs whose head branch begins `agent-loop/`, and PRs carrying this workflow's run marker. Never exclude an ambiguous PR merely because a label is missing. Read-only scouting may continue.
-5. Claim an existing issue atomically before editing by creating remote ref `refs/heads/agent-loop/issue-<number>` at the fetched `origin/main` SHA through GitHub's create-ref API. Creation must fail if the ref already exists; never update, delete, or force that ref to take a claim. If the host/API cannot provide create-if-absent semantics, stop. After successful creation, apply `agent-claimed`, assign the issue, add a claim comment with the base SHA/run identity, and read back the issue, ref, linked PRs, and open queue.
+Prioritize the foundational local Dockerized Convex work. Mann owns Convex Cloud production and Clerk provisioning; never invent or request those credentials. Until Clerk is available, keep AsyncStorage authoritative for the running UI and do not start its live data migration. Backend lanes may implement the approved full domain schema and indexes, deterministic lifecycle seeds, and isolated development-only reset support.
 
-   ```sh
-   gh api --method POST repos/MannLester/Skill-Flow/git/refs \
-     -f ref="refs/heads/agent-loop/issue-${ISSUE_NUMBER}" \
-     -f sha="${BASE_SHA}"
-   ```
+UI scouting continues across both roles, but while the backend foundation is readying, implement only reproducible Critical or High journey defects. Lower-severity UI findings remain evidence-backed backlog issues.
 
-   GitHub returning `422` because the ref already exists means another run owns the issue; do not retry by changing or deleting the ref.
-6. Confirm the next ticket does not overlap files, behavior, schemas/APIs, fixtures/seeds, dependencies, or acceptance criteria owned by an open PR. Unknown overlap blocks implementation.
-7. Establish and record a unique run ID before starting services. Name all disposable resources `skillflow-loop-<run-id>`: the Docker Compose project, Docker volumes, Android Virtual Device, temporary browser profile, and test users where applicable. Before reset or deletion, read back the resource name and ownership metadata. A Docker resource must have `com.docker.compose.project=skillflow-loop-<run-id>`; an emulator must have the exact recorded AVD name and serial. If ownership cannot be proven, do not reset it. Use repository-provided seed/reset commands only; when none exists, preserve state or file a blocker instead of inventing destructive cleanup. Never reset a developer's shared environment or production.
+## Role separation
 
-If these conditions cannot be met safely, record the exact blocker instead of improvising around it.
+The orchestrator assigns work and records ownership but does not implement, QA, or release. Keep the repository root clean and orchestration-only; do not run product edits or builds there.
 
-## Source authority
+- **Scout:** uses a dedicated clean baseline worktree, exercises both roles through the real UI, collects screenshots/logs, deduplicates evidence, and creates or enriches issues. It never implements.
+- **Builder:** owns exactly one issue lane and its dedicated worktree. It implements, tests, commits, and pushes only that issue. It cannot QA, release, or merge its own work.
+- **QA:** does not implement the lane. It makes no code edits. It reviews the exact pushed head against the issue/spec and repository standards, runs the full gate, and repeats the affected real UI journey with screenshots and runtime logs.
+- **Release:** does not implement or QA the lane. It makes no code edits and never merges. It opens or updates a ready PR only after verifying ownership, SHA-bound QA evidence, checks, protection, and mergeability.
 
-Resolve conflicts in this order:
+One agent may serve the same role on multiple lanes, but no agent may combine builder with QA or release for the same lane, and QA may never become that lane's implementer. Record role assignments in the issue or run log.
 
-1. Explicit human-approved decisions and accepted ADRs
-2. The selected issue's acceptance criteria
-3. The SkillFlow thesis and approved research requirements
-4. Supplied screenshots for visual intent
-5. Existing implementation as evidence, not authority
+## Sources and selection
 
-When higher-level sources conflict, create a `proposal-only` issue explaining the decision needed. Do not implement the disputed behavior.
+Resolve behavior conflicts in this order:
 
-## Severity and selection
+1. explicit human-approved decisions and accepted ADRs
+2. the selected issue's acceptance criteria
+3. the SkillFlow thesis and approved research requirements
+4. supplied screenshots for visual intent
+5. current implementation as evidence, not authority
 
-Select the highest-severity ready issue, whether existing or newly discovered:
+Select objective ready work severity-first: Critical, High, Medium, then Low, subject to the current delivery priorities above. Break ties by dependency-unblocking value, user impact, then age. Never build work with an unresolved source conflict, human decision, dependency, or overlap.
 
-- **Critical**: application cannot start or build; data/security failure; an essential demonstration is broadly unusable.
-- **High**: a core Student Designer or Client journey is broken or materially violates an approved requirement.
-- **Medium**: significant usability, accessibility, reliability, feedback, or cross-screen consistency problem.
-- **Low**: visual polish, maintainability, or minor friction with no blocked journey.
+If one issue is too large for a focused, independently verifiable PR, split it before implementation into outcome-based child issues with explicit dependencies and acceptance criteria. Each child still gets one branch, worktree, builder, QA decision, and PR.
 
-Break ties by dependency-unblocking value, user impact, then oldest issue. A new Critical or High finding may preempt lower-priority backlog work. Never select work blocked by an open PR or missing human decision.
+## 1. Establish the orchestration baseline
 
-## Iteration protocol
+From the clean repository root:
 
-### 1. Establish a clean baseline
+1. Read `AGENTS.md`, this playbook, applicable ADRs, `CONTEXT.md`, active issues, and open PRs.
+2. Verify the remote is `MannLester/Skill-Flow`, fetch `origin/main`, and record its exact SHA.
+3. Verify GitHub access is repository-scoped and distinguish pipeline-owned issues, refs, worktrees, resources, and PRs from human-owned artifacts.
+4. Inventory queued lanes for overlap across files, behavior, schemas/APIs, fixtures/seeds, dependencies, and acceptance criteria. Unknown overlap blocks concurrent implementation. Independent issue lanes are unlimited; available agents and safe resources determine actual concurrency.
+5. Establish a unique pipeline/run identity. Name disposable services and test resources `skillflow-loop-<run-id>` and read back their ownership metadata before reset or cleanup.
 
-- Install locked dependencies when needed with `npm ci`.
-- Start dedicated local services. When Convex is involved, run the repository's documented health check if one exists; otherwise treat backend health verification as blocked.
-- Reset and seed only the loop-owned environment.
-- Run focused startup checks. If the baseline is already broken, investigate that failure before judging unrelated UX.
+Never stash, reset, overwrite, or absorb a dirty checkout. A dirty root blocks orchestration until its owner resolves it.
 
-### 2. Evaluate the running product
+## 2. Scout the running product
 
-Launch the app and act as a human using both seeded roles:
+Create a disposable scout worktree from the recorded `origin/main`; never dogfood from an unmerged issue branch. Install locked dependencies, start only isolated local services, and reset/seed only resources proven to belong to this run.
 
-- Student Designer: authentication, dashboard, project discovery, proposal or service work, messaging, mentor, notifications, portfolio/profile, and settings.
-- Client: authentication, dashboard, student/service discovery, booking or project posting, proposal selection, project lifecycle, messaging, notifications, and settings.
+Exercise both roles as a human:
 
-Android is mandatory whenever an emulator or device is available. Web is additional coverage and may be a disclosed fallback only when Android is unavailable. Inspect screenshots, loading/empty/error states, keyboard behavior, navigation, state changes, accessibility, and runtime/console output. Do not infer usability from source code alone.
+- Student Designer: authentication, dashboard, discovery, proposals/services, projects, messaging, mentor, notifications, portfolio/profile, and settings.
+- Client: authentication, dashboard, discovery, booking/project posting, proposal selection, project lifecycle, messaging, notifications, and settings.
 
-For each affected role and flow, cover the applicable matrix: happy path, loading or empty state, validation or error state, recovery, persistence/restart, screenshots, and runtime logs. Mark a cell unavailable with its reason rather than silently omitting it.
+Android is required whenever a device or emulator is available. Web is additional coverage and a disclosed fallback only when Android is unavailable. Cover applicable happy, loading/empty, validation/error, recovery, persistence/restart, accessibility, keyboard, and navigation states. Capture screenshots and inspect runtime/console logs. Rendering alone is not evidence that a flow works.
 
-### 3. Qualify one finding
+For every candidate, record exact starting state, reproduction steps, expected/actual behavior, severity, source, affected role/platform, suspected scope, and useful screenshot/log evidence.
 
-An implementable finding must be reproducible and supported by approved behavior or objective harm. Capture:
+## 3. Deduplicate, reserve, and claim one issue per lane
 
-- exact starting state and reproduction steps
-- expected versus actual behavior
-- severity and user impact
-- supporting source or established UI pattern
-- screenshot, recording, console output, or test evidence where useful
-- affected roles/platforms and suspected scope
+Search open and closed issues and PRs first. Add evidence to an existing issue when it represents the same outcome.
 
-Search open and closed issues and PRs before creating anything. Add evidence to an existing issue when it already represents the problem.
-
-Subjective design preferences, undefined product behavior, and source conflicts become `proposal-only` issues and end that iteration without implementation.
-
-### 4. Create or select the issue
-
-Before creating a new issue, derive a stable finding fingerprint from these canonical newline-separated fields: approved source identifier, affected role, route or flow, state, expected outcome, and actual violated outcome. Lowercase the values, trim them, collapse internal whitespace, then SHA-256 hash the resulting UTF-8 text. Reserve it atomically at the fetched base SHA:
+For a new finding, canonicalize these lowercase, trimmed, whitespace-collapsed fields separated by newlines: approved source identifier, role, route/flow, state, expected outcome, and actual violated outcome. SHA-256 the UTF-8 text and atomically reserve it at the recorded base SHA:
 
 ```sh
 gh api --method POST repos/MannLester/Skill-Flow/git/refs \
@@ -98,70 +83,84 @@ gh api --method POST repos/MannLester/Skill-Flow/git/refs \
   -f sha="${BASE_SHA}"
 ```
 
-If that ref exists, search issues and PRs for the exact marker `finding:${FINDING_SHA256}`. Reuse the matching issue, or stop and report an orphaned reservation when none exists. Do not create a differently worded duplicate or remove the reservation. After successfully reserving, repeat the duplicate search, create the issue immediately with the marker in its body only when no duplicate exists, and read it back.
+If the ref exists, reuse the issue containing `finding:<sha>` or report an orphaned reservation; never create a reworded duplicate or delete the reservation. After a successful reservation, repeat the duplicate search, create one evidence-complete issue with the marker, then read it back.
 
-The issue must define one outcome, in/out of scope, dependencies, acceptance criteria, automated checks, and manual Android states. Apply `agent-loop` and the appropriate severity label. Claim the resulting or selected issue using the atomic issue-ref operation from the preconditions; only after that succeeds may the agent add `agent-claimed` and begin local edits. Recheck ownership, the finding reservation, duplicates, and overlap immediately after claiming. Link conflicts or dependencies to open PRs.
+The issue defines one outcome, scope exclusions, dependencies, acceptance criteria, automated checks, and manual Android states. Apply `agent-loop` and a severity label. Claim it atomically by creating `refs/heads/agent-loop/issue-<number>` at the same base SHA. A pre-existing ref belongs to another lane. After claiming, assign it, add the ownership/base/role record, and read back the issue, refs, linked PRs, and overlap state before editing.
 
-### 5. Implement one focused fix
+## 4. Build in an isolated issue lane
 
-- Check out the successfully claimed `agent-loop/issue-<number>` remote branch. Its initial SHA must equal the fetched `origin/main` used during the claim.
-- Follow existing architecture and use the smallest complete change.
-- Add meaningful coverage for behavior and regressions; do not add tests that only freeze copy or styling.
-- Do not weaken checks, add suppressions, or broaden scope to make the issue easier.
+Create `.agent-worktrees/issue-<number>` from the successfully claimed branch. Its initial SHA must equal the recorded `origin/main`. Only the assigned builder edits this worktree.
 
-Protected work is proposal-only unless a human separately approves it:
+The builder:
 
-- new runtime dependencies, services, or architectural patterns
-- auth or authorization architecture
-- destructive or incompatible Convex schema migrations
-- production configuration, secrets, data, or deployment
-- real payments, identity verification, or external AI
-- unspecified product behavior or visual direction
-- deletion outside the dedicated loop environment
+1. rechecks issue scope, dependencies, and overlap;
+2. implements the smallest complete fix using existing architecture;
+3. adds meaningful regression coverage for behavior or state transitions;
+4. runs focused feedback checks and the relevant repository gate;
+5. exercises the affected flow when practical, then commits and pushes the issue branch;
+6. hands off the exact remote head SHA, changed scope, checks, and known limitations.
 
-### 6. Verify the change
+The builder does not open or merge the PR and may not provide the independent QA decision. Do not weaken checks, add suppressions, hide failures, or broaden acceptance criteria.
 
-Run targeted feedback checks during development, then the repository's committed gate. For the current baseline:
+## 5. QA the exact pushed head
 
-```sh
-npm run typecheck
-npm run lint
-npm test -- --watch=false
-npx expo-doctor
-npx expo export --platform android
-```
+QA first proves it is independent from the builder and pins the issue base and remote head SHA. Review only that diff along two axes: repository standards and the originating issue/spec.
 
-If repository instructions later define a consolidated gate, use that command instead of duplicating its component commands. Convex work also requires the documented local health check, code generation/type checks, and focused integration tests; missing commands are blockers, not permission to skip them. Exercise the fixed flow on Android when available, inspect screenshots, and confirm there is no relevant error screen or runtime/console error.
+QA must:
 
-### 7. Open and independently review the PR
+- verify every acceptance criterion and detect missing, incorrect, unintended, or protected behavior;
+- run the committed full gate; for the current baseline:
 
-Open a draft PR linked to the issue with scope, evidence, screenshots, automated results, manual results, and unavailable checks. Label it `agent-loop`. A separate available reviewer agent that did not implement the change must review repository standards and issue acceptance criteria. The builder addresses valid findings and reruns affected verification, then marks the PR ready. If no independent reviewer is available, leave the PR draft, record the blocker, and do not represent it as reviewed. Neither agent may merge.
+  ```sh
+  npm run typecheck
+  npm run lint
+  npm test -- --watch=false
+  npx expo-doctor
+  npx expo export --platform android
+  ```
 
-### 8. Continue or stop
+- run required Convex health, codegen/type, integration, native, or dependency checks when applicable;
+- repeat affected Android journeys when available, inspect screenshots for important states, and check runtime/console errors; use web additionally where supported;
+- post a pass or fail report bound to the exact head SHA, including commands, results, device/platform, screenshots, unavailable checks, and residual risk.
 
-Return to the latest `origin/main` and begin another independent iteration only when fewer than three loop-authored PRs are open under the label, branch-prefix, and run-marker union, and fewer than three PRs have been created in the current run.
+Any finding returns the lane to its builder. After every code change, QA reruns affected checks and issues a new SHA-bound decision. A stale, partial, self-authored, or evidence-free QA report is not approval.
 
-Credential, permission, ownership, production, destructive, or protected-scope blockers are immediate: do not retry them. Create or update a `proposal-only` issue when a human decision could authorize the work; use `blocked` when an external state change is required. For a safely retryable environment failure, make at most three total attempts, including the first, using only non-destructive recovery steps. After the third identical failure, label the issue `blocked`, attach each attempt's evidence, and select another independent issue. Never bypass or weaken verification.
+## 6. Prepare an agent-owned PR for human merge
 
-Stop the run when any condition is true:
+Only the release role may open or update the lane's PR. It first reads back the issue claim, role records, branch, remote head, existing PRs, and current `origin/main`. It never merges.
 
-- three PRs were created during the run
-- three loop-authored PRs are open under the label, branch-prefix, and run-marker union
-- three new issues were created without producing a PR
-- no meaningful unblocked work remains
-- the environment cannot be evaluated safely
-- only proposal-only or protected changes remain
+Open or update one issue-linked PR with scope, evidence, QA report, automated results, Android/manual results, screenshots, and unavailable checks. Label it `agent-loop` and include the run/ownership marker. Wait for all configured host checks and branch protection.
 
-Draft and ready loop-authored PRs both count toward the open queue using the label, branch-prefix, and run-marker union above. Merged and closed PRs do not count toward the open queue, but every new PR created during this invocation counts toward the three-PR run limit. Updating an existing agent-owned PR does not count as creating another PR.
+Before marking the PR ready for humans, release must prove all of the following:
 
-## Run report
+- the PR was created by this pipeline for its claimed issue; ownership is unambiguous and it is not human-authored;
+- PR head exactly matches the latest passing independent QA SHA and contains no unreviewed commits;
+- issue/spec review, repository-standards review, the full gate, and required real UI/screenshots all passed;
+- every configured required check/review is successful, with none pending, skipped when required, or failing;
+- the PR targets current `main`, is mergeable without conflicts, contains no protected/unapproved scope, and needs no production credential or destructive action;
+- the release agent did not implement or QA the change.
 
-At the end, report:
+If any condition is missing, stale, ambiguous, failing, or conflicted, release refuses readiness and routes the lane back to builder or QA. When every condition passes, release marks the PR ready and leaves the merge decision and action to a human developer. Agents never enable auto-merge, use administrator bypass, or merge directly or indirectly.
 
-- journeys, platforms, states, and screenshots inspected
-- issues created, reused, or marked blocked
-- branches and PRs opened or updated
-- independent review findings and resolutions
-- automated/manual verification results
-- open PR queue and likely rebase conflicts
-- decisions, credentials, or environment changes required from humans
+## 7. Continue lanes and react to human merges
+
+Do not wait for an open PR to merge before scouting or building other proven-independent issues. When a human merge changes `origin/main`, the orchestrator records the new SHA and evaluates each agent-owned queued lane:
+
+1. read back its issue, worktree, local/remote branch heads, PR, and dirty state;
+2. if work has not started, remove only the clean owned worktree and recreate it from the new base;
+3. if a clean update is safe and ownership is proven, the assigned builder may rebase its agent-owned branch onto `origin/main`;
+4. for a pushed agent-owned branch, update it with `--force-with-lease` only when the expected remote head is unchanged and no human commit or ownership ambiguity exists;
+5. if a rebase conflicts, overlap appears, or the correct resolution is ambiguous, preserve the work and request a human rebase decision;
+6. invalidate all earlier QA evidence and require QA of the new exact head before the PR returns to ready.
+
+Never rebase or force-push a human-authored branch or PR. Never delete a finding/claim ref or an unproven worktree/resource.
+
+## 8. Continue or block
+
+Keep a scout worktree based on the latest `origin/main`. Scouts may continue discovering while independent lanes build and ready PRs await humans. Concurrency is limited by available isolated agents/resources and proven non-overlap, not a fixed cap.
+
+Pause only the affected lane for overlap, unresolved dependencies, stale conflicts, failed verification, unsafe resources, or protected PM-owned work. Credential, permission, ownership, production, destructive, and protected-scope blockers are immediate and are not retried. A safely retryable environment failure gets at most three non-destructive attempts, each recorded. Do not fabricate work when no objective issue is found; keep scouting or report the exact safe blocker. The continuous pipeline ends only when explicitly stopped or when no lane can make safe progress.
+
+## Pipeline report
+
+Keep a concise rolling record of role assignments, base/head SHAs, worktrees/resources, journeys and screenshots, issues, branches/PRs, observed human merges, QA findings, gate results, rebases/conflicts, and human/external blockers. Never describe partial evidence as a pass.
