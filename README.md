@@ -3,6 +3,9 @@
 Android-first React Native recreation of the supplied Skill Flow mobile mockups. The app uses Expo Router, TypeScript, Poppins, versioned local demo data, and responsive portrait layouts.
 
 The complete functional audit and ordered implementation checklist are in [docs/SKILLFLOW_SYSTEM_AUDIT_AND_ROADMAP.md](docs/SKILLFLOW_SYSTEM_AUDIT_AND_ROADMAP.md).
+Canonical product terms are defined in [CONTEXT.md](CONTEXT.md). Architectural
+decisions that explain deliberate thesis-demo tradeoffs live in [docs/adr](docs/adr).
+The original product intent is documented in the [SkillFlow thesis](https://docs.google.com/document/d/1BkIxg48JNrwF6ia3ELsmoMulEoKd3bavH0jZbG0cCfA/edit?tab=t.y1d2zvgjuu7c).
 
 ## Run
 

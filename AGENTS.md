@@ -2,28 +2,25 @@
 
 These instructions apply to every agent working in this repository.
 
-## Workspace boundary
+## Repository boundary
 
-- Work only inside `C:\Users\Mann lee\Desktop\mann-projects\skill-flow`.
-- Do not inspect, search, read, or use files from parent folders, sibling projects, or unrelated repositories.
-- Do not access or apply SEDAR documentation, terminology, source code, or instructions to SkillFlow.
-- If required information appears to exist outside this repository, stop and ask the user before accessing it.
+- Treat the repository root as the workspace boundary. Do not use machine-specific absolute paths.
+- Do not inspect, search, read, or modify parent folders, sibling projects, or unrelated repositories.
+- Treat `src/` as the active Expo and React Native application.
+- Use `README.md` for setup and run commands, `CONTEXT.md` for canonical product language, and `docs/adr/` for durable architectural decisions.
+- Use the [SkillFlow thesis](https://docs.google.com/document/d/1BkIxg48JNrwF6ia3ELsmoMulEoKd3bavH0jZbG0cCfA/edit?tab=t.y1d2zvgjuu7c) as the source of product intent. Use `references/skillflow.pdf` and the images in `references/` as supplied visual/product references.
+- Use `docs/SKILLFLOW_SYSTEM_AUDIT_AND_ROADMAP.md` as historical implementation context, not as proof that the current app still works. Resolve contradictions in favor of explicitly approved repository decisions and current verified behavior, and surface material thesis mismatches to the user.
+- Preserve unrelated user changes. Do not commit, push, open or merge pull requests, or rewrite Git history unless explicitly asked.
 
-## Project context
+## Product constraints
 
-- This repository is **SkillFlow**, an Android-first Expo and React Native academic demonstration.
-- Treat `src/` as the active application implementation.
-- Treat `references/skillflow.pdf` and the images in `references/` as product references. There is currently no `resources/` directory.
-- Use `README.md` for current run and verification commands.
-- Use `docs/SKILLFLOW_SYSTEM_AUDIT_AND_ROADMAP.md` as the ordered improvement backlog.
-
-## Demo constraints
-
-- Keep the application self-contained and reliable for demonstrations.
-- Do not add a real payment processor, collect real payment credentials, or imply that simulated balances are real money.
-- Prefer seeded local data and persistence unless the user explicitly authorizes an external service.
-- Clearly label deterministic AI feedback, student verification, payment holds, and payment releases as simulations.
-- Preserve the two user roles: Student Designer and Client.
+- SkillFlow is an Android-first Expo and React Native academic demonstration.
+- Keep it dependable for demonstrations and preserve deterministic local seed/reset behavior while the approved Convex migration is incomplete.
+- Preserve the Student Designer and Client roles.
+- Convex is the approved application backend. Use the Dockerized self-hosted deployment for local development and Mann's PM-owned Convex Cloud project for production.
+- Clerk is the approved authentication provider, but integration is blocked until Mann supplies the Clerk project configuration. Never invent keys or silently retain fake authentication in a production path.
+- Keep local and production data, URLs, admin keys, and deploy keys strictly separated. Never deploy to production or use a production credential without explicit authorization.
+- Never add real payment processing or collect payment credentials. Clearly label simulated balances, payment holds and releases, verification, and deterministic AI feedback as simulations.
 
 ## Evidence-driven improvement loop
 
@@ -46,4 +43,3 @@ npm run lint
 npm test -- --watch=false
 npx expo-doctor
 ```
-
