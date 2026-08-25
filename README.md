@@ -14,6 +14,35 @@ npm install
 npm start
 ```
 
+## Local Convex
+
+Local development uses the official self-hosted Convex backend and dashboard in Docker. Production will remain a separate PM-owned Convex Cloud deployment.
+
+```sh
+npm run convex:bootstrap
+npm run convex:dev
+```
+
+`convex:bootstrap` starts the pinned backend and dashboard images, waits for a healthy backend, generates a local admin key, and saves it to the ignored `.env.local` file without printing it. Later starts can use `npm run convex:up`. The dashboard is available at `http://127.0.0.1:6791`.
+
+Useful commands:
+
+```sh
+npm run convex:status
+npm run convex:health
+npm run convex:logs
+npm run convex:down
+```
+
+The default public URL works for web on the development machine. Android needs a host-reachable URL:
+
+- Android emulator: `EXPO_PUBLIC_CONVEX_URL=http://10.0.2.2:3210`
+- Physical device: use the development machine's LAN address. Explicitly set `CONVEX_BIND_ADDRESS=0.0.0.0`, `CONVEX_CLOUD_ORIGIN=http://<LAN-IP>:3210`, and `CONVEX_SITE_ORIGIN=http://<LAN-IP>:3211` in the shell that starts Docker, then set `EXPO_PUBLIC_CONVEX_URL=http://<LAN-IP>:3210`. This exposes the development backend to the local network, so return to the loopback defaults afterward.
+
+Do not commit `.env.local`. `CONVEX_SELF_HOSTED_ADMIN_KEY` is privileged and must never use the `EXPO_PUBLIC_` prefix. Removing the `skillflow-convex_convex-data` Docker volume permanently deletes local Convex data and requires explicit approval.
+
+Clerk is not configured yet. Mann must provision the Clerk development and production applications before the Clerk integration tickets can proceed; see [the agent-ready backlog](docs/tickets/BACKLOG.md).
+
 ## Seeded demo accounts
 
 - Student Designer: `alex@skillflow.demo` / `demo123`
