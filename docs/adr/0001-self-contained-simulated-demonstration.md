@@ -1,0 +1,3 @@
+# Keep the thesis demonstration self-contained and simulated
+
+SkillFlow is an Android academic demonstration used for repeatable student evaluation, while parts of the thesis describe online AI and securely held payments as though they were production services. We will keep shared state in versioned local persistence and represent AI guidance, student verification, payment holds, releases, and earnings with deterministic, clearly labeled simulations. This avoids handling credentials, money, identity evidence, and unreliable external services during demonstrations; consequently, the app must never claim to validate production AI, payment security, real identity, or multi-device behavior.

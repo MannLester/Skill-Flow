@@ -1,5 +1,7 @@
 # SkillFlow System Audit and Improvement Roadmap
 
+> Historical baseline: this roadmap records the completed local-demo phase. The approved Convex/Clerk migration and current open work are tracked in [docs/tickets/BACKLOG.md](tickets/BACKLOG.md). ADR 0002 supersedes the statements below that no backend is required.
+
 ## Purpose
 
 This document records the current functional gaps in SkillFlow and provides an ordered backlog for turning the existing visual prototype into a stateful, end-to-end academic demonstration. Work must remain inside the SkillFlow repository.
