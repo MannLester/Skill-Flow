@@ -51,7 +51,7 @@ export default function MarketplaceScreen() {
         ListHeaderComponent={<AppText style={styles.results}>{filtered.length} service{filtered.length === 1 ? '' : 's'} found</AppText>}
         ListEmptyComponent={<AppText style={styles.empty}>{savedOnly ? 'No saved services match these filters.' : 'No matching services.'}</AppText>}
       />
-      <BottomNav active={savedOnly ? 'saved' : 'none'} onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects/index')} onMessages={() => router.push('/messages/index')} onCreate={currentAccount?.role === 'student' ? () => router.push('/services/new') : () => router.push('/project-posts/new')} onProfile={() => router.push('/profile/index')} variant="marketplace" />
+      <BottomNav active={savedOnly ? 'saved' : 'none'} onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages/index')} onCreate={currentAccount?.role === 'student' ? () => router.push('/services/new') : () => router.push('/project-posts/new')} onProfile={() => router.push('/profile/index')} variant="marketplace" />
     </MobilePage>
   );
 }

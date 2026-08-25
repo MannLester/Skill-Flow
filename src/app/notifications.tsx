@@ -28,7 +28,7 @@ export default function NotificationsScreen() {
       <AppHeader title="Notifications" onBack={() => router.back()} />
       <View style={styles.tabs}>{(['All', 'Unread', 'Mentions'] as Filter[]).map((item) => <Pressable key={item} onPress={() => setFilter(item)} style={[styles.tab, filter === item && styles.tabActive]}><AppText weight="medium" style={[styles.tabText, filter === item && { color: colors.white }]}>{item}</AppText></Pressable>)}</View>
       <FlatList data={data} keyExtractor={(item) => item.id} renderItem={({ item }) => <NotificationRow item={item} onPress={() => openNotification(item)} />} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} ListEmptyComponent={<View style={styles.empty}><Ionicons name="notifications-off-outline" size={48} color={colors.muted} /><AppText style={styles.emptyText}>No notifications here.</AppText></View>} />
-      <BottomNav active="none" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects/index')} onMessages={() => router.push('/messages/index')} onProfile={() => router.push('/profile/index')} variant="compact" />
+      <BottomNav active="none" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages/index')} onProfile={() => router.push('/profile/index')} variant="compact" />
     </MobilePage>
   );
 }

@@ -33,24 +33,24 @@ export default function ClientHomeScreen() {
           </View>
         </View>
         <View style={styles.body}>
-          <Pressable onPress={() => router.push('/projects/index')} style={styles.activeCard}>
+          <Pressable onPress={() => router.push('/projects')} style={styles.activeCard}>
             <View><AppText weight="semibold" style={styles.activeTitle}>Active Projects</AppText><AppText weight="bold" style={styles.activeCount}>{activeCount}</AppText><AppText style={styles.activeStatus}>From local demo activity</AppText></View>
             <Ionicons name="briefcase" size={65} color={colors.red} />
           </Pressable>
           <View style={styles.sectionTitle}><AppText weight="semibold" style={styles.sectionText}>Quick Actions</AppText></View>
           <View style={styles.quickRow}>
             <QuickAction icon="checkbox-outline" label={'Post a\nProject'} onPress={() => router.push('/project-posts/new')} />
-            <QuickAction icon="briefcase-outline" label={'My\nProjects'} onPress={() => router.push('/projects/index')} />
+            <QuickAction icon="briefcase-outline" label={'My\nProjects'} onPress={() => router.push('/projects')} />
             <QuickAction icon="mail-outline" label="Messages" onPress={() => router.push('/messages/index')} />
             <QuickAction icon="search-circle-outline" label={'Find\nDesigners'} onPress={() => router.push('/marketplace')} />
           </View>
-          <View style={styles.titleRow}><AppText weight="semibold" style={styles.sectionText}>Recent Projects</AppText><Pressable onPress={() => router.push('/projects/index')}><AppText weight="medium" style={styles.viewAll}>View All</AppText></Pressable></View>
+          <View style={styles.titleRow}><AppText weight="semibold" style={styles.sectionText}>Recent Projects</AppText><Pressable onPress={() => router.push('/projects')}><AppText weight="medium" style={styles.viewAll}>View All</AppText></Pressable></View>
           <View style={styles.projectList}>
             {myBookings.length ? myBookings.slice(0, 3).map((booking, index) => <BookingRow key={booking.id} booking={booking} last={index === Math.min(myBookings.length, 3) - 1} />) : myPosts.length ? myPosts.slice(0, 3).map((post) => <Pressable key={post.id} onPress={() => router.push({ pathname: '/project-posts/[postId]', params: { postId: post.id } })} style={styles.projectRow}><View style={styles.bookingIcon}><Ionicons name="document-text" size={26} color={colors.red} /></View><View style={{ flex: 1 }}><AppText weight="semibold" style={{ fontSize: 14 }}>{post.title}</AppText><AppText style={styles.emptyProjectText}>{post.status} · {post.category}</AppText></View><Ionicons name="chevron-forward" size={20} color={colors.muted} /></Pressable>) : <View style={styles.emptyProjects}><AppText weight="medium">No project activity yet.</AppText><AppText style={styles.emptyProjectText}>Post a project or request a student service to begin.</AppText></View>}
           </View>
         </View>
       </ScrollView>
-      <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects/index')} onMessages={() => router.push('/messages/index')} onSaved={() => router.push({ pathname: '/marketplace', params: { saved: 'true' } })} onProfile={() => router.push('/profile/index')} messageUnread={hasUnreadMessages} variant="client" />
+      <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages/index')} onSaved={() => router.push({ pathname: '/marketplace', params: { saved: 'true' } })} onProfile={() => router.push('/profile/index')} messageUnread={hasUnreadMessages} variant="client" />
     </MobilePage>
   );
 }

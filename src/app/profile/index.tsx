@@ -41,7 +41,7 @@ export default function ProfileScreen() {
           {ownReviews.length ? <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Client Reviews</AppText>{ownReviews.map((review) => <View key={review.id} style={styles.review}><AppText weight="semibold">{review.rating}/5</AppText><AppText style={styles.copy}>{review.comment}</AppText></View>)}</View> : null}
         </> : <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Client Activity</AppText><AppText style={styles.copy}>{ownProjects.length} project request{ownProjects.length === 1 ? '' : 's'} created in this local demonstration.</AppText></View>}
       </ScrollView>
-      <BottomNav active="profile" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects/index')} onPortfolio={currentAccount.role === 'student' ? () => router.push('/portfolio/index') : undefined} onMessages={() => router.push('/messages/index')} onSaved={currentAccount.role === 'client' ? () => router.push({ pathname: '/marketplace', params: { saved: 'true' } }) : undefined} onProfile={() => undefined} messageUnread={hasUnreadMessages} variant={currentAccount.role === 'client' ? 'client' : 'student'} />
+      <BottomNav active="profile" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={currentAccount.role === 'student' ? () => router.push('/portfolio/index') : undefined} onMessages={() => router.push('/messages/index')} onSaved={currentAccount.role === 'client' ? () => router.push({ pathname: '/marketplace', params: { saved: 'true' } }) : undefined} onProfile={() => undefined} messageUnread={hasUnreadMessages} variant={currentAccount.role === 'client' ? 'client' : 'student'} />
     </MobilePage>
   );
 }

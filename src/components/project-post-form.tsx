@@ -30,7 +30,7 @@ export function ProjectPostForm({ postId }: { postId?: string }) {
     if (!existing) return;
     const result = setProjectPostStatus(existing.id, 'archived');
     Alert.alert(result.ok ? 'Project archived' : 'Unable to archive', result.ok ? 'The project is retained in your local history.' : result.message);
-    if (result.ok) router.replace('/projects/index');
+    if (result.ok) router.replace('/projects');
   };
 
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
