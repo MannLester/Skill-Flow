@@ -49,7 +49,7 @@ export default function StudentHomeScreen() {
             <QuickAction icon="hardware-chip-outline" label="AI Mentor" onPress={() => router.push('/ai-mentor')} />
             <QuickAction icon="chatbubble-outline" label="Messages" onPress={() => router.push('/messages/index')} />
           </View>
-          <SectionTitle title="Recent Projects" action="View All" onAction={() => router.push('/projects/index')} />
+          <SectionTitle title="Recent Projects" action="View All" onAction={() => router.push('/projects')} />
           <Pressable disabled={!latestBooking} onPress={() => latestBooking && router.push({ pathname: '/projects/[projectId]', params: { projectId: latestBooking.id } })} style={styles.projectCard}>
             <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 96, y: 995, width: 122, height: 117 }} style={styles.projectImage} />
             <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.projectTitle}>{latestBooking?.title ?? 'No project requests yet'}</AppText><AppText weight="semibold" style={styles.projectPrice}>{latestBooking ? formatPeso(latestBooking.budget) : 'Browse projects to get started'}</AppText></View>
@@ -59,7 +59,7 @@ export default function StudentHomeScreen() {
           <Pressable onPress={() => { const post = projectPosts.find((item) => item.status === 'open'); if (post) router.push({ pathname: '/project-posts/[postId]', params: { postId: post.id } }); else router.push('/projects/discover'); }} style={styles.recommendCard}><View style={styles.recommendImage}><Ionicons name="phone-portrait-outline" size={31} color={colors.red} /></View><View><AppText weight="semibold">{projectPosts.find((item) => item.status === 'open')?.title ?? 'Discover Open Projects'}</AppText><AppText style={styles.muted}>Recommended project</AppText></View></Pressable>
         </View>
       </ScrollView>
-      <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects/index')} onPortfolio={() => router.push('/portfolio/index')} onMessages={() => router.push('/messages/index')} onProfile={() => router.push('/profile/index')} messageUnread={hasUnreadMessages} variant="student" />
+      <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={() => router.push('/portfolio/index')} onMessages={() => router.push('/messages/index')} onProfile={() => router.push('/profile/index')} messageUnread={hasUnreadMessages} variant="student" />
     </MobilePage>
   );
 }
