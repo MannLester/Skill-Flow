@@ -33,6 +33,11 @@ export function ProjectPostForm({ postId }: { postId?: string }) {
   if (existing && existing.clientId !== currentAccount.id) return <Blocked message="You can only edit your own project posts." />;
 
   const save = (publish: boolean) => {
+    const localErrors = validateProjectPost(form.values);
+    if (Object.keys(localErrors).length) {
+      form.showErrors('Complete every project field with valid values.', localErrors);
+      return;
+    }
     const result = saveProjectPost(form.input, publish, existing?.id);
     if (!result.ok) {
       form.showErrors(result.message);
@@ -72,8 +77,8 @@ function useProjectPostValues(existing?: ProjectPost) {
     setter(value);
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
   };
-  const showErrors = (message: string) => {
-    setErrors({ ...validateProjectPost(values), form: message });
+  const showErrors = (message: string, fieldErrors = validateProjectPost(values)) => {
+    setErrors({ ...fieldErrors, form: message });
     setErrorAttempt((current) => current + 1);
   };
   return { values, input, errors, errorSummaryRef, update, setters: { setTitle, setDescription, setCategory, setBudget, setDeadline, setSkills }, showErrors, clearErrors: () => setErrors({}) };

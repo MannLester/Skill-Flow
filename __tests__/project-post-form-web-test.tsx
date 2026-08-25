@@ -6,8 +6,8 @@ import { createRoot, Root } from 'react-dom/client';
 import { ProjectPostForm } from '@/components/project-post-form';
 
 const mockReplace = jest.fn();
-const mockSaveProjectPost = jest.fn((input: { title: string; description: string; skills: string[] }, publish: boolean) => {
-  if (!input.title.trim() || !input.description.trim() || !input.skills.some((skill) => skill.trim())) {
+const mockSaveProjectPost = jest.fn((input: { title: string; description: string; skills: string[]; budget: number }, publish: boolean) => {
+  if (!input.title.trim() || !input.description.trim() || !input.skills.some((skill) => skill.trim()) || !Number.isFinite(input.budget) || input.budget <= 0) {
     return { ok: false, message: 'Complete every project field with valid values.' };
   }
   return { ok: true, projectPost: { id: publish ? 'post-open' : 'post-draft' } };
@@ -97,7 +97,7 @@ describe('Client project-post validation in the real React Native Web DOM', () =
     summary = container.querySelector<HTMLElement>('[role="alert"][data-testid="project-post-error-summary"]');
     expect(container.querySelectorAll('[data-testid="project-post-error-summary"]')).toHaveLength(1);
     expect(document.activeElement).toBe(summary);
-    expect(mockSaveProjectPost).toHaveBeenCalledTimes(2);
+    expect(mockSaveProjectPost).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
@@ -112,7 +112,7 @@ describe('Client project-post validation in the real React Native Web DOM', () =
     setInputValue(getInput(container, 'Required skills'), 'UI/UX, Web Design');
     dispatchPointerClick(getButton(container, 'Publish Project'));
 
-    expect(mockSaveProjectPost).toHaveBeenCalledTimes(2);
+    expect(mockSaveProjectPost).toHaveBeenCalledTimes(1);
     expect(mockSaveProjectPost).toHaveBeenLastCalledWith(expect.objectContaining({
       title: 'Scout Coffee Brand Site',
       description: 'Design and prototype a complete responsive coffee brand website.',
@@ -121,5 +121,31 @@ describe('Client project-post validation in the real React Native Web DOM', () =
     }), true, undefined);
     expect(mockReplace).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith({ pathname: '/project-posts/[postId]', params: { postId: 'post-open' } });
+  });
+
+  it.each(['not-a-number', 'Infinity', '-Infinity'])('rejects sole-invalid budget %s and recovers to exactly one valid pointer publish', (budget) => {
+    setInputValue(getInput(container, 'Project title'), 'Scout Coffee Brand Site');
+    setInputValue(getInput(container, 'Project description'), 'Design and prototype a complete responsive coffee brand website.');
+    setInputValue(getInput(container, 'Required skills'), 'UI/UX, Web Design');
+    setInputValue(getInput(container, 'Project budget'), budget);
+
+    dispatchSeparatedKeyboard(getButton(container, 'Publish Project'), 'Enter');
+
+    expect(container.textContent).toContain('Enter a valid budget greater than zero.');
+    expect(document.activeElement).toBe(container.querySelector('[data-testid="project-post-error-summary"]'));
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(getInput(container, 'Project title').value).toBe('Scout Coffee Brand Site');
+    expect(getInput(container, 'Project description').value).toBe('Design and prototype a complete responsive coffee brand website.');
+    expect(getInput(container, 'Required skills').value).toBe('UI/UX, Web Design');
+    expect(mockSaveProjectPost).not.toHaveBeenCalled();
+
+    setInputValue(getInput(container, 'Project budget'), '1500');
+    expect(container.textContent).not.toContain('Enter a valid budget greater than zero.');
+    expect(container.querySelector('[data-testid="project-post-error-summary"]')).toBeNull();
+    dispatchPointerClick(getButton(container, 'Publish Project'));
+
+    expect(mockSaveProjectPost).toHaveBeenCalledTimes(1);
+    expect(mockSaveProjectPost).toHaveBeenLastCalledWith(expect.objectContaining({ budget: 1500 }), true, undefined);
+    expect(mockReplace).toHaveBeenCalledTimes(1);
   });
 });
