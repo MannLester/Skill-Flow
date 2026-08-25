@@ -93,7 +93,9 @@ describe('Book Service selectors', () => {
     fireEvent.press(screen.getByText('Send Request'));
 
     await waitFor(() => expect(screen.getByTestId('booking-probe').props.children).not.toBe('null'));
-    expect(JSON.parse(screen.getByTestId('booking-probe').props.children as string)).toMatchObject({ deliveryDays: 5, budget: 2000, description: 'Create a complete coffee shop logo.' });
+    expect(screen.getByTestId('booking-probe').props.children).toEqual(expect.stringContaining('"deliveryDays":5'));
+    expect(screen.getByTestId('booking-probe').props.children).toEqual(expect.stringContaining('"budget":2000'));
+    expect(screen.getByTestId('booking-probe').props.children).toEqual(expect.stringContaining('"description":"Create a complete coffee shop logo."'));
     expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/projects/[projectId]' }));
   });
 });

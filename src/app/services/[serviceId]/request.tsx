@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader, AppText, MobilePage, PrimaryButton, ReferenceCrop } from '@/components/ui';
@@ -14,6 +14,10 @@ const marketReference = require('../../../../references/student_marketplace_page
 
 type SelectorKey = 'delivery' | 'budget';
 type SelectorOption = { label: string; value: number };
+type KeyboardActivationEvent = { key: string; preventDefault: () => void };
+type KeyboardPressableProps = { onKeyDown?: (event: KeyboardActivationEvent) => void };
+
+const activationKeys = new Set(['Enter', ' ', 'Spacebar']);
 
 export default function BookServiceScreen() {
   const insets = useSafeAreaInsets();
@@ -97,9 +101,58 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
   onToggle: () => void;
   onSelect: (value: number) => void;
 }) {
+  const triggerRef = useRef<ComponentRef<typeof Pressable>>(null);
+  const pendingFocus = useRef(false);
+  const optionKeyboardPress = useRef(false);
+  const closeKeyboardPress = useRef(false);
+
+  const focusTrigger = () => {
+    if (Platform.OS !== 'web') return;
+    const trigger = triggerRef.current;
+    if (trigger && 'focus' in trigger && typeof trigger.focus === 'function') trigger.focus();
+  };
+  useEffect(() => {
+    if (!isOpen && pendingFocus.current) {
+      pendingFocus.current = false;
+      focusTrigger();
+    }
+  }, [isOpen]);
+  const closeSelector = (restoreFocus: boolean) => {
+    if (restoreFocus) pendingFocus.current = true;
+    onToggle();
+  };
+  const handleOptionPress = (option: SelectorOption) => {
+    if (optionKeyboardPress.current) {
+      optionKeyboardPress.current = false;
+      return;
+    }
+    onSelect(option.value);
+  };
+  const handleOptionKeyDown = (event: KeyboardActivationEvent, option: SelectorOption) => {
+    if (!activationKeys.has(event.key)) return;
+    event.preventDefault();
+    optionKeyboardPress.current = true;
+    pendingFocus.current = true;
+    onSelect(option.value);
+  };
+  const handleClosePress = () => {
+    if (closeKeyboardPress.current) {
+      closeKeyboardPress.current = false;
+      return;
+    }
+    closeSelector(false);
+  };
+  const handleCloseKeyDown = (event: KeyboardActivationEvent) => {
+    if (!activationKeys.has(event.key)) return;
+    event.preventDefault();
+    closeKeyboardPress.current = true;
+    closeSelector(true);
+  };
+
   return (
     <View style={styles.selectorGroup}>
       <Pressable
+        ref={triggerRef}
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value}`}
@@ -124,7 +177,8 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
                 accessibilityLabel={option.label}
                 accessibilityState={{ checked: selected }}
                 aria-checked={selected}
-                onPress={() => onSelect(option.value)}
+                {...(Platform.OS === 'web' ? { onKeyDown: (event: KeyboardActivationEvent) => handleOptionKeyDown(event, option) } satisfies KeyboardPressableProps : {})}
+                onPress={() => handleOptionPress(option)}
                 style={[styles.option, selected && styles.optionSelected]}
               >
                 <AppText weight={selected ? 'semibold' : 'regular'}>{option.label}</AppText>
@@ -132,7 +186,13 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
               </Pressable>
             );
           })}
-          <Pressable accessibilityRole="button" accessibilityLabel={`Close ${label} options`} onPress={onToggle} style={styles.closeOptions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Close ${label} options`}
+            {...(Platform.OS === 'web' ? { onKeyDown: handleCloseKeyDown } satisfies KeyboardPressableProps : {})}
+            onPress={handleClosePress}
+            style={styles.closeOptions}
+          >
             <AppText weight="medium" style={styles.closeOptionsText}>Close</AppText>
           </Pressable>
         </View>

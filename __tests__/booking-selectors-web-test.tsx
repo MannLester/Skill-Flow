@@ -4,9 +4,10 @@ import { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 
 import BookServiceScreen from '@/app/services/[serviceId]/request';
+import type { Service } from '@/data/fixtures';
 
 const mockCreateBooking = jest.fn(() => ({ id: 'booking-web-1' }));
-const mockService = {
+const mockService: Service = {
   id: 'logo',
   title: 'Logo Design',
   subtitle: 'Minimalist · Graphic Design',
@@ -19,7 +20,7 @@ const mockService = {
   description: 'A logo design service.',
   deliveryDays: 3,
   revisions: 'Unlimited',
-  status: 'published' as const,
+  status: 'published',
   crop: { x: 765, y: 350, width: 90, height: 91 },
 };
 
@@ -37,6 +38,20 @@ function getAccessibleElement(container: HTMLDivElement, role: string, label: st
   const element = container.querySelector<HTMLElement>(`[role="${role}"][aria-label="${label}"]`);
   if (!element) throw new Error(`Missing ${role} named ${label}`);
   return element;
+}
+
+function getButtonByText(container: HTMLDivElement, label: string): HTMLElement {
+  const element = Array.from(container.querySelectorAll<HTMLElement>('[role="button"]')).find((candidate) => candidate.textContent?.trim() === label);
+  if (!element) throw new Error(`Missing button with text ${label}`);
+  return element;
+}
+
+function dispatchKeyboard(target: HTMLElement, key: string) {
+  act(() => {
+    target.focus();
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    target.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+  });
 }
 
 describe('Book Service web accessibility', () => {
@@ -66,18 +81,62 @@ describe('Book Service web accessibility', () => {
     expect(getAccessibleElement(container, 'radio', '5 Days').getAttribute('aria-checked')).toBe('false');
   });
 
-  it('supports keyboard selection and closes the list after choosing a value', () => {
-    const trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
-    // RNW renders a role=button Pressable as a native button; a browser turns
-    // Enter/Space on that focusable element into the click tested here.
+  it('activates focused options with Enter and Space and restores trigger focus', () => {
+    let trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     act(() => trigger.click());
-    const option = getAccessibleElement(container, 'radio', '5 Days');
-    act(() => {
-      option.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      option.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
-    });
+    expect(getAccessibleElement(container, 'radio', '5 Days').getAttribute('aria-checked')).toBe('false');
+    dispatchKeyboard(getAccessibleElement(container, 'radio', '5 Days'), 'Enter');
 
-    expect(getAccessibleElement(container, 'button', 'Delivery Time: 5 Days').getAttribute('aria-expanded')).toBe('false');
-    expect(container.querySelector('[role="radio"][aria-label="5 Days"]')).toBeNull();
+    trigger = getAccessibleElement(container, 'button', 'Delivery Time: 5 Days');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+
+    act(() => trigger.click());
+    expect(getAccessibleElement(container, 'radio', '5 Days').getAttribute('aria-checked')).toBe('true');
+    dispatchKeyboard(getAccessibleElement(container, 'radio', '7 Days'), ' ');
+
+    trigger = getAccessibleElement(container, 'button', 'Delivery Time: 7 Days');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+    expect(container.querySelector('[role="radio"][aria-label="7 Days"]')).toBeNull();
+  });
+
+  it('restores focus after keyboard Close without changing the selected value', () => {
+    let trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
+    act(() => trigger.click());
+    dispatchKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), 'Enter');
+
+    trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+
+    act(() => trigger.click());
+    dispatchKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), ' ');
+
+    trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('passes keyboard-selected values through the web booking payload', () => {
+    let trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
+    act(() => trigger.click());
+    dispatchKeyboard(getAccessibleElement(container, 'radio', '5 Days'), ' ');
+
+    trigger = getAccessibleElement(container, 'button', 'Budget: ₱1,500');
+    act(() => trigger.click());
+    dispatchKeyboard(getAccessibleElement(container, 'radio', '₱2,000'), 'Enter');
+
+    const description = container.querySelector<HTMLTextAreaElement>('textarea');
+    if (!description) throw new Error('Missing project description input');
+    const setNativeValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    if (!setNativeValue) throw new Error('Missing textarea value setter');
+    act(() => {
+      setNativeValue.call(description, 'A complete coffee shop logo request.');
+      description.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    act(() => getButtonByText(container, 'Send Request').click());
+
+    expect(mockCreateBooking).toHaveBeenCalledWith(expect.objectContaining({ deliveryDays: 5, budget: 2000, description: 'A complete coffee shop logo request.' }));
   });
 });
