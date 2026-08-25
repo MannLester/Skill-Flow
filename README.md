@@ -121,6 +121,29 @@ directory. Non-loopback hosts expose the preview to the local network and print
 a warning. Press Ctrl+C to stop only the preview process. `npm run web:verify`
 creates a fresh export and runs a bounded HTTP smoke check.
 
+## Connected-service configuration
+
+Copy `.env.example` to the ignored `.env.local` and use one matching public
+runtime target and Convex client URL:
+
+| `EXPO_PUBLIC_RUNTIME_TARGET` | Convex URL for development |
+| --- | --- |
+| `web` | `http://127.0.0.1:3210` |
+| `android-emulator` | `http://10.0.2.2:3210` |
+| `android-device` | A LAN-reachable host such as `http://192.168.1.25:3210` |
+| `cloud` | The PM-owned `https://…convex.cloud` deployment URL |
+
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` accepts only Clerk publishable keys. Clerk
+and cloud values remain pending from the project administrator. Never put a
+Convex admin key, Clerk secret key, or deploy key in an `EXPO_PUBLIC_*`
+variable: Expo bundles those variables into the application.
+
+Application integrations must read these values through
+`src/config/runtime.ts`. When a connected provider is introduced, wrap it in
+`RuntimeConfigurationState` so missing or mismatched values display setup
+guidance instead of an error screen. The current seeded demo intentionally
+remains available until those providers are added by their migration tickets.
+
 Quality checks:
 
 ```powershell
