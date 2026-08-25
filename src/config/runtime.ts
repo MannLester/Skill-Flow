@@ -10,10 +10,13 @@ export type RuntimeConfigurationResult =
   | { ready: true; configuration: RuntimeConfiguration }
   | { ready: false; issues: string[] };
 
-type PublicRuntimeEnvironment = {
+type PublicRuntimeEnvironment = Record<string, string | undefined> & {
   EXPO_PUBLIC_RUNTIME_TARGET?: string;
   EXPO_PUBLIC_CONVEX_URL?: string;
   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?: string;
+  EXPO_PUBLIC_CONVEX_ADMIN_KEY?: string;
+  EXPO_PUBLIC_CONVEX_DEPLOY_KEY?: string;
+  EXPO_PUBLIC_CLERK_SECRET_KEY?: string;
 };
 
 const runtimeTargets: RuntimeTarget[] = ['web', 'android-emulator', 'android-device', 'cloud'];
@@ -37,6 +40,14 @@ export function parseRuntimeConfiguration(environment: PublicRuntimeEnvironment)
     issues.push('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a Clerk pk_test_ or pk_live_ publishable key.');
   }
 
+  if (isRuntimeTarget(target) && clerkPublishableKey) {
+    const clerkIssue = validateClerkKey(target, clerkPublishableKey);
+    if (clerkIssue) issues.push(clerkIssue);
+  }
+
+  const privilegedIssue = findPrivilegedPublicValue(environment);
+  if (privilegedIssue) issues.push(privilegedIssue);
+
   if (issues.length || !isRuntimeTarget(target) || !convexUrl || !clerkPublishableKey) return { ready: false, issues };
   return { ready: true, configuration: { target, convexUrl, clerkPublishableKey } };
 }
@@ -46,6 +57,9 @@ export function readRuntimeConfiguration(): RuntimeConfigurationResult {
     EXPO_PUBLIC_RUNTIME_TARGET: process.env.EXPO_PUBLIC_RUNTIME_TARGET,
     EXPO_PUBLIC_CONVEX_URL: process.env.EXPO_PUBLIC_CONVEX_URL,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    EXPO_PUBLIC_CONVEX_ADMIN_KEY: process.env.EXPO_PUBLIC_CONVEX_ADMIN_KEY,
+    EXPO_PUBLIC_CONVEX_DEPLOY_KEY: process.env.EXPO_PUBLIC_CONVEX_DEPLOY_KEY,
+    EXPO_PUBLIC_CLERK_SECRET_KEY: process.env.EXPO_PUBLIC_CLERK_SECRET_KEY,
   });
 }
 
@@ -62,9 +76,16 @@ function validateConvexUrl(target: RuntimeTarget, value: string): string | undef
   }
 
   if (!['http:', 'https:'].includes(url.protocol)) return 'EXPO_PUBLIC_CONVEX_URL must use http:// or https://.';
+  if (url.username || url.password || url.search || url.hash) return 'EXPO_PUBLIC_CONVEX_URL must not include credentials, query parameters, or fragments.';
+
+  if (target !== 'cloud' && isConvexCloudHostname(url.hostname)) {
+    return target === 'android-device'
+      ? 'A physical Android device must use a LAN-reachable self-hosted Convex URL, not a cloud deployment.'
+      : `${target} development must use a local self-hosted Convex URL, not a cloud deployment.`;
+  }
 
   if (target === 'cloud') {
-    return url.protocol === 'https:' && url.hostname.endsWith('.convex.cloud')
+    return url.protocol === 'https:' && isConvexCloudHostname(url.hostname)
       ? undefined
       : 'Cloud configuration requires an https://*.convex.cloud client URL.';
   }
@@ -76,6 +97,26 @@ function validateConvexUrl(target: RuntimeTarget, value: string): string | undef
   }
 
   return undefined;
+}
+
+function validateClerkKey(target: RuntimeTarget, value: string): string | undefined {
+  const requiredPrefix = target === 'cloud' ? 'pk_live_' : 'pk_test_';
+  return value.startsWith(requiredPrefix)
+    ? undefined
+    : target === 'cloud'
+      ? 'Cloud configuration requires a live Clerk pk_live_ publishable key.'
+      : `${target} development requires a test Clerk pk_test_ publishable key.`;
+}
+
+function findPrivilegedPublicValue(environment: PublicRuntimeEnvironment): string | undefined {
+  const privilegedKey = Object.entries(environment).find(([key, value]) => (
+    key.startsWith('EXPO_PUBLIC_') && /ADMIN|SECRET|DEPLOY|PRIVATE|TOKEN|PASSWORD|CREDENTIAL|API_KEY/i.test(key) && Boolean(value?.trim())
+  ))?.[0];
+  return privilegedKey ? `Remove ${privilegedKey}; privileged credentials must never use an EXPO_PUBLIC_* variable.` : undefined;
+}
+
+function isConvexCloudHostname(hostname: string): boolean {
+  return hostname.endsWith('.convex.cloud');
 }
 
 function isLoopback(hostname: string) {

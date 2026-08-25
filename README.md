@@ -143,6 +143,9 @@ Application integrations must read these values through
 `RuntimeConfigurationState` so missing or mismatched values display setup
 guidance instead of an error screen. The current seeded demo intentionally
 remains available until those providers are added by their migration tickets.
+While providers are not mounted, inspect this guidance from the seeded demo at
+`Settings > Connected Services`; missing values do not gate or replace the
+AsyncStorage demo.
 
 Quality checks:
 

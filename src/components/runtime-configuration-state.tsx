@@ -11,7 +11,7 @@ export function RuntimeConfigurationState({ result, children }: { result: Runtim
   return (
     <View accessible accessibilityRole="alert" style={styles.page}>
       <AppText weight="bold" style={styles.title}>App setup required</AppText>
-      <AppText style={styles.body}>SkillFlow could not start its connected services. Add the following public values to an ignored .env.local file, then restart Expo:</AppText>
+      <AppText style={styles.body}>The seeded local demo is available now. Add the following matching public values to an ignored .env.local file, then restart Expo before connecting Convex or Clerk:</AppText>
       <View style={styles.issues}>
         {result.issues.map((issue) => <AppText key={issue} style={styles.issue}>• {issue}</AppText>)}
       </View>
