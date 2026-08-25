@@ -11,7 +11,7 @@ describe('exact-SHA Android verification runner', () => {
       timeout: 30_000,
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('pass 10');
+    expect(result.stdout).toContain('pass 13');
     expect(result.stderr).toBe('');
   });
 });

@@ -3,13 +3,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   accessSync,
-  closeSync,
   constants,
   copyFileSync,
   existsSync,
   lstatSync,
   mkdtempSync,
-  openSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -27,10 +25,19 @@ export const APP_ID = 'com.skillflow.prototype';
 export const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 export const SERIAL_PATTERN = /^[A-Za-z0-9._:-]+$/;
 export const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+export const METRO_LOG_MAX_BYTES = 512 * 1024;
 const READY_TIMEOUT_MS = 60_000;
 const COMMAND_TIMEOUT_MS = 10 * 60_000;
 const VERSION_ANCHOR = /^([ \t]*versionName[ \t]+["'])([^"']+)(["'][ \t]*)$/gm;
 const scriptPath = fileURLToPath(import.meta.url);
+const REDACTION_VALUES = Symbol('redactionValues');
+const URL_PATTERN = /\b(?:https?|wss?):\/\/[^\s"'<>]+/gi;
+const AUTH_PATTERN = /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
+const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
+const PREFIXED_TOKEN_PATTERN = /\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9_-]+\b/gi;
+const PROVIDER_TOKEN_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|npm_[A-Za-z0-9]{8,}|xox[baprs]-[A-Za-z0-9-]{8,})\b/gi;
+const SENSITIVE_ASSIGNMENT_PATTERN = /((?:["']?[A-Za-z0-9_.-]*(?:secret|token|password|credential|api[_-]?key|access[_-]?key|private[_-]?key|deploy[_-]?key|publishable[_-]?key)[A-Za-z0-9_.-]*["']?)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi;
+const SENSITIVE_ENV_PATTERN = /(?:secret|token|password|credential|api[_-]?key|access[_-]?key|private[_-]?key|deploy[_-]?key|publishable[_-]?key|clerk|convex|url)/i;
 
 export function parseInputs(env) {
   const serial = env.SKILLFLOW_ANDROID_SERIAL ?? '';
@@ -242,12 +249,21 @@ export class OwnedCleanup {
     this.reverseCreated = false;
     this.androidCreated = false;
     this.completed = false;
+    this.cleanupPromise = null;
   }
 
-  async run() {
-    if (this.completed) return;
+  run() {
+    if (!this.cleanupPromise) this.cleanupPromise = this.performCleanup();
+    return this.cleanupPromise;
+  }
+
+  async performCleanup() {
     const failures = [];
-    await this.stopMetro(failures);
+    try {
+      await this.stopMetro(failures);
+    } catch (error) {
+      failures.push('Metro cleanup: ' + error.message);
+    }
     this.removeReverse(failures);
     this.removeAndroid(failures);
     this.completed = true;
@@ -308,7 +324,7 @@ export async function runVerification({
   const repoRoot = adapter.fs.realpath(cwd);
   const prefix = path.join(os.tmpdir(), evidencePrefix(inputs.expectedSha));
   const evidenceDir = adapter.fs.mkdtemp(prefix);
-  const state = createState(inputs, repoRoot, evidenceDir);
+  const state = createState(inputs, repoRoot, evidenceDir, env);
   onState?.(state);
   let cleanup;
   try {
@@ -333,6 +349,7 @@ async function executeVerification(context) {
   await startAndCapture({ inputs, env, repoRoot, adapter, tools, cleanup, state });
   state.evidenceComplete = true;
   await cleanup.run();
+  recordMetroLogState(cleanup, state);
   recordPhase(state, 'cleanup');
   finishState(state, 'PASS');
   writeManifest(adapter.fs, state);
@@ -340,13 +357,15 @@ async function executeVerification(context) {
 }
 
 async function failVerification({ error, inputs, adapter, cleanup, state }) {
-  state.errors.push(redactText(error instanceof Error ? error.message : String(error), inputs.serial));
+  state.errors.push(redactForState(state, error instanceof Error ? error.message : String(error)));
   await captureFailureLogs({ inputs, adapter, cleanup, state });
   try {
     await cleanup?.run();
+    recordMetroLogState(cleanup, state);
     if (cleanup) recordPhase(state, 'cleanup');
   } catch (cleanupError) {
-    state.errors.push(redactText(cleanupError.message, inputs.serial));
+    recordMetroLogState(cleanup, state);
+    state.errors.push(redactForState(state, cleanupError.message));
   }
   finishState(state, 'FAIL');
   writeManifest(adapter.fs, state);
@@ -356,8 +375,8 @@ async function failVerification({ error, inputs, adapter, cleanup, state }) {
   throw failure;
 }
 
-function createState(inputs, repoRoot, evidenceDir) {
-  return {
+function createState(inputs, repoRoot, evidenceDir, env) {
+  const state = {
     runId: inputs.expectedSha.slice(0, 12) + '-' + randomUUID(),
     result: 'RUNNING',
     startedAt: new Date().toISOString(),
@@ -374,6 +393,10 @@ function createState(inputs, repoRoot, evidenceDir) {
     errors: [],
     evidenceComplete: false,
   };
+  Object.defineProperty(state, REDACTION_VALUES, {
+    value: collectSensitiveValues(env, inputs.serial),
+  });
+  return state;
 }
 
 async function preflight({ inputs, env, repoRoot, adapter, state }) {
@@ -564,7 +587,13 @@ async function startAndCapture({ inputs, env, repoRoot, adapter, tools, cleanup,
   cleanup.metro = adapter.spawnMetro(
     process.execPath,
     [tools.expo, 'start', '--dev-client', '--localhost', '--port', String(inputs.port)],
-    { cwd: repoRoot, env: childEnv, logPath: metroLog },
+    {
+      cwd: repoRoot,
+      env: childEnv,
+      logPath: metroLog,
+      maxLogBytes: METRO_LOG_MAX_BYTES,
+      redact: (value) => redactForState(state, value),
+    },
   );
   state.metro.pid = cleanup.metro.pid;
   state.paths.metroLog = metroLog;
@@ -612,7 +641,7 @@ function captureRuntimeEvidence({ inputs, adapter, tools, state, activity, pid }
     ['logcat', '--pid', pid, '-d', '-t', '500', '-v', 'threadtime'],
   ).stdout;
   const logPath = path.join(state.paths.evidenceDirectory, 'runtime.log');
-  adapter.fs.write(logPath, logText);
+  adapter.fs.write(logPath, redactForState(state, logText));
   const metroText = adapter.fs.read(state.paths.metroLog);
   const failures = relevantRuntimeFailures(logText + '\n' + metroText);
   if (failures.length) {
@@ -651,7 +680,7 @@ async function captureFailureLogs({ inputs, adapter, cleanup, state }) {
       .filter((line) => line.includes(APP_ID))
       .join('\n');
     const crashPath = path.join(state.paths.evidenceDirectory, 'failure-crash.log');
-    adapter.fs.write(crashPath, filtered);
+    adapter.fs.write(crashPath, redactForState(state, filtered));
     state.paths.failureCrashLog = crashPath;
   } catch {
     // Best-effort bounded failure evidence must never bypass owned cleanup.
@@ -766,8 +795,91 @@ function parseDetail(details, key) {
   return details.match(new RegExp('(?:^|\\s)' + key + ':([^\\s]+)'))?.[1] ?? 'unknown';
 }
 
-function redactText(value, serial) {
-  return String(value).split(serial).join('<redacted-' + serial.slice(-4) + '>');
+export function redactText(value, sensitiveValues = []) {
+  const values = Array.isArray(sensitiveValues) ? sensitiveValues : [sensitiveValues];
+  let redacted = String(value);
+  for (const sensitive of values.filter(Boolean).sort((left, right) => right.length - left.length)) {
+    redacted = redacted.split(sensitive).join('<redacted>');
+  }
+  return redacted
+    .replace(URL_PATTERN, '<redacted-url>')
+    .replace(AUTH_PATTERN, '<redacted-authorization>')
+    .replace(JWT_PATTERN, '<redacted-token>')
+    .replace(PREFIXED_TOKEN_PATTERN, '<redacted-token>')
+    .replace(PROVIDER_TOKEN_PATTERN, '<redacted-token>')
+    .replace(SENSITIVE_ASSIGNMENT_PATTERN, '$1<redacted>');
+}
+
+export function serializeEvidenceManifest(state, sensitiveValues = []) {
+  return JSON.stringify(
+    state,
+    (_key, value) => typeof value === 'string' ? redactText(value, sensitiveValues) : value,
+    2,
+  ) + '\n';
+}
+
+export function createBoundedLogCapture({ logPath, maxBytes, fsAdapter, redact = String }) {
+  if (!Number.isInteger(maxBytes) || maxBytes < 256) throw new Error('Metro log byte limit must be at least 256.');
+  let retained = Buffer.alloc(0);
+  let totalBytes = 0;
+  let truncated = false;
+  const snapshot = () => {
+    const marker = truncated ? '[SkillFlow Metro log truncated; retained bounded tail]\n' : '';
+    let retainedText = retained.toString('utf8');
+    if (truncated) {
+      const firstLineEnd = retainedText.indexOf('\n');
+      retainedText = firstLineEnd >= 0 ? retainedText.slice(firstLineEnd + 1) : '';
+    }
+    const markerBytes = Buffer.from(marker);
+    const safeBytes = Buffer.from(redact(retainedText));
+    const payloadLimit = maxBytes - markerBytes.length;
+    const payload = safeBytes.length > payloadLimit ? safeBytes.subarray(safeBytes.length - payloadLimit) : safeBytes;
+    const bounded = markerBytes.length ? Buffer.concat([markerBytes, payload]) : payload;
+    fsAdapter.write(logPath, bounded);
+    return { maxBytes, totalBytes, bufferedBytes: retained.length, retainedBytes: bounded.length, truncated };
+  };
+  const append = (chunk) => {
+    const incoming = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+    totalBytes += incoming.length;
+    const tail = incoming.length >= maxBytes ? Buffer.from(incoming.subarray(-maxBytes)) : incoming;
+    const combined = retained.length ? Buffer.concat([retained, tail]) : Buffer.from(tail);
+    if (combined.length > maxBytes) {
+      retained = Buffer.from(combined.subarray(combined.length - maxBytes));
+      truncated = true;
+    } else {
+      retained = combined;
+    }
+    if (totalBytes > maxBytes) truncated = true;
+    return snapshot();
+  };
+  snapshot();
+  return { append, snapshot };
+}
+
+function collectSensitiveValues(env, serial) {
+  const values = [serial];
+  for (const [name, value] of Object.entries(env)) {
+    if (SENSITIVE_ENV_PATTERN.test(name) && typeof value === 'string' && value) values.push(value);
+  }
+  return [...new Set(values)];
+}
+
+function redactForState(state, value) {
+  return redactText(value, state[REDACTION_VALUES] ?? []);
+}
+
+function recordMetroLogState(cleanup, state) {
+  const capture = cleanup?.metro?.metroCapture;
+  if (capture?.snapshot) state.metro.log = capture.snapshot();
+}
+
+function finishEmergencyState(state, reason, cleanupSucceeded) {
+  if (!state) return;
+  const outcome = decideSignalOutcome(Boolean(state.evidenceComplete), cleanupSucceeded);
+  state.errors.push(redactForState(state, reason));
+  finishState(state, outcome);
+  writeManifest(defaultFs, state);
+  return outcome;
 }
 
 function finishState(state, result) {
@@ -786,7 +898,7 @@ function recordPhase(state, name, result = 'PASS') {
 function writeManifest(fsAdapter, state) {
   const manifestPath = path.join(state.paths.evidenceDirectory, 'manifest.json');
   state.paths.manifest = manifestPath;
-  fsAdapter.write(manifestPath, JSON.stringify(state, null, 2) + '\n');
+  fsAdapter.write(manifestPath, serializeEvidenceManifest(state, state[REDACTION_VALUES] ?? []));
 }
 
 function escapeRegex(value) {
@@ -823,20 +935,35 @@ const defaultAdapter = {
     return checkPortAvailability(port);
   },
   spawnMetro(command, args, options) {
-    const descriptor = openSync(options.logPath, 'a');
+    const capture = createBoundedLogCapture({
+      logPath: options.logPath,
+      maxBytes: options.maxLogBytes,
+      fsAdapter: this.fs,
+      redact: options.redact,
+    });
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
       detached: process.platform !== 'win32',
       shell: false,
-      stdio: ['ignore', descriptor, descriptor],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    closeSync(descriptor);
+    const append = (chunk) => {
+      try {
+        capture.append(chunk);
+      } catch (error) {
+        capture.error = error;
+      }
+    };
+    child.stdout.on('data', append);
+    child.stderr.on('data', append);
+    child.metroCapture = capture;
     return child;
   },
   async waitForMetro(port, child, timeoutMs) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
+      if (child.metroCapture?.error) throw child.metroCapture.error;
       if (child.exitCode !== null) {
         throw new Error('Owned Metro exited before readiness (' + child.exitCode + ').');
       }
@@ -927,16 +1054,12 @@ async function runCli() {
     let cleanupSucceeded = true;
     try {
       await activeState?.cleanup?.run();
+      if (activeState) recordMetroLogState(activeState.cleanup, activeState);
       if (activeState?.cleanup) recordPhase(activeState, 'cleanup');
     } catch {
       cleanupSucceeded = false;
     }
-    const outcome = decideSignalOutcome(Boolean(activeState?.evidenceComplete), cleanupSucceeded);
-    if (activeState) {
-      activeState.errors.push(reason);
-      finishState(activeState, outcome);
-      writeManifest(defaultFs, activeState);
-    }
+    const outcome = finishEmergencyState(activeState, reason, cleanupSucceeded) ?? 'FAIL';
     process.stderr.write(reason + ': ' + outcome + '. SIGKILL cannot run cleanup handlers.\n');
     process.exit(outcome === 'PASS' ? 0 : 1);
   };

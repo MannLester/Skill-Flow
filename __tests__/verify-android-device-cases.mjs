@@ -169,6 +169,60 @@ test('redacts evidence and rejects stale PNG/runtime failure evidence', () => {
   assert.deepEqual(runner.relevantRuntimeFailures('ReactNativeJS: normal startup'), []);
 });
 
+test('redacts secrets, credentials, tokens, and URLs throughout serialized evidence', () => {
+  const secret = 'fake-adversarial-secret-value';
+  const manifest = runner.serializeEvidenceManifest({
+    gitSha: sha,
+    errors: [
+      'CLERK_SECRET_KEY=' + secret,
+      'request failed at https://prod.example.test/deploy?token=query-value',
+      'Authorization: Bearer fake.header.payload',
+      'password: "visible-password"',
+      'publishable_key=pk_test_fake_public_value',
+      'provider token github_pat_FAKE123456789',
+    ],
+    nested: { diagnostic: 'device authorized-1234 used ' + secret },
+  }, ['authorized-1234', secret]);
+  assert.equal(manifest.includes(secret), false);
+  assert.equal(manifest.includes('authorized-1234'), false);
+  assert.equal(manifest.includes('prod.example.test'), false);
+  assert.equal(manifest.includes('query-value'), false);
+  assert.equal(manifest.includes('fake.header.payload'), false);
+  assert.equal(manifest.includes('visible-password'), false);
+  assert.equal(manifest.includes('pk_test_fake_public_value'), false);
+  assert.equal(manifest.includes('github_pat_FAKE123456789'), false);
+  assert.equal(manifest.includes(sha), true);
+  assert.match(manifest, /redacted/);
+});
+
+test('bounds and redacts retained Metro logs after adversarial truncation', () => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'skillflow-metro-log-test-'));
+  try {
+    const logPath = path.join(fixture, 'metro.log');
+    const secret = 'fake-metro-secret-value';
+    const capture = runner.createBoundedLogCapture({
+      logPath,
+      maxBytes: 256,
+      fsAdapter: { write: (target, value) => fs.writeFileSync(target, value) },
+      redact: (value) => runner.redactText(value, [secret]),
+    });
+    capture.append('discarded-prefix\n' + 'x'.repeat(400));
+    const result = capture.append('\nCLERK_SECRET_KEY=' + secret + '\nhttps://prod.example.test/private\nTAIL\n');
+    const persisted = fs.readFileSync(logPath);
+    assert.equal(result.truncated, true);
+    assert.equal(result.totalBytes > result.maxBytes, true);
+    assert.equal(result.bufferedBytes <= result.maxBytes, true);
+    assert.equal(result.retainedBytes <= result.maxBytes, true);
+    assert.equal(persisted.length <= 256, true);
+    assert.match(persisted.toString(), /Metro log truncated/);
+    assert.match(persisted.toString(), /TAIL/);
+    assert.equal(persisted.includes(secret), false);
+    assert.equal(persisted.includes('prod.example.test'), false);
+  } finally {
+    fs.rmSync(fixture, { recursive: true });
+  }
+});
+
 test('cleanup targets only resources proven owned and is idempotent', async () => {
   const calls = [];
   let alive = true;
@@ -182,6 +236,32 @@ test('cleanup targets only resources proven owned and is idempotent', async () =
   cleanup.androidCreated = true;
   await cleanup.run();
   await cleanup.run();
+  assert.deepEqual(calls, [
+    ['kill', 'SIGINT'],
+    ['run', ['-s', 'authorized', 'reverse', '--remove', 'tcp:8099']],
+    ['rm', path.join('/repo', 'android')],
+  ]);
+});
+
+test('cleanup is single-flight under concurrent normal and signal callers', async () => {
+  const calls = [];
+  let alive = true;
+  let releaseStop;
+  const stopGate = new Promise((resolve) => { releaseStop = resolve; });
+  const cleanup = createCleanup({
+    calls,
+    isAlive: () => alive,
+    killOwned: (_child, signal) => { calls.push(['kill', signal]); alive = false; },
+    sleep: () => stopGate,
+  });
+  cleanup.metro = { pid: 321 };
+  cleanup.reverseCreated = true;
+  cleanup.androidCreated = true;
+  const normal = cleanup.run();
+  const signal = cleanup.run();
+  assert.equal(normal, signal);
+  releaseStop();
+  await Promise.all([normal, signal, cleanup.run()]);
   assert.deepEqual(calls, [
     ['kill', 'SIGINT'],
     ['run', ['-s', 'authorized', 'reverse', '--remove', 'tcp:8099']],
@@ -216,7 +296,7 @@ test('cleanup escalation is bounded and signals fail closed before complete evid
   );
 });
 
-function createCleanup({ calls, isAlive, killOwned }) {
+function createCleanup({ calls, isAlive, killOwned, sleep = async () => undefined }) {
   return new runner.OwnedCleanup({
     adb: '/sdk/adb',
     serial: 'authorized',
@@ -226,7 +306,7 @@ function createCleanup({ calls, isAlive, killOwned }) {
       run: (_command, args) => { calls.push(['run', args]); return { stdout: '' }; },
       isAlive,
       killOwned,
-      sleep: async () => undefined,
+      sleep,
       fs: { rm: (target) => calls.push(['rm', target]) },
     },
   });
