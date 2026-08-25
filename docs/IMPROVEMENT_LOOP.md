@@ -128,6 +128,7 @@ npm run typecheck
 npm run lint
 npm test -- --watch=false
 npx expo-doctor
+npx expo export --platform android
 ```
 
 If repository instructions later define a consolidated gate, use that command instead of duplicating its component commands. Convex work also requires the documented local health check, code generation/type checks, and focused integration tests; missing commands are blockers, not permission to skip them. Exercise the fixed flow on Android when available, inspect screenshots, and confirm there is no relevant error screen or runtime/console error.
@@ -138,14 +139,14 @@ Open a draft PR linked to the issue with scope, evidence, screenshots, automated
 
 ### 8. Continue or stop
 
-Return to the latest `origin/main` and begin another independent iteration only when fewer than three `agent-loop` PRs are open and fewer than three PRs have been created in the current run.
+Return to the latest `origin/main` and begin another independent iteration only when fewer than three loop-authored PRs are open under the label, branch-prefix, and run-marker union, and fewer than three PRs have been created in the current run.
 
 Credential, permission, ownership, production, destructive, or protected-scope blockers are immediate: do not retry them. Create or update a `proposal-only` issue when a human decision could authorize the work; use `blocked` when an external state change is required. For a safely retryable environment failure, make at most three total attempts, including the first, using only non-destructive recovery steps. After the third identical failure, label the issue `blocked`, attach each attempt's evidence, and select another independent issue. Never bypass or weaken verification.
 
 Stop the run when any condition is true:
 
 - three PRs were created during the run
-- three agent-loop PRs are open
+- three loop-authored PRs are open under the label, branch-prefix, and run-marker union
 - three new issues were created without producing a PR
 - no meaningful unblocked work remains
 - the environment cannot be evaluated safely
