@@ -96,12 +96,50 @@ development app locally.
 Quality checks:
 
 ```powershell
-npm run typecheck
-npm run lint
-npm test
-npx expo-doctor
-npx expo export --platform android
+npm run verify
+npm run doctor
 ```
+
+`npm run verify` is the moderately strict automated gate. It runs strict
+TypeScript, ESLint with cyclomatic complexity errors above 10, the complete
+Jest suite, and an Android Expo export. Inherited complexity debt is recorded
+in `eslint-suppressions.json`, a matching committed ceiling, and the
+function-level `eslint-complexity-baseline.json`. Stable identity uses file,
+name, node type, complexity, and source hash; line and column are refreshable
+diagnostic metadata. Lint compares these artifacts
+against the exact fetched `origin/main`, so a complex function cannot be
+replaced, moved across files, renamed, or added while hiding behind an unchanged per-file
+count. Paired additions or increases fail, and stale feature branches must
+rebase. Run `git fetch origin main` before local verification. CI must fetch the base and set
+`ESLINT_SUPPRESSIONS_BASE_SHA` to the event's full base commit SHA; set
+`ESLINT_SUPPRESSIONS_BASE_REF` too if the fetched ref is not `origin/main`.
+Missing, mismatched, malformed, or incomplete base state fails closed. When a
+base is still artifact-free during initial adoption, it must descend from the
+pinned bootstrap commit and the synchronized pair must match the pinned
+bootstrap digest. After fixing a violation, run `npm run lint:prune` and commit
+all reduced complexity baseline files. Both squash merges and merge commits are
+supported.
+
+The complexity rule is pinned to error level with maximum 10. Pruning validates
+policy and exact-base trust before mutation, stages native ESLint pruning in a
+temporary file, and restores all three baseline artifacts byte-for-byte if a
+later step fails. New inline complexity disable
+directives fail the gate. Only an exact inherited, identity-bound inline
+exception could remain; the current baseline contains none.
+
+The lint gate independently inventories active `.js`, `.jsx`, `.cjs`, `.mjs`,
+`.ts`, `.tsx`, `.cts`, and `.mts` files under `src/`, `__tests__/`, `scripts/`,
+an optional `convex/`, and the repository root. Broad or exact ignore rules
+cannot hide those files. Root-level symlinks and symlinks inside active-code
+directories are rejected, including extensionless and directory symlinks, so
+imported code cannot redirect into an ignored path. Generated output, supplied
+visual references, dependencies, and isolated agent worktrees remain excluded.
+
+The Android Expo export checks that the JavaScript bundle and assets can be
+produced. It does not install the app or prove native runtime behavior. Every
+user-visible change still needs a manual Android emulator/device walkthrough
+and screenshots of the affected states when Android is available. Web is
+additional coverage or a disclosed fallback when Android is unavailable.
 
 ## Implemented screens
 

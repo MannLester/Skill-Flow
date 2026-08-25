@@ -46,7 +46,7 @@ User-visible tickets also require an Android walkthrough and screenshots when a 
 | SF-303 | Fix web route-transition focus warnings | — | Open |
 | SF-304 | Add a SPA-aware static web preview | — | Open |
 | SF-305 | Add the evidence-driven improvement loop | — | Merged via PR #30 |
-| SF-306 | Establish the moderately strict verification gate | SF-100, SF-101 | Issue #31; blocked on dependencies |
+| SF-306 | Establish the moderately strict verification gate | SF-100, SF-101 | Issue #31; implementation in progress |
 
 ## Platform foundation
 

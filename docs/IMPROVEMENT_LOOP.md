@@ -112,13 +112,15 @@ QA must:
 - run the committed full gate; for the current baseline:
 
   ```sh
-  npm run typecheck
-  npm run lint
-  npm test -- --watch=false
-  npx expo-doctor
-  npx expo export --platform android
+  npm run verify
+  npm run doctor
   ```
 
+- `npm run verify` covers strict TypeScript, ESLint with complexity enforcement,
+  the complete Jest suite, and an Android Expo export. The export only proves
+  that the JavaScript bundle and assets can be produced; it does not prove that
+  the native app starts, that a device can complete the flow, or that runtime
+  and console errors are absent.
 - run required Convex health, codegen/type, integration, native, or dependency checks when applicable;
 - repeat affected Android journeys when available, inspect screenshots for important states, and check runtime/console errors; use web additionally where supported;
 - post a pass or fail report bound to the exact head SHA, including commands, results, device/platform, screenshots, unavailable checks, and residual risk.

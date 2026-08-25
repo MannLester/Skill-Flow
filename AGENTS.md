@@ -40,8 +40,54 @@ Run the continuous improvement pipeline only when the user explicitly invokes it
 For implementation work, run the relevant automated tests plus:
 
 ```powershell
-npm run typecheck
-npm run lint
-npm test -- --watch=false
-npx expo-doctor
+npm run verify
+npm run doctor
 ```
+
+`npm run verify` is the automated gate: strict TypeScript, ESLint (including
+cyclomatic complexity capped at 10), the complete Jest suite, and an Android
+Expo export. Existing complexity debt is recorded in
+`eslint-suppressions.json`, a matching committed ceiling, and
+`eslint-complexity-baseline.json`, which identifies each inherited complex
+function by file, name, node type, complexity, and source hash. Line and column
+are diagnostic metadata, so unrelated edits above a function do not create new
+debt; cross-file moves, renames, and source changes still fail. Lint compares these
+artifacts against the exact fetched `origin/main`, so replacing, moving across
+files, renaming, or adding a complex function fails even when a per-file count stays
+constant. Paired additions or increases fail, and stale feature branches must
+rebase. Before verification, fetch the base branch. CI must set
+`ESLINT_SUPPRESSIONS_BASE_SHA` to the event's
+full base commit SHA; it may set `ESLINT_SUPPRESSIONS_BASE_REF` when the fetched
+ref is not `origin/main`. Missing, mismatched, malformed, or incomplete base
+state fails closed, including shallow checkouts that did not fetch the base.
+During initial adoption only, an artifact-free base is accepted when it
+descends from the pinned bootstrap commit and the synchronized pair still
+matches the pinned bootstrap digest.
+After removing a violation, run `npm run lint:prune` and commit all reduced
+complexity baseline files. The check is independent of squash-versus-merge
+strategy.
+
+The complexity rule must remain exactly an error with maximum 10. The prune
+command validates policy and exact-base trust before changing any baseline,
+stages native pruning separately, and restores all three artifacts byte-for-byte
+if a later step fails. Inline complexity
+disable directives are rejected unless an exact inherited function identity
+is already recorded as a trusted inline exception; this repository currently
+has no such exceptions.
+
+ESLint must cover every `.js`, `.jsx`, `.cjs`, `.mjs`, `.ts`, `.tsx`, `.cts`,
+and `.mts` file in `src/`, `__tests__/`, `scripts/`, an optional `convex/`
+directory, and the repository root. The gate
+enumerates those paths independently and fails if ignore rules exclude them.
+Symlinks at the repository root or anywhere inside these active-code
+directories, including extensionless and directory symlinks, are rejected so
+code cannot be redirected into an ignored path.
+Generated `dist/`, visual `references/`, dependencies, and isolated
+`.agent-worktrees/` remain outside the active-code lint boundary.
+
+The Android Expo export only proves that the JavaScript bundle and assets can
+be produced. It does not install the app, exercise native behavior, or prove
+that a user can complete a flow. Every user-visible change still requires a
+manual Android emulator/device walkthrough and screenshots of affected
+states when Android is available; use web as additional coverage or a
+disclosed fallback when it is not.

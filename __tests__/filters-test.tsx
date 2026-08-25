@@ -17,7 +17,7 @@ describe('hardcoded list filters', () => {
   });
 
   it('opens the selected service by id', () => {
-    const { router } = require('expo-router');
+    const { router } = jest.requireMock('expo-router') as { router: { push: jest.Mock } };
     const screen = renderScreen(<MarketplaceScreen />);
     fireEvent.press(screen.getByText('UI/UX Design'));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/services/[serviceId]/index', params: { serviceId: 'uiux' } });
