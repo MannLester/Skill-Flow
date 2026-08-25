@@ -127,17 +127,28 @@ export function createOwnedReverse({ adapter, adb, serial, port, cleanup }) {
   assertNoReverseMapping(before, port);
   adbRun(adapter, adb, serial, ['reverse', '--no-rebind', target, target]);
   cleanup.reverseCreated = true;
+  cleanup.reverseClaim = { serial, remote: target, local: target };
   const after = adbRun(adapter, adb, serial, ['reverse', '--list']).stdout;
   assertExactReverseMapping(after, serial, target);
 }
 
 function assertExactReverseMapping(output, serial, target) {
-  const matches = String(output).split(/\r?\n/).filter((line) => {
+  if (!hasExactReverseMapping(output, { serial, remote: target, local: target })) {
+    throw new Error('Owned device reverse mapping could not be verified exactly.');
+  }
+}
+
+export function hasExactReverseMapping(output, claim) {
+  const mappings = String(output).split(/\r?\n/).map((line) => {
     const columns = line.trim().split(/\s+/);
-    return columns.length >= 3 && columns[0] === serial
-      && columns[columns.length - 2] === target && columns[columns.length - 1] === target;
-  });
-  if (matches.length !== 1) throw new Error('Owned device reverse mapping could not be verified exactly.');
+    return columns.length >= 3 ? {
+      serial: columns[0],
+      remote: columns[columns.length - 2],
+      local: columns[columns.length - 1],
+    } : null;
+  }).filter((mapping) => mapping?.remote === claim.remote);
+  return mappings.length === 1 && mappings[0].serial === claim.serial
+    && mappings[0].local === claim.local;
 }
 
 export function mutateVersionName(source, baseVersion, expectedSha) {
@@ -285,6 +296,7 @@ export class OwnedCleanup {
     this.adapter = adapter;
     this.metro = null;
     this.reverseCreated = false;
+    this.reverseClaim = null;
     this.androidCreated = false;
     this.completed = false;
     this.cleanupPromise = null;
@@ -326,9 +338,23 @@ export class OwnedCleanup {
   removeReverse(failures) {
     if (!this.reverseCreated) return;
     try {
+      const claim = this.reverseClaim;
+      if (!claim) {
+        failures.push('reverse removal skipped because no exact owned mapping was recorded');
+        return;
+      }
+      const current = this.adapter.run(
+        this.adb,
+        deviceArguments(this.serial, ['reverse', '--list']),
+        { timeout: 10_000 },
+      ).stdout;
+      if (!hasExactReverseMapping(current, claim)) {
+        failures.push('reverse removal skipped because the owned mapping was replaced or disappeared');
+        return;
+      }
       this.adapter.run(
         this.adb,
-        ['-s', this.serial, 'reverse', '--remove', 'tcp:' + this.port],
+        deviceArguments(this.serial, ['reverse', '--remove', claim.remote]),
         { timeout: 10_000 },
       );
     } catch (error) {
@@ -915,7 +941,7 @@ function announcementUsesPort(announcement, port) {
 }
 
 export function isMetroProtocolResponse(statusCode, body, rootHeader, expectedRoot) {
-  if (statusCode < 200 || statusCode >= 400 || String(body).trim() !== 'packager-status:running') return false;
+  if (statusCode !== 200 || String(body).trim() !== 'packager-status:running') return false;
   try {
     return decodeURI(String(rootHeader)) === expectedRoot;
   } catch {
@@ -926,6 +952,24 @@ export function isMetroProtocolResponse(statusCode, body, rootHeader, expectedRo
 export function assertOwnedMetroChild(child) {
   if (!Number.isInteger(child?.pid) || child.pid <= 0 || !child.metroCapture?.hasReadiness) {
     throw new Error('Owned Metro process identity and direct output capture are required.');
+  }
+}
+
+export function ownedProcessTarget(child, platform = process.platform) {
+  if (!Number.isInteger(child?.pid) || child.pid <= 0) {
+    throw new Error('Owned process group requires a positive integer leader PID.');
+  }
+  return platform === 'win32' ? child.pid : -child.pid;
+}
+
+export function isOwnedProcessGroupAlive(child, platform = process.platform, probe = process.kill) {
+  if (platform === 'win32' && child.exitCode !== null) return false;
+  try {
+    probe(ownedProcessTarget(child, platform), 0);
+    return true;
+  } catch (error) {
+    if (error.code === 'ESRCH') return false;
+    throw error;
   }
 }
 
@@ -1061,19 +1105,22 @@ const defaultAdapter = {
     throw new Error('Owned Metro did not become ready within ' + timeoutMs + 'ms.');
   },
   isAlive(child) {
-    if (child.exitCode !== null) return false;
-    const target = process.platform === 'win32' ? child.pid : -child.pid;
-    try {
-      process.kill(target, 0);
-      return true;
-    } catch (error) {
-      if (error.code === 'ESRCH') return false;
-      throw error;
-    }
+    return isOwnedProcessGroupAlive(child);
   },
   killOwned(child, signal) {
-    if (process.platform === 'win32') child.kill(signal);
-    else process.kill(-child.pid, signal);
+    if (process.platform !== 'win32') {
+      process.kill(ownedProcessTarget(child), signal);
+      return;
+    }
+    const args = ['/PID', String(ownedProcessTarget(child)), '/T'];
+    if (signal === 'SIGKILL') args.push('/F');
+    const result = spawnSync('taskkill', args, {
+      env: sanitizedEnvironment(process.env),
+      shell: false,
+      stdio: 'ignore',
+      timeout: 10_000,
+    });
+    if (result.error) throw result.error;
   },
   sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
 };

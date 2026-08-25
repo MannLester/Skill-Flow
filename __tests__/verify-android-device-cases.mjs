@@ -348,6 +348,7 @@ test('requires both an owned Metro announcement and the Metro status protocol', 
   );
   assert.equal(runner.metroAnnouncedReady('unrelated listener on :8099', 8099), false);
   assert.equal(runner.isMetroProtocolResponse(200, 'packager-status:running\n', '/repo', '/repo'), true);
+  assert.equal(runner.isMetroProtocolResponse(302, 'packager-status:running', '/repo', '/repo'), false);
   assert.equal(runner.isMetroProtocolResponse(200, 'generic ok', '/repo', '/repo'), false);
   assert.equal(runner.isMetroProtocolResponse(200, 'packager-status:running', '/other', '/repo'), false);
   assert.throws(() => runner.assertOwnedMetroChild({ exitCode: null }), /process identity/);
@@ -391,12 +392,13 @@ test('cleanup targets only resources proven owned and is idempotent', async () =
     killOwned: (_child, signal) => { calls.push(['kill', signal]); alive = false; },
   });
   cleanup.metro = { pid: 321 };
-  cleanup.reverseCreated = true;
+  markOwnedReverse(cleanup);
   cleanup.androidCreated = true;
   await cleanup.run();
   await cleanup.run();
   assert.deepEqual(calls, [
     ['kill', 'SIGINT'],
+    ['run', ['-s', 'authorized', 'reverse', '--list']],
     ['run', ['-s', 'authorized', 'reverse', '--remove', 'tcp:8099']],
     ['rm', path.join('/repo', 'android')],
   ]);
@@ -414,7 +416,7 @@ test('cleanup is single-flight under concurrent normal and signal callers', asyn
     sleep: () => stopGate,
   });
   cleanup.metro = { pid: 321 };
-  cleanup.reverseCreated = true;
+  markOwnedReverse(cleanup);
   cleanup.androidCreated = true;
   const normal = cleanup.run();
   const signal = cleanup.run();
@@ -423,6 +425,7 @@ test('cleanup is single-flight under concurrent normal and signal callers', asyn
   await Promise.all([normal, signal, cleanup.run()]);
   assert.deepEqual(calls, [
     ['kill', 'SIGINT'],
+    ['run', ['-s', 'authorized', 'reverse', '--list']],
     ['run', ['-s', 'authorized', 'reverse', '--remove', 'tcp:8099']],
     ['rm', path.join('/repo', 'android')],
   ]);
@@ -436,7 +439,7 @@ test('cleanup escalation is bounded and signals fail closed before complete evid
     killOwned: (_child, signal) => calls.push(['kill', signal]),
   });
   cleanup.metro = { pid: 321 };
-  cleanup.reverseCreated = true;
+  markOwnedReverse(cleanup);
   cleanup.androidCreated = true;
   await assert.rejects(cleanup.run(), /remained alive/);
   assert.deepEqual(calls.slice(0, 3), [
@@ -460,20 +463,86 @@ test('cleanup escalation is bounded and signals fail closed before complete evid
   );
 });
 
-function createCleanup({ calls, isAlive, killOwned, sleep = async () => undefined }) {
+test('cleanup never removes a reverse mapping replaced after this run claimed it', async () => {
+  const calls = [];
+  const cleanup = createCleanup({
+    calls,
+    isAlive: () => false,
+    killOwned: () => undefined,
+    reverseList: [
+      'authorized tcp:8099 tcp:8099',
+      'authorized tcp:8099 tcp:9000',
+      '',
+    ].join('\n'),
+  });
+  markOwnedReverse(cleanup);
+  await assert.rejects(cleanup.run(), /mapping was replaced or disappeared/);
+  assert.deepEqual(calls, [
+    ['run', ['-s', 'authorized', 'reverse', '--list']],
+  ]);
+});
+
+test('owned process-group probes survive an exited leader without targeting unrelated PIDs', () => {
+  const probes = [];
+  const child = { pid: 321, exitCode: 0 };
+  assert.equal(runner.isOwnedProcessGroupAlive(child, 'linux', (target, signal) => {
+    probes.push([target, signal]);
+  }), true);
+  assert.deepEqual(probes, [[-321, 0]]);
+  assert.equal(runner.ownedProcessTarget(child, 'darwin'), -321);
+  assert.equal(runner.ownedProcessTarget(child, 'win32'), 321);
+  assert.throws(() => runner.ownedProcessTarget({ pid: 0 }, 'linux'), /positive integer/);
+});
+
+test('cleanup terminates a surviving owned group after its leader has exited', async () => {
+  const calls = [];
+  let groupAlive = true;
+  const cleanup = createCleanup({
+    calls,
+    isAlive: () => groupAlive,
+    killOwned: (child, signal) => {
+      assert.equal(child.exitCode, 0);
+      calls.push(['kill', signal]);
+      groupAlive = false;
+    },
+  });
+  cleanup.metro = { pid: 321, exitCode: 0 };
+  await cleanup.run();
+  assert.deepEqual(calls, [['kill', 'SIGINT']]);
+});
+
+function createCleanup({
+  calls,
+  isAlive,
+  killOwned,
+  sleep = async () => undefined,
+  reverseList = 'authorized tcp:8099 tcp:8099\n',
+}) {
   return new runner.OwnedCleanup({
     adb: '/sdk/adb',
     serial: 'authorized',
     port: 8099,
     repoRoot: '/repo',
     adapter: {
-      run: (_command, args) => { calls.push(['run', args]); return { stdout: '' }; },
+      run: (_command, args) => {
+        calls.push(['run', args]);
+        return { stdout: args.includes('--list') ? reverseList : '' };
+      },
       isAlive,
       killOwned,
       sleep,
       fs: { rm: (target) => calls.push(['rm', target]) },
     },
   });
+}
+
+function markOwnedReverse(cleanup) {
+  cleanup.reverseCreated = true;
+  cleanup.reverseClaim = {
+    serial: 'authorized',
+    remote: 'tcp:8099',
+    local: 'tcp:8099',
+  };
 }
 
 function fakeGitAdapter(responses) {
