@@ -260,13 +260,18 @@ async function checkComplexityDebt(projectRoot, options = {}) {
 }
 
 async function pruneComplexityDebt(projectRoot, options = {}) {
+  const live = await prepareComplexityPrune(projectRoot, options);
+  fs.writeFileSync(path.join(projectRoot, baselineFileName), `${JSON.stringify(live, null, 2)}\n`, 'utf8');
+}
+
+async function prepareComplexityPrune(projectRoot, options = {}) {
   const current = readBaseline(projectRoot);
   const live = options.liveBaseline ?? await collectComplexityDebt(projectRoot);
   const additions = compareBaselines(live, current, false);
   const baseIssues = validateBaseBaseline(projectRoot, live, loadBaseContext(projectRoot, options));
   const issues = [...additions, ...baseIssues];
   if (issues.length > 0) throw new Error(formatIssues(issues));
-  fs.writeFileSync(path.join(projectRoot, baselineFileName), `${JSON.stringify(live, null, 2)}\n`, 'utf8');
+  return live;
 }
 
 async function main() {
@@ -295,6 +300,7 @@ module.exports = {
   createIdentity,
   identityKey,
   parseBaseline,
+  prepareComplexityPrune,
   pruneComplexityDebt,
   validateBaseBaseline,
   validateComplexityRule,

@@ -12,6 +12,7 @@ const {
   checkComplexityDebt,
   pruneComplexityDebt,
 } = require('../scripts/check-eslint-complexity-debt.cjs');
+const { pruneBaselines } = require('../scripts/prune-eslint-baselines.cjs');
 
 const suppressionFile = 'eslint-suppressions.json';
 const ceilingFile = 'eslint-suppressions-ceiling.json';
@@ -102,6 +103,20 @@ function setRemoteMainToHead(root) {
 function checkAtCurrentBase(root) {
   const sha = git(root, ['rev-parse', baseRef]);
   expect(() => checkProject(root, { baseRef, baseSha: sha })).not.toThrow();
+}
+
+function artifactHashes(root) {
+  return [suppressionFile, ceilingFile, identityFile].map((file) => (
+    crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex')
+  ));
+}
+
+function pruneSimulation(nextSuppressions) {
+  return (_, temporarySuppressions) => writeMap(
+    path.dirname(temporarySuppressions),
+    path.basename(temporarySuppressions),
+    nextSuppressions,
+  );
 }
 
 describe('ESLint suppression Git base contract', () => {
@@ -329,5 +344,91 @@ describe('ESLint suppression Git base contract', () => {
       baseSha: advancedSha,
       liveBaseline: identityBaseline,
     })).rejects.toThrow('HEAD does not contain base');
+  });
+
+  it.each([
+    ['missing base', { baseRef: 'refs/remotes/origin/missing' }, 'Base ref refs/remotes/origin/missing is unavailable'],
+    ['wrong base SHA', { baseRef, baseSha: 'b'.repeat(40) }, 'Base ref is stale'],
+  ])('leaves every artifact byte-identical when prune rejects a %s', async (_, options, message) => {
+    const root = initRepo();
+    roots.push(root);
+    git(root, ['checkout', '-b', 'feature']);
+    const before = artifactHashes(root);
+    let ranEslint = false;
+    await expect(pruneBaselines(root, {
+      ...options,
+      liveBaseline: identityBaseline,
+      runEslint: () => { ranEslint = true; },
+    })).rejects.toThrow(message);
+    expect(ranEslint).toBe(false);
+    expect(artifactHashes(root)).toEqual(before);
+  });
+
+  it('leaves every artifact byte-identical when prune rejects a stale base', async () => {
+    const root = initRepo();
+    roots.push(root);
+    git(root, ['checkout', '-b', 'feature']);
+    git(root, ['checkout', 'main']);
+    fs.writeFileSync(path.join(root, 'advance.txt'), 'advance', 'utf8');
+    const advancedSha = commit(root, 'advance main');
+    git(root, ['update-ref', baseRef, advancedSha]);
+    git(root, ['checkout', 'feature']);
+    const before = artifactHashes(root);
+    let ranEslint = false;
+    await expect(pruneBaselines(root, {
+      baseRef,
+      baseSha: advancedSha,
+      liveBaseline: identityBaseline,
+      runEslint: () => { ranEslint = true; },
+    })).rejects.toThrow('HEAD does not contain base');
+    expect(ranEslint).toBe(false);
+    expect(artifactHashes(root)).toEqual(before);
+  });
+
+  it.each([1, 2, 3])('restores every artifact byte-for-byte when artifact write %s fails', async (failureAt) => {
+    const root = initRepo();
+    roots.push(root);
+    const baseSha = git(root, ['rev-parse', baseRef]);
+    git(root, ['checkout', '-b', 'feature']);
+    const before = artifactHashes(root);
+    let writes = 0;
+    await expect(pruneBaselines(root, {
+      baseRef,
+      baseSha,
+      liveBaseline: { version: 1, violations: [], inlineExceptions: [] },
+      runEslint: pruneSimulation({ 'src/example.ts': { complexity: { count: 1 } } }),
+      writeArtifact: (file, contents) => {
+        writes += 1;
+        if (writes === failureAt) throw new Error('simulated downstream write failure');
+        fs.writeFileSync(file, contents);
+      },
+    })).rejects.toThrow('simulated downstream write failure');
+    expect(artifactHashes(root)).toEqual(before);
+  });
+
+  it('commits all three successfully pruned artifacts together', async () => {
+    const root = initRepo();
+    roots.push(root);
+    const baseSha = git(root, ['rev-parse', baseRef]);
+    git(root, ['checkout', '-b', 'feature']);
+    const reducedSuppressions = { 'src/example.ts': { complexity: { count: 1 } } };
+    const reducedIdentity = { version: 1, violations: [], inlineExceptions: [] };
+    const before = artifactHashes(root);
+    await pruneBaselines(root, {
+      baseRef,
+      baseSha,
+      liveBaseline: reducedIdentity,
+      runEslint: pruneSimulation(reducedSuppressions),
+    });
+    expect(JSON.parse(fs.readFileSync(path.join(root, suppressionFile), 'utf8'))).toEqual(reducedSuppressions);
+    expect(JSON.parse(fs.readFileSync(path.join(root, ceilingFile), 'utf8'))).toEqual(reducedSuppressions);
+    expect(JSON.parse(fs.readFileSync(path.join(root, identityFile), 'utf8'))).toEqual(reducedIdentity);
+    artifactHashes(root).forEach((artifactHash, index) => expect(artifactHash).not.toBe(before[index]));
+    checkProject(root, { baseRef, baseSha });
+    await expect(checkComplexityDebt(root, {
+      baseRef,
+      baseSha,
+      liveBaseline: reducedIdentity,
+    })).resolves.toBeUndefined();
   });
 });

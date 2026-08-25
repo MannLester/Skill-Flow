@@ -120,8 +120,10 @@ bootstrap digest. After fixing a violation, run `npm run lint:prune` and commit
 all reduced complexity baseline files. Both squash merges and merge commits are
 supported.
 
-The complexity rule is pinned to error level with maximum 10, and pruning
-checks that policy before modifying baselines. New inline complexity disable
+The complexity rule is pinned to error level with maximum 10. Pruning validates
+policy and exact-base trust before mutation, stages native ESLint pruning in a
+temporary file, and restores all three baseline artifacts byte-for-byte if a
+later step fails. New inline complexity disable
 directives fail the gate. Only an exact inherited, identity-bound inline
 exception could remain; the current baseline contains none.
 

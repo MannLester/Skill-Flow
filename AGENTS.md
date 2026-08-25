@@ -68,7 +68,9 @@ complexity baseline files. The check is independent of squash-versus-merge
 strategy.
 
 The complexity rule must remain exactly an error with maximum 10. The prune
-command checks that policy before changing any baseline. Inline complexity
+command validates policy and exact-base trust before changing any baseline,
+stages native pruning separately, and restores all three artifacts byte-for-byte
+if a later step fails. Inline complexity
 disable directives are rejected unless an exact inherited function identity
 is already recorded as a trusted inline exception; this repository currently
 has no such exceptions.
