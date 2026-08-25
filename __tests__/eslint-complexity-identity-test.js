@@ -52,7 +52,7 @@ function makeLintProject(max, source, options = {}) {
   const ignores = options.ignores ?? [];
   fs.writeFileSync(
     path.join(root, 'eslint.config.js'),
-    `module.exports = [{ ignores: ${JSON.stringify(ignores)}, rules: { complexity: ['error', { max: ${max} }] } }];\n`,
+    `module.exports = [{ ignores: ${JSON.stringify(ignores)} }, { rules: { complexity: ['error', { max: ${max} }] } }];\n`,
     'utf8',
   );
   const filePath = path.join(root, options.file ?? 'probe.js');
@@ -87,14 +87,16 @@ describe('identity-aware complexity debt', () => {
     ]);
   });
 
-  it('rejects moving, renaming, and adding a complex function', () => {
+  it('allows harmless line shifts while rejecting cross-file moves, renames, and additions', () => {
     const inherited = identityFor(original);
-    const moved = identityFor(`\n${original}`, { line: 2 });
+    const shifted = identityFor(`\n${original}`, { line: 2 });
+    const moved = { ...inherited, file: 'src/moved.ts' };
     const renamed = identityFor(original.replace('inherited', 'replacement'));
     const added = identityFor(original.replace('inherited', 'additional'));
+    expect(compareIdentitySets(baseline([shifted]), baseline([inherited]), 'new', 'stale')).toEqual([]);
     for (const changed of [moved, renamed, added]) {
       expect(compareIdentitySets(baseline([changed]), baseline([inherited]), 'new')).toEqual([
-        expect.stringContaining('new: src/example.ts'),
+        expect.stringContaining('new: src/'),
       ]);
     }
   });
@@ -161,8 +163,13 @@ describe('identity-aware complexity debt', () => {
 
   it.each([
     ['src/**', 'src/ignored.ts'],
-    ['__tests__/**', '__tests__/ignored-test.ts'],
-    ['scripts/**', 'scripts/ignored.js'],
+    ['src/ignored.jsx', 'src/ignored.jsx'],
+    ['src/ignored.mts', 'src/ignored.mts'],
+    ['src/ignored.cts', 'src/ignored.cts'],
+    ['ignored.jsx', 'ignored.jsx'],
+    ['__tests__/ignored-test.mts', '__tests__/ignored-test.mts'],
+    ['scripts/ignored.cts', 'scripts/ignored.cts'],
+    ['convex/ignored.jsx', 'convex/ignored.jsx'],
   ])('rejects broad active-code ignore pattern %s', (ignore, file) => {
     const root = makeLintProject(10, complexFunctionSource, {
       ignores: [ignore],
@@ -189,5 +196,11 @@ describe('identity-aware complexity debt', () => {
     expect(() => parseBaseline('{"version":1,"violations":[{}],"inlineExceptions":[]}', 'baseline')).toThrow(
       'has invalid identity fields',
     );
+    const duplicate = identityFor(original);
+    expect(() => parseBaseline(JSON.stringify({
+      version: 1,
+      violations: [duplicate, { ...duplicate, line: duplicate.line + 10 }],
+      inlineExceptions: [],
+    }), 'baseline')).toThrow('contains duplicate identities');
   });
 });

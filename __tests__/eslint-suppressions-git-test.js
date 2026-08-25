@@ -284,6 +284,24 @@ describe('ESLint suppression Git base contract', () => {
     })).resolves.toBeUndefined();
   });
 
+  it('ratchets line metadata after a harmless inherited-function shift', async () => {
+    const root = initRepo();
+    roots.push(root);
+    const baseSha = git(root, ['rev-parse', baseRef]);
+    git(root, ['checkout', '-b', 'feature']);
+    const shifted = {
+      ...identityBaseline,
+      violations: [{ ...identityBaseline.violations[0], line: 20, column: 4 }],
+    };
+    await pruneComplexityDebt(root, { baseRef, baseSha, liveBaseline: shifted });
+    expect(JSON.parse(fs.readFileSync(path.join(root, identityFile), 'utf8'))).toEqual(shifted);
+    await expect(checkComplexityDebt(root, {
+      baseRef,
+      baseSha,
+      liveBaseline: shifted,
+    })).resolves.toBeUndefined();
+  });
+
   it('fails closed for a missing identity base and a stale feature head', async () => {
     const missingRoot = initRepo();
     roots.push(missingRoot);

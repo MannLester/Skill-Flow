@@ -3,21 +3,21 @@
   "violations": [
     {
       "file": "src/app/marketplace.tsx",
-      "line": 14,
-      "column": 16,
-      "nodeType": "FunctionDeclaration",
-      "name": "MarketplaceScreen",
-      "complexity": 13,
-      "sourceHash": "60766b18a626c15c661cd5161dd00bebf5fa80f2a54e2a8bf32964b582f1df02"
-    },
-    {
-      "file": "src/app/marketplace.tsx",
       "line": 26,
       "column": 60,
       "nodeType": "ArrowFunctionExpression",
       "name": "filtered",
       "complexity": 12,
       "sourceHash": "71b3ac13d0c31a8f05fc941263f79caa9bf6b695a6f63fc0b6e730c0e3d155a5"
+    },
+    {
+      "file": "src/app/marketplace.tsx",
+      "line": 14,
+      "column": 16,
+      "nodeType": "FunctionDeclaration",
+      "name": "MarketplaceScreen",
+      "complexity": 13,
+      "sourceHash": "60766b18a626c15c661cd5161dd00bebf5fa80f2a54e2a8bf32964b582f1df02"
     },
     {
       "file": "src/app/profile/edit.tsx",
@@ -57,21 +57,21 @@
     },
     {
       "file": "src/app/projects/[projectId].tsx",
-      "line": 16,
-      "column": 16,
-      "nodeType": "FunctionDeclaration",
-      "name": "ProjectDetailsScreen",
-      "complexity": 19,
-      "sourceHash": "e3fa950e89d9fc7bb7feb0994d86f9455130c78288cf0eaae595221f0dc17833"
-    },
-    {
-      "file": "src/app/projects/[projectId].tsx",
       "line": 67,
       "column": 1,
       "nodeType": "FunctionDeclaration",
       "name": "ProjectActions",
       "complexity": 22,
       "sourceHash": "d92cd72cf050d911f14119ff7c237cef7890802d831ab2fb85440d8737af0a90"
+    },
+    {
+      "file": "src/app/projects/[projectId].tsx",
+      "line": 16,
+      "column": 16,
+      "nodeType": "FunctionDeclaration",
+      "name": "ProjectDetailsScreen",
+      "complexity": 19,
+      "sourceHash": "e3fa950e89d9fc7bb7feb0994d86f9455130c78288cf0eaae595221f0dc17833"
     },
     {
       "file": "src/app/projects/index.tsx",
@@ -147,30 +147,21 @@
     },
     {
       "file": "src/context/session.tsx",
+      "line": 555,
+      "column": 128,
+      "nodeType": "ArrowFunctionExpression",
+      "name": "actOnProject",
+      "complexity": 31,
+      "sourceHash": "8b859d47bc335842a1accdd431c82d698299f7e43911f0b23f3b38bee63fb8b6"
+    },
+    {
+      "file": "src/context/session.tsx",
       "line": 288,
       "column": 66,
       "nodeType": "ArrowFunctionExpression",
       "name": "migrateState",
       "complexity": 21,
       "sourceHash": "5cd90516539fe88951ae4e61e8e18744aa6134f99f70dd02948b1c3c94f69bf1"
-    },
-    {
-      "file": "src/context/session.tsx",
-      "line": 409,
-      "column": 109,
-      "nodeType": "ArrowFunctionExpression",
-      "name": "simulateVerificationReview",
-      "complexity": 11,
-      "sourceHash": "2265ab326f68f56291e631d11acedca513bf61744324b6ec0a21e92f47eba1e2"
-    },
-    {
-      "file": "src/context/session.tsx",
-      "line": 445,
-      "column": 110,
-      "nodeType": "ArrowFunctionExpression",
-      "name": "saveService",
-      "complexity": 19,
-      "sourceHash": "252e773b465cba42c04d64bc39bd3159bdb1ad1007e5aedb5f932e63e245dc6e"
     },
     {
       "file": "src/context/session.tsx",
@@ -183,21 +174,30 @@
     },
     {
       "file": "src/context/session.tsx",
+      "line": 445,
+      "column": 110,
+      "nodeType": "ArrowFunctionExpression",
+      "name": "saveService",
+      "complexity": 19,
+      "sourceHash": "252e773b465cba42c04d64bc39bd3159bdb1ad1007e5aedb5f932e63e245dc6e"
+    },
+    {
+      "file": "src/context/session.tsx",
+      "line": 409,
+      "column": 109,
+      "nodeType": "ArrowFunctionExpression",
+      "name": "simulateVerificationReview",
+      "complexity": 11,
+      "sourceHash": "2265ab326f68f56291e631d11acedca513bf61744324b6ec0a21e92f47eba1e2"
+    },
+    {
+      "file": "src/context/session.tsx",
       "line": 497,
       "column": 97,
       "nodeType": "ArrowFunctionExpression",
       "name": "submitProposal",
       "complexity": 11,
       "sourceHash": "12d5a0fcfc926c628e14391a0f19ac58c3559a4ea05872d6a68825094484e599"
-    },
-    {
-      "file": "src/context/session.tsx",
-      "line": 555,
-      "column": 128,
-      "nodeType": "ArrowFunctionExpression",
-      "name": "actOnProject",
-      "complexity": 31,
-      "sourceHash": "8b859d47bc335842a1accdd431c82d698299f7e43911f0b23f3b38bee63fb8b6"
     },
     {
       "file": "src/domain/career-readiness.ts",

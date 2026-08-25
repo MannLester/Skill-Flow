@@ -8,8 +8,8 @@ const ts = require('typescript');
 const { loadBaseContext } = require('./check-eslint-suppressions.cjs');
 
 const baselineFileName = 'eslint-complexity-baseline.json';
-const bootstrapBaselineDigest = 'f07f83fc6a2b7e2a853ba944bdeb9d479c00c7bd7224355dc66385fc6dd67056';
-const lintExtensions = new Set(['.cjs', '.js', '.mjs', '.ts', '.tsx']);
+const bootstrapBaselineDigest = '30acf147adc2749ca60ec1b8fd0ee5a7187f92de9f59befacca52200e39efe26';
+const lintExtensions = new Set(['.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx']);
 const requiredDirectories = ['src', '__tests__', 'scripts', 'convex'];
 
 function isFunctionLike(node) {
@@ -72,7 +72,7 @@ function createIdentity(projectRoot, result, diagnostic) {
 }
 
 function identityKey(identity) {
-  return [identity.file, identity.line, identity.column, identity.nodeType, identity.name, identity.complexity, identity.sourceHash].join(':');
+  return [identity.file, identity.nodeType, identity.name, identity.complexity, identity.sourceHash].join(':');
 }
 
 function sortIdentities(identities) {
@@ -132,11 +132,11 @@ async function collectComplexityDebt(projectRoot) {
   const inlineExceptions = results.flatMap((result) => result.suppressedMessages
     .filter((message) => message.ruleId === 'complexity')
     .map((message) => createIdentity(projectRoot, result, message)));
-  return {
+  return validateBaseline({
     version: 1,
     violations: sortIdentities(violations),
     inlineExceptions: sortIdentities(inlineExceptions),
-  };
+  }, 'live ESLint complexity diagnostics');
 }
 
 function isRecord(value) {
@@ -151,13 +151,7 @@ function validateIdentity(identity, label) {
   return validText && validHash && validNumbers ? [] : [`${label} has invalid identity fields.`];
 }
 
-function parseBaseline(contents, label) {
-  let parsed;
-  try {
-    parsed = JSON.parse(contents);
-  } catch (error) {
-    throw new Error(`Unable to parse ${label}: ${error.message}`);
-  }
+function validateBaseline(parsed, label) {
   if (!isRecord(parsed) || parsed.version !== 1
     || !Array.isArray(parsed.violations) || !Array.isArray(parsed.inlineExceptions)) {
     throw new Error(`${label} must use complexity baseline version 1.`);
@@ -171,6 +165,15 @@ function parseBaseline(contents, label) {
     violations: sortIdentities(parsed.violations),
     inlineExceptions: sortIdentities(parsed.inlineExceptions),
   };
+}
+
+function parseBaseline(contents, label) {
+  try {
+    return validateBaseline(JSON.parse(contents), label);
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error(`Unable to parse ${label}: ${error.message}`);
+    throw error;
+  }
 }
 
 function readBaseline(projectRoot) {

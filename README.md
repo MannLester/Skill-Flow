@@ -104,9 +104,11 @@ npm run doctor
 TypeScript, ESLint with cyclomatic complexity errors above 10, the complete
 Jest suite, and an Android Expo export. Inherited complexity debt is recorded
 in `eslint-suppressions.json`, a matching committed ceiling, and the
-function-level `eslint-complexity-baseline.json`. Lint compares these artifacts
+function-level `eslint-complexity-baseline.json`. Stable identity uses file,
+name, node type, complexity, and source hash; line and column are refreshable
+diagnostic metadata. Lint compares these artifacts
 against the exact fetched `origin/main`, so a complex function cannot be
-replaced, moved, renamed, or added while hiding behind an unchanged per-file
+replaced, moved across files, renamed, or added while hiding behind an unchanged per-file
 count. Paired additions or increases fail, and stale feature branches must
 rebase. Run `git fetch origin main` before local verification. CI must fetch the base and set
 `ESLINT_SUPPRESSIONS_BASE_SHA` to the event's full base commit SHA; set
@@ -123,9 +125,10 @@ checks that policy before modifying baselines. New inline complexity disable
 directives fail the gate. Only an exact inherited, identity-bound inline
 exception could remain; the current baseline contains none.
 
-The lint gate independently inventories active JavaScript and TypeScript under
-`src/`, `__tests__/`, `scripts/`, an optional `convex/`, and the repository
-root. Broad ignore rules cannot hide those files. Generated output, supplied
+The lint gate independently inventories active `.js`, `.jsx`, `.cjs`, `.mjs`,
+`.ts`, `.tsx`, `.cts`, and `.mts` files under `src/`, `__tests__/`, `scripts/`,
+an optional `convex/`, and the repository root. Broad or exact ignore rules
+cannot hide those files. Generated output, supplied
 visual references, dependencies, and isolated agent worktrees remain excluded.
 
 The Android Expo export checks that the JavaScript bundle and assets can be

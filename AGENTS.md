@@ -49,9 +49,11 @@ cyclomatic complexity capped at 10), the complete Jest suite, and an Android
 Expo export. Existing complexity debt is recorded in
 `eslint-suppressions.json`, a matching committed ceiling, and
 `eslint-complexity-baseline.json`, which identifies each inherited complex
-function by file, location, complexity, and source hash. Lint compares these
-artifacts against the exact fetched `origin/main`, so replacing, moving,
-renaming, or adding a complex function fails even when a per-file count stays
+function by file, name, node type, complexity, and source hash. Line and column
+are diagnostic metadata, so unrelated edits above a function do not create new
+debt; cross-file moves, renames, and source changes still fail. Lint compares these
+artifacts against the exact fetched `origin/main`, so replacing, moving across
+files, renaming, or adding a complex function fails even when a per-file count stays
 constant. Paired additions or increases fail, and stale feature branches must
 rebase. Before verification, fetch the base branch. CI must set
 `ESLINT_SUPPRESSIONS_BASE_SHA` to the event's
@@ -71,8 +73,9 @@ disable directives are rejected unless an exact inherited function identity
 is already recorded as a trusted inline exception; this repository currently
 has no such exceptions.
 
-ESLint must cover every JavaScript or TypeScript file in `src/`, `__tests__/`,
-`scripts/`, an optional `convex/` directory, and the repository root. The gate
+ESLint must cover every `.js`, `.jsx`, `.cjs`, `.mjs`, `.ts`, `.tsx`, `.cts`,
+and `.mts` file in `src/`, `__tests__/`, `scripts/`, an optional `convex/`
+directory, and the repository root. The gate
 enumerates those paths independently and fails if ignore rules exclude them.
 Generated `dist/`, visual `references/`, dependencies, and isolated
 `.agent-worktrees/` remain outside the active-code lint boundary.
