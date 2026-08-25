@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Improvement Loop"
+  short_description: "Inspect, fix, review, and queue app PRs"
+  default_prompt: "Use $app-improvement-loop to run a bounded evidence-driven improvement cycle on this app."

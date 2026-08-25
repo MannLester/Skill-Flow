@@ -25,6 +25,17 @@ These instructions apply to every agent working in this repository.
 - Clearly label deterministic AI feedback, student verification, payment holds, and payment releases as simulations.
 - Preserve the two user roles: Student Designer and Client.
 
+## Evidence-driven improvement loop
+
+Run the autonomous improvement loop only when the user explicitly invokes it. Follow `docs/IMPROVEMENT_LOOP.md` as the complete protocol. That invocation authorizes issue creation, issue-branch pushes, and opening or updating at most three focused PRs in this repository; it never authorizes merging.
+
+- Evaluate the running app through both roles instead of reviewing source alone.
+- Select work severity-first and keep each iteration to one issue and one PR.
+- Permit at most three open agent-loop PRs and only independent, non-overlapping queued work.
+- Require independent agent review before a PR is considered ready for humans.
+- Use only dedicated resettable local test resources.
+- Keep subjective, unspecified, protected, production, or destructive changes proposal-only until a human approves them.
+
 ## Verification
 
 For implementation work, run the relevant automated tests plus:
