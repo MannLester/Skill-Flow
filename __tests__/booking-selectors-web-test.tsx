@@ -46,11 +46,20 @@ function getButtonByText(container: HTMLDivElement, label: string): HTMLElement 
   return element;
 }
 
-function dispatchKeyboard(target: HTMLElement, key: string) {
+function dispatchSeparatedKeyboard(target: HTMLElement, key: string) {
+  act(() => target.focus());
   act(() => {
-    target.focus();
     target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-    target.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+  });
+  const keyupTarget = document.activeElement instanceof HTMLElement ? document.activeElement : document.body;
+  act(() => keyupTarget.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true })));
+}
+
+function dispatchPointerClick(target: HTMLElement) {
+  act(() => {
+    target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 }
 
@@ -81,11 +90,11 @@ describe('Book Service web accessibility', () => {
     expect(getAccessibleElement(container, 'radio', '5 Days').getAttribute('aria-checked')).toBe('false');
   });
 
-  it('activates focused options with Enter and Space and restores trigger focus', () => {
+  it('handles separated keyboard events without swallowing the next pointer option', () => {
     let trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     act(() => trigger.click());
     expect(getAccessibleElement(container, 'radio', '5 Days').getAttribute('aria-checked')).toBe('false');
-    dispatchKeyboard(getAccessibleElement(container, 'radio', '5 Days'), 'Enter');
+    dispatchSeparatedKeyboard(getAccessibleElement(container, 'radio', '5 Days'), 'Enter');
 
     trigger = getAccessibleElement(container, 'button', 'Delivery Time: 5 Days');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
@@ -93,25 +102,37 @@ describe('Book Service web accessibility', () => {
 
     act(() => trigger.click());
     expect(getAccessibleElement(container, 'radio', '5 Days').getAttribute('aria-checked')).toBe('true');
-    dispatchKeyboard(getAccessibleElement(container, 'radio', '7 Days'), ' ');
+    dispatchPointerClick(getAccessibleElement(container, 'radio', '7 Days'));
 
     trigger = getAccessibleElement(container, 'button', 'Delivery Time: 7 Days');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(trigger);
     expect(container.querySelector('[role="radio"][aria-label="7 Days"]')).toBeNull();
+
+    act(() => trigger.click());
+    dispatchSeparatedKeyboard(getAccessibleElement(container, 'radio', '3 Days'), ' ');
+
+    trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
   });
 
-  it('restores focus after keyboard Close without changing the selected value', () => {
+  it('handles separated keyboard events without swallowing the next pointer Close', () => {
     let trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     act(() => trigger.click());
-    dispatchKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), 'Enter');
+    dispatchSeparatedKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), 'Enter');
 
     trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(trigger);
 
     act(() => trigger.click());
-    dispatchKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), ' ');
+    dispatchPointerClick(getAccessibleElement(container, 'button', 'Close Delivery Time options'));
+
+    trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    act(() => trigger.click());
+    dispatchSeparatedKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), ' ');
 
     trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
@@ -121,11 +142,11 @@ describe('Book Service web accessibility', () => {
   it('passes keyboard-selected values through the web booking payload', () => {
     let trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     act(() => trigger.click());
-    dispatchKeyboard(getAccessibleElement(container, 'radio', '5 Days'), ' ');
+    dispatchSeparatedKeyboard(getAccessibleElement(container, 'radio', '5 Days'), ' ');
 
     trigger = getAccessibleElement(container, 'button', 'Budget: ₱1,500');
     act(() => trigger.click());
-    dispatchKeyboard(getAccessibleElement(container, 'radio', '₱2,000'), 'Enter');
+    dispatchSeparatedKeyboard(getAccessibleElement(container, 'radio', '₱2,000'), 'Enter');
 
     const description = container.querySelector<HTMLTextAreaElement>('textarea');
     if (!description) throw new Error('Missing project description input');

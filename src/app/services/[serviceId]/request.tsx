@@ -103,8 +103,6 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
 }) {
   const triggerRef = useRef<ComponentRef<typeof Pressable>>(null);
   const pendingFocus = useRef(false);
-  const optionKeyboardPress = useRef(false);
-  const closeKeyboardPress = useRef(false);
 
   const focusTrigger = () => {
     if (Platform.OS !== 'web') return;
@@ -121,31 +119,15 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
     if (restoreFocus) pendingFocus.current = true;
     onToggle();
   };
-  const handleOptionPress = (option: SelectorOption) => {
-    if (optionKeyboardPress.current) {
-      optionKeyboardPress.current = false;
-      return;
-    }
-    onSelect(option.value);
-  };
   const handleOptionKeyDown = (event: KeyboardActivationEvent, option: SelectorOption) => {
     if (!activationKeys.has(event.key)) return;
     event.preventDefault();
-    optionKeyboardPress.current = true;
     pendingFocus.current = true;
     onSelect(option.value);
-  };
-  const handleClosePress = () => {
-    if (closeKeyboardPress.current) {
-      closeKeyboardPress.current = false;
-      return;
-    }
-    closeSelector(false);
   };
   const handleCloseKeyDown = (event: KeyboardActivationEvent) => {
     if (!activationKeys.has(event.key)) return;
     event.preventDefault();
-    closeKeyboardPress.current = true;
     closeSelector(true);
   };
 
@@ -178,7 +160,7 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
                 accessibilityState={{ checked: selected }}
                 aria-checked={selected}
                 {...(Platform.OS === 'web' ? { onKeyDown: (event: KeyboardActivationEvent) => handleOptionKeyDown(event, option) } satisfies KeyboardPressableProps : {})}
-                onPress={() => handleOptionPress(option)}
+                onPress={() => onSelect(option.value)}
                 style={[styles.option, selected && styles.optionSelected]}
               >
                 <AppText weight={selected ? 'semibold' : 'regular'}>{option.label}</AppText>
@@ -190,7 +172,7 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
             accessibilityRole="button"
             accessibilityLabel={`Close ${label} options`}
             {...(Platform.OS === 'web' ? { onKeyDown: handleCloseKeyDown } satisfies KeyboardPressableProps : {})}
-            onPress={handleClosePress}
+            onPress={() => closeSelector(false)}
             style={styles.closeOptions}
           >
             <AppText weight="medium" style={styles.closeOptionsText}>Close</AppText>
