@@ -15,7 +15,7 @@ export default function MessagesScreen() {
       <StatusBar style="light" />
       <AppHeader title="Messages" onBack={() => router.back()} />
       <FlatList data={projects} keyExtractor={(item) => item.id} renderItem={({ item }) => <ThreadRow booking={item} />} contentContainerStyle={styles.list} ListEmptyComponent={<View style={styles.empty}><Ionicons name="chatbubbles-outline" size={55} color={colors.muted} /><AppText weight="semibold" style={styles.emptyTitle}>No project conversations</AppText><AppText style={styles.emptyText}>A conversation becomes available when a service request or project is created.</AppText></View>} />
-      <BottomNav active="messages" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={currentAccount?.role === 'student' ? () => router.push('/portfolio/index') : undefined} onMessages={() => undefined} onSaved={currentAccount?.role === 'client' ? () => router.push({ pathname: '/marketplace', params: { saved: 'true' } }) : undefined} onProfile={() => router.push('/profile/index')} variant={currentAccount?.role === 'client' ? 'client' : 'student'} />
+      <BottomNav active="messages" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={currentAccount?.role === 'student' ? () => router.push('/portfolio') : undefined} onMessages={() => undefined} onSaved={currentAccount?.role === 'client' ? () => router.push({ pathname: '/marketplace', params: { saved: 'true' } }) : undefined} onProfile={() => router.push('/profile')} variant={currentAccount?.role === 'client' ? 'client' : 'student'} />
     </MobilePage>
   );
 

@@ -51,14 +51,14 @@ export default function MarketplaceScreen() {
         ListHeaderComponent={<AppText style={styles.results}>{filtered.length} service{filtered.length === 1 ? '' : 's'} found</AppText>}
         ListEmptyComponent={<AppText style={styles.empty}>{savedOnly ? 'No saved services match these filters.' : 'No matching services.'}</AppText>}
       />
-      <BottomNav active={savedOnly ? 'saved' : 'none'} onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages/index')} onCreate={currentAccount?.role === 'student' ? () => router.push('/services/new') : () => router.push('/project-posts/new')} onProfile={() => router.push('/profile/index')} variant="marketplace" />
+      <BottomNav active={savedOnly ? 'saved' : 'none'} onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages')} onCreate={currentAccount?.role === 'student' ? () => router.push('/services/new') : () => router.push('/project-posts/new')} onProfile={() => router.push('/profile')} variant="marketplace" />
     </MobilePage>
   );
 }
 
 function ServiceRow({ service, favorite, onToggleFavorite }: { service: Service; favorite: boolean; onToggleFavorite: () => void }) {
   return (
-    <Pressable onPress={() => router.push({ pathname: '/services/[serviceId]/index', params: { serviceId: service.id } })} style={styles.serviceRow}>
+    <Pressable onPress={() => router.push({ pathname: '/services/[serviceId]', params: { serviceId: service.id } })} style={styles.serviceRow}>
       <ReferenceCrop source={marketReference} sourceSize={{ width: 1920, height: 1080 }} crop={service.crop} style={styles.thumb} />
       <View style={{ flex: 1 }}>
         <AppText weight="semibold" style={styles.serviceTitle}>{service.title}</AppText><AppText style={styles.serviceSubtitle}>{service.subtitle}</AppText><Pressable accessibilityRole="link" onPress={(event) => { event.stopPropagation(); router.push({ pathname: '/profiles/[userId]', params: { userId: service.providerId } }); }}><AppText weight="medium" style={styles.provider}>By {service.provider}</AppText></Pressable>

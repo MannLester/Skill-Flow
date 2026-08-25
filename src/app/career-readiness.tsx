@@ -30,7 +30,7 @@ export default function CareerReadinessScreen() {
 function CategoryCard({ category }: { category: CareerReadinessCategory }) {
   const routeFor = () => {
     if (category.key === 'verification') router.push('/verification');
-    else if (category.key === 'portfolio') router.push('/portfolio/index');
+    else if (category.key === 'portfolio') router.push('/portfolio');
     else if (category.key === 'projects' || category.key === 'ratings') router.push('/projects');
     else if (category.key === 'certifications') router.push('/certifications/new');
     else router.push('/profile/edit');
