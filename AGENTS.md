@@ -40,8 +40,20 @@ Run the continuous improvement pipeline only when the user explicitly invokes it
 For implementation work, run the relevant automated tests plus:
 
 ```powershell
-npm run typecheck
-npm run lint
-npm test -- --watch=false
-npx expo-doctor
+npm run verify
+npm run doctor
 ```
+
+`npm run verify` is the automated gate: strict TypeScript, ESLint (including
+cyclomatic complexity capped at 10), the complete Jest suite, and an Android
+Expo export. Existing complexity debt is recorded in
+`eslint-suppressions.json`; new or increased suppressions fail lint. After
+removing a suppressed violation, run `npm run lint:prune` and commit the
+reduced baseline.
+
+The Android Expo export only proves that the JavaScript bundle and assets can
+be produced. It does not install the app, exercise native behavior, or prove
+that a user can complete a flow. Every user-visible change still requires a
+manual Android emulator/device walkthrough and screenshots of affected
+states when Android is available; use web as additional coverage or a
+disclosed fallback when it is not.

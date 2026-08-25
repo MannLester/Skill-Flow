@@ -96,12 +96,22 @@ development app locally.
 Quality checks:
 
 ```powershell
-npm run typecheck
-npm run lint
-npm test
-npx expo-doctor
-npx expo export --platform android
+npm run verify
+npm run doctor
 ```
+
+`npm run verify` is the moderately strict automated gate. It runs strict
+TypeScript, ESLint with cyclomatic complexity errors above 10, the complete
+Jest suite, and an Android Expo export. Inherited complexity debt is recorded
+in `eslint-suppressions.json`; new or increased violations fail lint. When a
+suppressed violation is fixed, run `npm run lint:prune` and commit the reduced
+baseline.
+
+The Android Expo export checks that the JavaScript bundle and assets can be
+produced. It does not install the app or prove native runtime behavior. Every
+user-visible change still needs a manual Android emulator/device walkthrough
+and screenshots of the affected states when Android is available. Web is
+additional coverage or a disclosed fallback when Android is unavailable.
 
 ## Implemented screens
 
