@@ -1,4 +1,4 @@
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -50,9 +50,10 @@ function baseline(violations) {
 function makeLintProject(max, source, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complexity-policy-'));
   const ignores = options.ignores ?? [];
+  const parserPath = require.resolve('@typescript-eslint/parser');
   fs.writeFileSync(
     path.join(root, 'eslint.config.js'),
-    `module.exports = [{ ignores: ${JSON.stringify(ignores)} }, { rules: { complexity: ['error', { max: ${max} }] } }];\n`,
+    `const parser = require(${JSON.stringify(parserPath)}); module.exports = [{ ignores: ${JSON.stringify(ignores)} }, { files: ['**/*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}'], languageOptions: { parser }, rules: { complexity: ['error', { max: ${max} }] } }];\n`,
     'utf8',
   );
   const filePath = path.join(root, options.file ?? 'probe.js');
@@ -142,6 +143,68 @@ describe('identity-aware complexity debt', () => {
       expect(collected.inlineExceptions).toEqual([
         expect.objectContaining({ file: 'probe.js', name: 'hidden', complexity: 12 }),
       ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(['js', 'jsx', 'cjs', 'mjs', 'ts', 'tsx', 'cts', 'mts'])(
+    'collects real complexity diagnostics from .%s files',
+    (extension) => {
+      const root = makeLintProject(10, complexFunctionSource, { file: `src/probe.${extension}` });
+      try {
+        expect(collectFromProject(root).violations).toEqual([
+          expect.objectContaining({ file: `src/probe.${extension}`, name: 'hidden', complexity: 12 }),
+        ]);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.each(['cts', 'mts'])('uses the repository ESLint config for real .%s diagnostics', (extension) => {
+    const result = spawnSync(
+      path.resolve('node_modules/.bin/eslint'),
+      ['--stdin', '--stdin-filename', `src/complexity-probe.${extension}`, '--format', 'json'],
+      { cwd: path.resolve('.'), input: complexFunctionSource, encoding: 'utf8' },
+    );
+    const [lintResult] = JSON.parse(result.stdout);
+    expect(result.status).toBe(1);
+    expect(lintResult.messages).toEqual([
+      expect.objectContaining({ ruleId: 'complexity', severity: 2 }),
+    ]);
+  });
+
+  it('rejects an imported active-code file symlinked to an ignored target', () => {
+    const root = makeLintProject(10, "import './symlinked-debt.js';\n", { file: 'src/index.js' });
+    try {
+      fs.mkdirSync(path.join(root, 'references'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'references', 'debt.js'), complexFunctionSource, 'utf8');
+      fs.symlinkSync(path.join('..', 'references', 'debt.js'), path.join(root, 'src', 'symlinked-debt.js'));
+      execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
+      execFileSync('git', ['add', 'src/index.js', 'src/symlinked-debt.js'], { cwd: root, stdio: 'ignore' });
+      expect(() => collectFromProject(root)).toThrow();
+      try {
+        collectFromProject(root);
+      } catch (error) {
+        expect(error.stderr).toContain('must not be a symbolic link: src/symlinked-debt.js');
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects directory symlinks nested in required active-code roots', () => {
+    const root = makeLintProject(10, 'export const safe = true;\n', { file: 'src/index.js' });
+    try {
+      fs.mkdirSync(path.join(root, 'references', 'linked'), { recursive: true });
+      fs.symlinkSync(path.join('..', 'references', 'linked'), path.join(root, 'src', 'linked'));
+      expect(() => collectFromProject(root)).toThrow();
+      try {
+        collectFromProject(root);
+      } catch (error) {
+        expect(error.stderr).toContain('must not be a symbolic link: src/linked');
+      }
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

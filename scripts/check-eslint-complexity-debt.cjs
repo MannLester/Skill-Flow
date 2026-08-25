@@ -84,21 +84,38 @@ function validateComplexityRule(rule) {
   return rule[1].max === 10 && Object.keys(rule[1]).length === 1;
 }
 
-function collectFiles(directory, files = []) {
+function rejectSymlink(entryPath, projectRoot) {
+  if (fs.lstatSync(entryPath).isSymbolicLink()) {
+    const relativePath = path.relative(projectRoot, entryPath).split(path.sep).join('/');
+    throw new Error(`Required active-code path must not be a symbolic link: ${relativePath}`);
+  }
+}
+
+function collectFiles(directory, files = [], projectRoot = directory) {
   if (!fs.existsSync(directory)) return files;
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) collectFiles(entryPath, files);
+    rejectSymlink(entryPath, projectRoot);
+    if (entry.isDirectory()) collectFiles(entryPath, files, projectRoot);
     else if (entry.isFile() && lintExtensions.has(path.extname(entry.name))) files.push(entryPath);
   }
   return files;
 }
 
 function requiredLintFiles(projectRoot) {
-  const nested = requiredDirectories.flatMap((directory) => collectFiles(path.join(projectRoot, directory)));
+  const nested = requiredDirectories.flatMap((directory) => {
+    const directoryPath = path.join(projectRoot, directory);
+    if (fs.existsSync(directoryPath)) rejectSymlink(directoryPath, projectRoot);
+    return collectFiles(directoryPath, [], projectRoot);
+  });
   const rootFiles = fs.readdirSync(projectRoot, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && lintExtensions.has(path.extname(entry.name)))
-    .map((entry) => path.join(projectRoot, entry.name));
+    .filter((entry) => lintExtensions.has(path.extname(entry.name)))
+    .map((entry) => {
+      const entryPath = path.join(projectRoot, entry.name);
+      rejectSymlink(entryPath, projectRoot);
+      return entry.isFile() ? entryPath : null;
+    })
+    .filter(Boolean);
   return [...nested, ...rootFiles];
 }
 

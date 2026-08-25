@@ -1,6 +1,10 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
 
+const typeScriptParser = expoConfig.find(
+  (config) => config.languageOptions?.parser?.meta?.name === 'typescript-eslint/parser',
+).languageOptions.parser;
+
 module.exports = defineConfig([
   expoConfig,
   {
@@ -14,6 +18,12 @@ module.exports = defineConfig([
   },
   {
     ignores: ['dist/*', 'references/*', '.agent-worktrees/*'],
+  },
+  {
+    files: ['**/*.cts', '**/*.mts'],
+    languageOptions: {
+      parser: typeScriptParser,
+    },
   },
   {
     rules: {
