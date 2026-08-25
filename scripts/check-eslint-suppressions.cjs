@@ -1,35 +1,35 @@
-const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const suppressionFileName = 'eslint-suppressions.json';
+const ceilingFileName = 'eslint-suppressions-ceiling.json';
 
-// This is the ceiling introduced with the first complexity baseline. Once the
-// baseline is merged, the checker compares against origin/main so a pruned
-// ceiling stays pruned on later branches.
-const initialSuppressions = {
-  'src/app/marketplace.tsx': { complexity: { count: 2 } },
-  'src/app/profile/edit.tsx': { complexity: { count: 1 } },
-  'src/app/profile/index.tsx': { complexity: { count: 1 } },
-  'src/app/profiles/[userId].tsx': { complexity: { count: 1 } },
-  'src/app/project-posts/[postId].tsx': { complexity: { count: 1 } },
-  'src/app/projects/[projectId].tsx': { complexity: { count: 2 } },
-  'src/app/projects/index.tsx': { complexity: { count: 1 } },
-  'src/app/register.tsx': { complexity: { count: 1 } },
-  'src/app/settings.tsx': { complexity: { count: 1 } },
-  'src/app/student-home.tsx': { complexity: { count: 1 } },
-  'src/app/verification.tsx': { complexity: { count: 1 } },
-  'src/components/project-post-form.tsx': { complexity: { count: 1 } },
-  'src/components/service-form.tsx': { complexity: { count: 1 } },
-  'src/components/ui.tsx': { complexity: { count: 1 } },
-  'src/context/session.tsx': { complexity: { count: 6 } },
-  'src/domain/career-readiness.ts': { complexity: { count: 1 } },
-};
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 
-function validateSuppressions(suppressions, ceiling = initialSuppressions) {
-  if (!suppressions || typeof suppressions !== 'object' || Array.isArray(suppressions)) {
-    return ['The suppression file must contain an object.'];
-  }
+function validateSuppressionMap(suppressions, label) {
+  if (!isRecord(suppressions)) return [`${label} must contain an object.`];
+
+  return Object.entries(suppressions).flatMap(([file, rules]) => {
+    if (!isRecord(rules)) return [`${label}: ${file} rules must be an object.`];
+
+    return Object.entries(rules).flatMap(([rule, entry]) => {
+      const count = entry?.count;
+      if (!isRecord(entry) || !Number.isInteger(count) || count < 1) {
+        return [`${label}: ${file} (${rule}) count must be a positive integer.`];
+      }
+      return [];
+    });
+  });
+}
+
+function validateSuppressions(suppressions, ceiling) {
+  const shapeIssues = [
+    ...validateSuppressionMap(suppressions, suppressionFileName),
+    ...validateSuppressionMap(ceiling, ceilingFileName),
+  ];
+  if (shapeIssues.length > 0) return shapeIssues;
 
   return Object.entries(suppressions).flatMap(([file, rules]) => (
     validateSuppressionFile(file, rules, ceiling[file])
@@ -38,9 +38,6 @@ function validateSuppressions(suppressions, ceiling = initialSuppressions) {
 
 function validateSuppressionFile(file, rules, ceilingRules) {
   if (!ceilingRules) return [`${file}: new suppression file is not allowed.`];
-  if (!rules || typeof rules !== 'object' || Array.isArray(rules)) {
-    return [`${file}: suppression rules must be an object.`];
-  }
 
   return Object.entries(rules).flatMap(([rule, entry]) => (
     validateSuppressionRule(file, rule, entry, ceilingRules[rule])
@@ -49,54 +46,90 @@ function validateSuppressionFile(file, rules, ceilingRules) {
 
 function validateSuppressionRule(file, rule, entry, ceilingEntry) {
   if (!ceilingEntry) return [`${file} (${rule}): new suppression rule is not allowed.`];
-
-  const count = entry?.count;
-  if (!Number.isInteger(count) || count < 1) {
-    return [`${file} (${rule}): suppression count must be a positive integer.`];
-  }
-  if (count > ceilingEntry.count) {
-    return [`${file} (${rule}): suppression count increased from ${ceilingEntry.count} to ${count}.`];
+  if (entry.count > ceilingEntry.count) {
+    return [`${file} (${rule}): suppression count increased from ${ceilingEntry.count} to ${entry.count}.`];
   }
   return [];
 }
 
-function readCurrentSuppressions(projectRoot) {
-  const filePath = path.join(projectRoot, suppressionFileName);
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+function validateSynchronizedCeiling(suppressions, ceiling) {
+  const issues = validateSuppressions(suppressions, ceiling);
+  if (issues.length > 0) return issues;
+
+  return Object.entries(ceiling).flatMap(([file, rules]) => (
+    Object.entries(rules).flatMap(([rule, entry]) => {
+      const currentCount = suppressions[file]?.[rule]?.count ?? 0;
+      if (currentCount === entry.count) return [];
+      return [
+        `${file} (${rule}): committed ceiling ${entry.count} is stale; current count is ${currentCount}. Run npm run lint:prune.`,
+      ];
+    })
+  ));
 }
 
-function readMergedCeiling(projectRoot) {
+function readJsonFile(projectRoot, fileName, readFile = fs.readFileSync) {
+  let contents;
   try {
-    const content = execFileSync('git', ['show', `origin/main:${suppressionFileName}`], {
-      cwd: projectRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    return JSON.parse(content);
-  } catch {
-    return initialSuppressions;
+    contents = readFile(path.join(projectRoot, fileName), 'utf8');
+  } catch (error) {
+    throw new Error(`Unable to read required ${fileName}: ${error.message}`);
   }
+
+  try {
+    return JSON.parse(contents);
+  } catch (error) {
+    throw new Error(`Unable to parse ${fileName}: ${error.message}`);
+  }
+}
+
+function loadSuppressionState(projectRoot, readFile = fs.readFileSync) {
+  return {
+    suppressions: readJsonFile(projectRoot, suppressionFileName, readFile),
+    ceiling: readJsonFile(projectRoot, ceilingFileName, readFile),
+  };
+}
+
+function formatIssues(issues) {
+  const details = issues.map((issue) => `- ${issue}`).join('\n');
+  return `${suppressionFileName} exceeds or is out of sync with the committed complexity ceiling:\n${details}`;
+}
+
+function ratchetCeiling(projectRoot, readFile = fs.readFileSync, writeFile = fs.writeFileSync) {
+  const { suppressions, ceiling } = loadSuppressionState(projectRoot, readFile);
+  const issues = validateSuppressions(suppressions, ceiling);
+  if (issues.length > 0) throw new Error(formatIssues(issues));
+
+  writeFile(
+    path.join(projectRoot, ceilingFileName),
+    `${JSON.stringify(suppressions, null, 2)}\n`,
+    'utf8',
+  );
 }
 
 function main() {
   const projectRoot = process.cwd();
-  let suppressions;
   try {
-    suppressions = readCurrentSuppressions(projectRoot);
+    if (process.argv.includes('--ratchet')) {
+      ratchetCeiling(projectRoot);
+      return;
+    }
+
+    const { suppressions, ceiling } = loadSuppressionState(projectRoot);
+    const issues = validateSynchronizedCeiling(suppressions, ceiling);
+    if (issues.length > 0) throw new Error(formatIssues(issues));
   } catch (error) {
-    console.error(`Unable to read ${suppressionFileName}: ${error.message}`);
+    console.error(error.message);
     process.exitCode = 1;
-    return;
   }
-
-  const issues = validateSuppressions(suppressions, readMergedCeiling(projectRoot));
-  if (issues.length === 0) return;
-
-  console.error(`${suppressionFileName} exceeds the committed complexity ceiling:`);
-  for (const issue of issues) console.error(`- ${issue}`);
-  process.exitCode = 1;
 }
 
-module.exports = { initialSuppressions, validateSuppressions };
+module.exports = {
+  ceilingFileName,
+  loadSuppressionState,
+  ratchetCeiling,
+  suppressionFileName,
+  validateSuppressions,
+  validateSynchronizedCeiling,
+};
 
 if (require.main === module) main();
