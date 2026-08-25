@@ -108,14 +108,12 @@ function requiredLintFiles(projectRoot) {
     if (fs.existsSync(directoryPath)) rejectSymlink(directoryPath, projectRoot);
     return collectFiles(directoryPath, [], projectRoot);
   });
-  const rootFiles = fs.readdirSync(projectRoot, { withFileTypes: true })
-    .filter((entry) => lintExtensions.has(path.extname(entry.name)))
-    .map((entry) => {
-      const entryPath = path.join(projectRoot, entry.name);
-      rejectSymlink(entryPath, projectRoot);
-      return entry.isFile() ? entryPath : null;
-    })
-    .filter(Boolean);
+  const rootFiles = [];
+  for (const entry of fs.readdirSync(projectRoot, { withFileTypes: true })) {
+    const entryPath = path.join(projectRoot, entry.name);
+    rejectSymlink(entryPath, projectRoot);
+    if (entry.isFile() && lintExtensions.has(path.extname(entry.name))) rootFiles.push(entryPath);
+  }
   return [...nested, ...rootFiles];
 }
 

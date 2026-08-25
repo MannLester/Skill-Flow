@@ -128,9 +128,9 @@ exception could remain; the current baseline contains none.
 The lint gate independently inventories active `.js`, `.jsx`, `.cjs`, `.mjs`,
 `.ts`, `.tsx`, `.cts`, and `.mts` files under `src/`, `__tests__/`, `scripts/`,
 an optional `convex/`, and the repository root. Broad or exact ignore rules
-cannot hide those files. Symlinks inside active-code directories are rejected,
-including directory symlinks, so imported code cannot redirect into an ignored
-path. Generated output, supplied
+cannot hide those files. Root-level symlinks and symlinks inside active-code
+directories are rejected, including extensionless and directory symlinks, so
+imported code cannot redirect into an ignored path. Generated output, supplied
 visual references, dependencies, and isolated agent worktrees remain excluded.
 
 The Android Expo export checks that the JavaScript bundle and assets can be

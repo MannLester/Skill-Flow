@@ -210,6 +210,51 @@ describe('identity-aware complexity debt', () => {
     }
   });
 
+  it('rejects an executable extensionless root symlink imported by root code', () => {
+    const root = makeLintProject(10, "require('./payload');\n", {
+      file: 'probe.js',
+      ignores: ['references/**'],
+    });
+    try {
+      fs.mkdirSync(path.join(root, 'references'), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, 'references', 'debt.js'),
+        `${complexFunctionSource}module.exports = 'executed';\n`,
+        'utf8',
+      );
+      fs.symlinkSync(path.join('references', 'debt.js'), path.join(root, 'payload'));
+      execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
+      execFileSync('git', ['add', 'probe.js', 'payload'], { cwd: root, stdio: 'ignore' });
+      expect(execFileSync(process.execPath, ['probe.js'], { cwd: root, encoding: 'utf8' })).toBe('');
+      expect(() => collectFromProject(root)).toThrow();
+      try {
+        collectFromProject(root);
+      } catch (error) {
+        expect(error.stderr).toContain('must not be a symbolic link: payload');
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ['outside-root directory', os.tmpdir()],
+    ['root cycle', '.'],
+  ])('rejects a root symlink without following its %s target', (_, target) => {
+    const root = makeLintProject(10, 'module.exports = true;\n', { file: 'probe.js' });
+    try {
+      fs.symlinkSync(target, path.join(root, 'payload'));
+      expect(() => collectFromProject(root)).toThrow();
+      try {
+        collectFromProject(root);
+      } catch (error) {
+        expect(error.stderr).toContain('must not be a symbolic link: payload');
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('rejects max 100 before collecting or pruning debt', async () => {
     const root = makeLintProject(100, 'function simple() { return true; }\n');
     try {

@@ -77,8 +77,9 @@ ESLint must cover every `.js`, `.jsx`, `.cjs`, `.mjs`, `.ts`, `.tsx`, `.cts`,
 and `.mts` file in `src/`, `__tests__/`, `scripts/`, an optional `convex/`
 directory, and the repository root. The gate
 enumerates those paths independently and fails if ignore rules exclude them.
-Symlinks anywhere inside these active-code directories, including directory
-symlinks, are rejected so code cannot be redirected into an ignored path.
+Symlinks at the repository root or anywhere inside these active-code
+directories, including extensionless and directory symlinks, are rejected so
+code cannot be redirected into an ignored path.
 Generated `dist/`, visual `references/`, dependencies, and isolated
 `.agent-worktrees/` remain outside the active-code lint boundary.
 

@@ -64,7 +64,7 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/references/",
-      "<rootDir>/.agent-worktrees/"
+      "<rootDir>/\\.agent-worktrees/"
     ]
   },
   "private": true
