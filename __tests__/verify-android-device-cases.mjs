@@ -290,6 +290,62 @@ test('requires both an owned Metro announcement and the Metro status protocol', 
     ),
     false,
   );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:8099/?url=http%3A%2F%2Flocalhost%3A80990',
+      8099,
+    ),
+    false,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:8098/?url=http%3A%2F%2Flocalhost%3A8099',
+      8099,
+    ),
+    true,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:80990/?url=http%3A%2F%2Flocalhost%3A8099',
+      8099,
+    ),
+    false,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:8099/?url=http://localhost:80990',
+      8099,
+    ),
+    false,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:8099/?url=http%253A%252F%252Flocalhost%253A8099',
+      8099,
+    ),
+    false,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:8099/?url=%25',
+      8099,
+    ),
+    false,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:8099/?url=http%3A%2F%2Flocalhost%3A8099&url=http%3A%2F%2Flocalhost%3A8099',
+      8099,
+    ),
+    false,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client:8099/?url=http%3A%2F%2Flocalhost%3A8099&URL=http%3A%2F%2Flocalhost%3A80990',
+      8099,
+    ),
+    false,
+  );
   assert.equal(runner.metroAnnouncedReady('unrelated listener on :8099', 8099), false);
   assert.equal(runner.isMetroProtocolResponse(200, 'packager-status:running\n', '/repo', '/repo'), true);
   assert.equal(runner.isMetroProtocolResponse(200, 'generic ok', '/repo', '/repo'), false);

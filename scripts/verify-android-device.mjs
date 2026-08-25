@@ -904,9 +904,11 @@ export function metroAnnouncedReady(logText, port) {
 function announcementUsesPort(announcement, port) {
   try {
     const url = new URL(announcement);
-    if (url.port === String(port)) return true;
-    const nested = url.searchParams.get('url');
-    return nested ? new URL(nested).port === String(port) : false;
+    const nested = [...url.searchParams.entries()]
+      .filter(([key]) => key.toLowerCase() === 'url')
+      .map(([, value]) => value);
+    if (nested.length > 1) return false;
+    return new URL(nested[0] ?? url.href).port === String(port);
   } catch {
     return false;
   }
