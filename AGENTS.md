@@ -47,18 +47,23 @@ npm run doctor
 `npm run verify` is the automated gate: strict TypeScript, ESLint (including
 cyclomatic complexity capped at 10), the complete Jest suite, and an Android
 Expo export. Existing complexity debt is recorded in
-`eslint-suppressions.json` with a matching committed ceiling. Lint compares
-both files against the exact fetched `origin/main`, so paired additions or
-increases fail and stale feature branches must rebase. Before verification,
-fetch the base branch. CI must set `ESLINT_SUPPRESSIONS_BASE_SHA` to the event's
+`eslint-suppressions.json`, a matching committed ceiling, and
+`eslint-complexity-baseline.json`, which identifies each inherited complex
+function by file, location, complexity, and source hash. Lint compares these
+artifacts against the exact fetched `origin/main`, so replacing, moving,
+renaming, or adding a complex function fails even when a per-file count stays
+constant. Paired additions or increases fail, and stale feature branches must
+rebase. Before verification, fetch the base branch. CI must set
+`ESLINT_SUPPRESSIONS_BASE_SHA` to the event's
 full base commit SHA; it may set `ESLINT_SUPPRESSIONS_BASE_REF` when the fetched
 ref is not `origin/main`. Missing, mismatched, malformed, or incomplete base
 state fails closed, including shallow checkouts that did not fetch the base.
 During initial adoption only, an artifact-free base is accepted when it
 descends from the pinned bootstrap commit and the synchronized pair still
 matches the pinned bootstrap digest.
-After removing a violation, run `npm run lint:prune` and commit both reduced
-suppression files. The check is independent of squash-versus-merge strategy.
+After removing a violation, run `npm run lint:prune` and commit all reduced
+complexity baseline files. The check is independent of squash-versus-merge
+strategy.
 
 The Android Expo export only proves that the JavaScript bundle and assets can
 be produced. It does not install the app, exercise native behavior, or prove

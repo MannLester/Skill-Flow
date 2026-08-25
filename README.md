@@ -103,17 +103,19 @@ npm run doctor
 `npm run verify` is the moderately strict automated gate. It runs strict
 TypeScript, ESLint with cyclomatic complexity errors above 10, the complete
 Jest suite, and an Android Expo export. Inherited complexity debt is recorded
-in `eslint-suppressions.json` with a matching committed ceiling. Lint compares
-both files against the exact fetched `origin/main`, so paired additions or
-increases fail and stale feature branches must rebase. Run
-`git fetch origin main` before local verification. CI must fetch the base and set
+in `eslint-suppressions.json`, a matching committed ceiling, and the
+function-level `eslint-complexity-baseline.json`. Lint compares these artifacts
+against the exact fetched `origin/main`, so a complex function cannot be
+replaced, moved, renamed, or added while hiding behind an unchanged per-file
+count. Paired additions or increases fail, and stale feature branches must
+rebase. Run `git fetch origin main` before local verification. CI must fetch the base and set
 `ESLINT_SUPPRESSIONS_BASE_SHA` to the event's full base commit SHA; set
 `ESLINT_SUPPRESSIONS_BASE_REF` too if the fetched ref is not `origin/main`.
 Missing, mismatched, malformed, or incomplete base state fails closed. When a
 base is still artifact-free during initial adoption, it must descend from the
 pinned bootstrap commit and the synchronized pair must match the pinned
 bootstrap digest. After fixing a violation, run `npm run lint:prune` and commit
-both reduced suppression files. Both squash merges and merge commits are
+all reduced complexity baseline files. Both squash merges and merge commits are
 supported.
 
 The Android Expo export checks that the JavaScript bundle and assets can be

@@ -8,11 +8,28 @@ const {
   checkProject,
   ratchetCeiling,
 } = require('../scripts/check-eslint-suppressions.cjs');
+const {
+  checkComplexityDebt,
+  pruneComplexityDebt,
+} = require('../scripts/check-eslint-complexity-debt.cjs');
 
 const suppressionFile = 'eslint-suppressions.json';
 const ceilingFile = 'eslint-suppressions-ceiling.json';
+const identityFile = 'eslint-complexity-baseline.json';
 const baseRef = 'refs/remotes/origin/main';
 const baseline = { 'src/example.ts': { complexity: { count: 2 } } };
+const identityBaseline = {
+  version: 1,
+  violations: [{
+    file: 'src/example.ts',
+    line: 1,
+    column: 1,
+    nodeType: 'FunctionDeclaration',
+    name: 'example',
+    complexity: 12,
+    sourceHash: 'a'.repeat(64),
+  }],
+};
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim();
@@ -36,6 +53,10 @@ function writePair(root, map = baseline) {
   writeMap(root, ceilingFile, map);
 }
 
+function writeIdentityBaseline(root, value = identityBaseline) {
+  fs.writeFileSync(path.join(root, identityFile), JSON.stringify(value, null, 2), 'utf8');
+}
+
 function commit(root, message) {
   git(root, ['add', '.']);
   git(root, ['commit', '-m', message]);
@@ -48,6 +69,7 @@ function initRepo() {
   git(root, ['config', 'user.email', 'test@example.com']);
   git(root, ['config', 'user.name', 'Suppression Test']);
   writePair(root);
+  writeIdentityBaseline(root);
   const sha = commit(root, 'base');
   git(root, ['update-ref', baseRef, sha]);
   return root;
@@ -207,5 +229,85 @@ describe('ESLint suppression Git base contract', () => {
     expect(JSON.parse(fs.readFileSync(path.join(root, ceilingFile), 'utf8'))).toEqual(
       { 'src/example.ts': { complexity: { count: 1 } } },
     );
+  });
+
+  it('uses existing identity artifacts and rejects paired growth or malformed base data', async () => {
+    const root = initRepo();
+    roots.push(root);
+    const baseSha = git(root, ['rev-parse', baseRef]);
+    git(root, ['checkout', '-b', 'feature']);
+    await expect(checkComplexityDebt(root, {
+      baseRef,
+      baseSha,
+      liveBaseline: identityBaseline,
+    })).resolves.toBeUndefined();
+
+    const added = {
+      version: 1,
+      violations: [...identityBaseline.violations, {
+        ...identityBaseline.violations[0],
+        line: 2,
+        sourceHash: 'b'.repeat(64),
+      }],
+    };
+    writeIdentityBaseline(root, added);
+    await expect(checkComplexityDebt(root, { baseRef, baseSha, liveBaseline: added })).rejects.toThrow(
+      'new complexity debt: src/example.ts:2',
+    );
+
+    git(root, ['checkout', 'main']);
+    fs.writeFileSync(path.join(root, identityFile), '{bad', 'utf8');
+    const malformedSha = commit(root, 'malformed identity baseline');
+    git(root, ['update-ref', baseRef, malformedSha]);
+    writeIdentityBaseline(root);
+    await expect(checkComplexityDebt(root, {
+      baseRef,
+      baseSha: malformedSha,
+      liveBaseline: identityBaseline,
+    })).rejects.toThrow('Unable to parse');
+  });
+
+  it('prunes removed complexity identities without allowing additions', async () => {
+    const root = initRepo();
+    roots.push(root);
+    const baseSha = git(root, ['rev-parse', baseRef]);
+    git(root, ['checkout', '-b', 'feature']);
+    const reduced = { version: 1, violations: [] };
+    await pruneComplexityDebt(root, { baseRef, baseSha, liveBaseline: reduced });
+    expect(JSON.parse(fs.readFileSync(path.join(root, identityFile), 'utf8'))).toEqual(reduced);
+    await expect(checkComplexityDebt(root, {
+      baseRef,
+      baseSha,
+      liveBaseline: reduced,
+    })).resolves.toBeUndefined();
+  });
+
+  it('fails closed for a missing identity base and a stale feature head', async () => {
+    const missingRoot = initRepo();
+    roots.push(missingRoot);
+    fs.unlinkSync(path.join(missingRoot, identityFile));
+    const missingSha = commit(missingRoot, 'remove identity baseline');
+    git(missingRoot, ['update-ref', baseRef, missingSha]);
+    git(missingRoot, ['checkout', '-b', 'feature']);
+    writeIdentityBaseline(missingRoot);
+    await expect(checkComplexityDebt(missingRoot, {
+      baseRef,
+      baseSha: missingSha,
+      liveBaseline: identityBaseline,
+    })).rejects.toThrow(`is missing ${identityFile}`);
+
+    const staleRoot = initRepo();
+    roots.push(staleRoot);
+    git(staleRoot, ['checkout', '-b', 'feature']);
+    git(staleRoot, ['checkout', 'main']);
+    fs.writeFileSync(path.join(staleRoot, 'advance.txt'), 'advance', 'utf8');
+    const advancedSha = commit(staleRoot, 'advance main');
+    git(staleRoot, ['update-ref', baseRef, advancedSha]);
+    git(staleRoot, ['checkout', 'feature']);
+    await expect(checkComplexityDebt(staleRoot, {
+      baseRef,
+      baseSha: advancedSha,
+      liveBaseline: identityBaseline,
+    })).rejects.toThrow('HEAD does not contain base');
   });
 });
