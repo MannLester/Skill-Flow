@@ -163,9 +163,15 @@ host port, an existing reverse mapping, a pre-existing native tree, an
 ambiguous APK, or a package/version/runtime mismatch. It never uninstalls or
 clears app data.
 
+Child Expo, Gradle, and Metro processes receive only a fixed toolchain/OS
+environment allowlist; account/production variables are not forwarded, and
+Expo dotenv/client-variable loading is disabled for this verification run.
+
 The command generates a fresh native project, marks the debug APK with the full
 Git SHA, analyzes and hashes that exact APK, installs it with `adb -s`, starts
-one owned Metro process, launches the resolved SkillFlow activity, checks
+one owned Metro process, requires both its directly captured readiness
+announcement and Metro's exact project-root-bound `/status` response, atomically claims the
+reverse with `--no-rebind`, launches the resolved SkillFlow activity, checks
 foreground/runtime logs, and saves a screenshot. The final redacted manifest,
 APK, bounded logs, and PNG remain in the unique
 `skillflow-android-<sha>-*` directory printed under the system temporary

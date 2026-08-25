@@ -38,6 +38,14 @@ const PREFIXED_TOKEN_PATTERN = /\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9_-]+\b/gi;
 const PROVIDER_TOKEN_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|npm_[A-Za-z0-9]{8,}|xox[baprs]-[A-Za-z0-9-]{8,})\b/gi;
 const SENSITIVE_ASSIGNMENT_PATTERN = /((?:["']?[A-Za-z0-9_.-]*(?:secret|token|password|credential|api[_-]?key|access[_-]?key|private[_-]?key|deploy[_-]?key|publishable[_-]?key)[A-Za-z0-9_.-]*["']?)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi;
 const SENSITIVE_ENV_PATTERN = /(?:secret|token|password|credential|api[_-]?key|access[_-]?key|private[_-]?key|deploy[_-]?key|publishable[_-]?key|clerk|convex|url)/i;
+const CHILD_ENV_ALLOWLIST = new Set([
+  'ANDROID_HOME', 'ANDROID_NDK_HOME', 'ANDROID_SDK_ROOT',
+  'APPDATA', 'COMSPEC', 'HOME', 'LANG', 'LC_ALL', 'LC_CTYPE',
+  'LOCALAPPDATA', 'NO_COLOR', 'PATH', 'PATHEXT', 'SYSTEMROOT',
+  'TEMP', 'TERM', 'TMP', 'TMPDIR', 'USERPROFILE', 'WINDIR',
+]);
+const CHILD_ADDITION_ALLOWLIST = new Set(['NODE_BINARY']);
+const ANSI_PATTERN = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 
 export function parseInputs(env) {
   const serial = env.SKILLFLOW_ANDROID_SERIAL ?? '';
@@ -73,9 +81,20 @@ function parsePort(portText) {
 }
 
 export function sanitizedEnvironment(env, additions = {}) {
-  const clean = { ...env, ...additions };
-  delete clean.ANDROID_SERIAL;
-  return clean;
+  const clean = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (CHILD_ENV_ALLOWLIST.has(key.toUpperCase()) && typeof value === 'string') clean[key] = value;
+  }
+  for (const key of CHILD_ADDITION_ALLOWLIST) {
+    if (typeof additions[key] === 'string') clean[key] = additions[key];
+  }
+  return {
+    ...clean,
+    CI: '1',
+    NODE_ENV: 'development',
+    EXPO_NO_DOTENV: '1',
+    EXPO_NO_CLIENT_ENV_VARS: '1',
+  };
 }
 
 export function parseAdbDevices(output, serial) {
@@ -100,6 +119,25 @@ export function assertNoReverseMapping(output, port) {
     return columns.length >= 2 && columns[columns.length - 2] === target;
   });
   if (conflict) throw new Error('Device reverse mapping ' + target + ' already exists and its owner is unknown.');
+}
+
+export function createOwnedReverse({ adapter, adb, serial, port, cleanup }) {
+  const target = 'tcp:' + port;
+  const before = adbRun(adapter, adb, serial, ['reverse', '--list']).stdout;
+  assertNoReverseMapping(before, port);
+  adbRun(adapter, adb, serial, ['reverse', '--no-rebind', target, target]);
+  cleanup.reverseCreated = true;
+  const after = adbRun(adapter, adb, serial, ['reverse', '--list']).stdout;
+  assertExactReverseMapping(after, serial, target);
+}
+
+function assertExactReverseMapping(output, serial, target) {
+  const matches = String(output).split(/\r?\n/).filter((line) => {
+    const columns = line.trim().split(/\s+/);
+    return columns.length >= 3 && columns[0] === serial
+      && columns[columns.length - 2] === target && columns[columns.length - 1] === target;
+  });
+  if (matches.length !== 1) throw new Error('Owned device reverse mapping could not be verified exactly.');
 }
 
 export function mutateVersionName(source, baseVersion, expectedSha) {
@@ -470,7 +508,7 @@ function verifyDevice(inputs, adb, adapter) {
 }
 
 function buildArtifact({ inputs, env, repoRoot, adapter, tools, cleanup, state }) {
-  const childEnv = sanitizedEnvironment(env, { CI: '1', NODE_BINARY: process.execPath });
+  const childEnv = sanitizedEnvironment(env, { NODE_BINARY: process.execPath });
   const configText = adapter.run(
     process.execPath,
     [tools.expo, 'config', '--json'],
@@ -582,7 +620,7 @@ function installArtifact({ inputs, adapter, tools, artifact, state }) {
 }
 
 async function startAndCapture({ inputs, env, repoRoot, adapter, tools, cleanup, state }) {
-  const childEnv = sanitizedEnvironment(env, { CI: '1', NODE_BINARY: process.execPath });
+  const childEnv = sanitizedEnvironment(env, { NODE_BINARY: process.execPath });
   const metroLog = path.join(state.paths.evidenceDirectory, 'metro.log');
   cleanup.metro = adapter.spawnMetro(
     process.execPath,
@@ -597,14 +635,12 @@ async function startAndCapture({ inputs, env, repoRoot, adapter, tools, cleanup,
   );
   state.metro.pid = cleanup.metro.pid;
   state.paths.metroLog = metroLog;
-  await adapter.waitForMetro(inputs.port, cleanup.metro, READY_TIMEOUT_MS);
-  adbRun(
-    adapter,
-    tools.adb,
-    inputs.serial,
-    ['reverse', 'tcp:' + inputs.port, 'tcp:' + inputs.port],
-  );
-  cleanup.reverseCreated = true;
+  await adapter.waitForMetro(inputs.port, cleanup.metro, READY_TIMEOUT_MS, repoRoot);
+  state.metro.readiness = {
+    announcedByPid: cleanup.metro.pid,
+    protocol: 'root-bound GET /status => packager-status:running',
+  };
+  createOwnedReverse({ adapter, adb: tools.adb, serial: inputs.serial, port: inputs.port, cleanup });
   const activity = resolveActivity(adapter, tools.adb, inputs.serial);
   adbRun(adapter, tools.adb, inputs.serial, ['shell', 'am', 'force-stop', APP_ID]);
   const launch = adbRun(
@@ -853,7 +889,36 @@ export function createBoundedLogCapture({ logPath, maxBytes, fsAdapter, redact =
     return snapshot();
   };
   snapshot();
-  return { append, snapshot };
+  const hasReadiness = (port) => metroAnnouncedReady(retained.toString('utf8'), port);
+  return { append, snapshot, hasReadiness };
+}
+
+export function metroAnnouncedReady(logText, port) {
+  const clean = String(logText).replace(ANSI_PATTERN, '');
+  return clean.split(/\r?\n/).some((line) => {
+    if (!/(?:Metro waiting on|Waiting on)/i.test(line)) return false;
+    return line.includes(':' + port) || line.toUpperCase().includes('%3A' + port);
+  });
+}
+
+export function isMetroProtocolResponse(statusCode, body, rootHeader, expectedRoot) {
+  if (statusCode < 200 || statusCode >= 400 || String(body).trim() !== 'packager-status:running') return false;
+  try {
+    return decodeURI(String(rootHeader)) === expectedRoot;
+  } catch {
+    return false;
+  }
+}
+
+export function assertOwnedMetroChild(child) {
+  if (!Number.isInteger(child?.pid) || child.pid <= 0 || !child.metroCapture?.hasReadiness) {
+    throw new Error('Owned Metro process identity and direct output capture are required.');
+  }
+}
+
+export function formatEmergencySummary(reason, outcome, sensitiveValues = []) {
+  const safeReason = redactText(reason, sensitiveValues);
+  return safeReason + ': ' + outcome + '. SIGKILL cannot run cleanup handlers.\n';
 }
 
 function collectSensitiveValues(env, serial) {
@@ -880,6 +945,11 @@ function finishEmergencyState(state, reason, cleanupSucceeded) {
   finishState(state, outcome);
   writeManifest(defaultFs, state);
   return outcome;
+}
+
+function emergencySensitiveValues(state, env) {
+  if (state) return state[REDACTION_VALUES] ?? [];
+  return collectSensitiveValues(env, env.SKILLFLOW_ANDROID_SERIAL);
 }
 
 function finishState(state, result) {
@@ -934,6 +1004,9 @@ const defaultAdapter = {
   checkPort(port) {
     return checkPortAvailability(port);
   },
+  requestMetro(port, expectedRoot) {
+    return requestMetro(port, expectedRoot);
+  },
   spawnMetro(command, args, options) {
     const capture = createBoundedLogCapture({
       logPath: options.logPath,
@@ -960,14 +1033,16 @@ const defaultAdapter = {
     child.metroCapture = capture;
     return child;
   },
-  async waitForMetro(port, child, timeoutMs) {
+  async waitForMetro(port, child, timeoutMs, expectedRoot) {
+    assertOwnedMetroChild(child);
+    if (!expectedRoot) throw new Error('Owned Metro project root is required.');
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (child.metroCapture?.error) throw child.metroCapture.error;
       if (child.exitCode !== null) {
         throw new Error('Owned Metro exited before readiness (' + child.exitCode + ').');
       }
-      if (await requestMetro(port)) return;
+      if (child.metroCapture?.hasReadiness(port) && await this.requestMetro(port, expectedRoot)) return;
       await this.sleep(500);
     }
     throw new Error('Owned Metro did not become ready within ' + timeoutMs + 'ms.');
@@ -1004,18 +1079,25 @@ function normalizeCommandResult(command, result, options) {
   return { status: result.status, stdout, stderr, combined };
 }
 
-async function requestMetro(port) {
+async function requestMetro(port, expectedRoot) {
   return new Promise((resolve) => {
+    let body = '';
     const request = http.get(
       {
         host: '127.0.0.1',
         port,
-        path: '/_expo/open?platform=android',
+        path: '/status',
         timeout: 1_000,
       },
       (response) => {
-        response.resume();
-        resolve(response.statusCode >= 200 && response.statusCode < 400);
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => { body = (body + chunk).slice(0, 64); });
+        response.on('end', () => resolve(isMetroProtocolResponse(
+          response.statusCode,
+          body,
+          response.headers['x-react-native-project-root'],
+          expectedRoot,
+        )));
       },
     );
     request.on('timeout', () => {
@@ -1060,7 +1142,11 @@ async function runCli() {
       cleanupSucceeded = false;
     }
     const outcome = finishEmergencyState(activeState, reason, cleanupSucceeded) ?? 'FAIL';
-    process.stderr.write(reason + ': ' + outcome + '. SIGKILL cannot run cleanup handlers.\n');
+    process.stderr.write(formatEmergencySummary(
+      reason,
+      outcome,
+      emergencySensitiveValues(activeState, process.env),
+    ));
     process.exit(outcome === 'PASS' ? 0 : 1);
   };
   for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {

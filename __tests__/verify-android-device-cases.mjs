@@ -9,7 +9,7 @@ import * as runner from '../scripts/verify-android-device.mjs';
 
 const sha = 'a'.repeat(40);
 
-test('validates full SHA, safe serial, port, and inherited environment', () => {
+test('validates full SHA, safe serial, port, and a strict child environment', () => {
   const parsed = runner.parseInputs({
     SKILLFLOW_ANDROID_SERIAL: 'device-1234',
     SKILLFLOW_ANDROID_EXPECTED_SHA: sha.toUpperCase(),
@@ -33,10 +33,25 @@ test('validates full SHA, safe serial, port, and inherited environment', () => {
     SKILLFLOW_ANDROID_EXPECTED_SHA: sha,
     SKILLFLOW_ANDROID_METRO_PORT: '80',
   }), /1024/);
-  assert.deepEqual(
-    runner.sanitizedEnvironment({ ANDROID_SERIAL: 'wrong', SAFE: 'yes' }, { CI: '1' }),
-    { SAFE: 'yes', CI: '1' },
-  );
+  const childEnv = runner.sanitizedEnvironment({
+    PATH: '/safe/bin',
+    HOME: '/safe/home',
+    ANDROID_SERIAL: 'wrong',
+    EXPO_TOKEN: 'fake-account-token',
+    CLERK_SECRET_KEY: 'fake-clerk-secret',
+    EXPO_PUBLIC_CONVEX_URL: 'https://prod.example.test',
+    SAFE: 'not-allowlisted',
+  }, { NODE_BINARY: '/safe/node', CLERK_SECRET_KEY: 'injected-secret' });
+  assert.deepEqual(childEnv, {
+    HOME: '/safe/home',
+    PATH: '/safe/bin',
+    NODE_BINARY: '/safe/node',
+    CI: '1',
+    NODE_ENV: 'development',
+    EXPO_NO_DOTENV: '1',
+    EXPO_NO_CLIENT_ENV_VARS: '1',
+  });
+  assert.equal(runner.sanitizedEnvironment({ Path: 'C:\\safe' }).Path, 'C:\\safe');
 });
 
 test('selects one exact serial even when models match and prefixes every device command', () => {
@@ -98,6 +113,39 @@ test('rejects occupied ports/reverses and mutates exactly one version anchor', a
   assert.match(changed.source, /versionName "1\.0\.0-qa\.a{40}"/);
   assert.throws(() => runner.mutateVersionName(source + source, '1.0.0', sha), /found 2/);
   assert.throws(() => runner.mutateVersionName('versionName "2.0.0"\n', '1.0.0', sha), /does not match/);
+});
+
+test('claims a reverse with an immediate no-rebind check and verifies exact ownership', () => {
+  const calls = [];
+  const responses = ['', '', 'authorized tcp:8099 tcp:8099\n'];
+  const cleanup = { reverseCreated: false };
+  runner.createOwnedReverse({
+    adapter: { run: (_command, args) => { calls.push(args); return { stdout: responses.shift() }; } },
+    adb: '/sdk/adb',
+    serial: 'authorized',
+    port: 8099,
+    cleanup,
+  });
+  assert.equal(cleanup.reverseCreated, true);
+  assert.deepEqual(calls, [
+    ['-s', 'authorized', 'reverse', '--list'],
+    ['-s', 'authorized', 'reverse', '--no-rebind', 'tcp:8099', 'tcp:8099'],
+    ['-s', 'authorized', 'reverse', '--list'],
+  ]);
+  const conflictCalls = [];
+  assert.throws(() => runner.createOwnedReverse({
+    adapter: {
+      run: (_command, args) => {
+        conflictCalls.push(args);
+        return { stdout: 'authorized tcp:8099 tcp:8099\n' };
+      },
+    },
+    adb: '/sdk/adb',
+    serial: 'authorized',
+    port: 8099,
+    cleanup: { reverseCreated: false },
+  }), /owner is unknown/);
+  assert.equal(conflictCalls.length, 1);
 });
 
 test('resolves only one contained regular APK', () => {
@@ -223,6 +271,44 @@ test('bounds and redacts retained Metro logs after adversarial truncation', () =
   }
 });
 
+test('requires both an owned Metro announcement and the Metro status protocol', async () => {
+  assert.equal(runner.metroAnnouncedReady('Metro waiting on http://localhost:8099', 8099), true);
+  assert.equal(runner.metroAnnouncedReady('unrelated listener on :8099', 8099), false);
+  assert.equal(runner.isMetroProtocolResponse(200, 'packager-status:running\n', '/repo', '/repo'), true);
+  assert.equal(runner.isMetroProtocolResponse(200, 'generic ok', '/repo', '/repo'), false);
+  assert.equal(runner.isMetroProtocolResponse(200, 'packager-status:running', '/other', '/repo'), false);
+  assert.throws(() => runner.assertOwnedMetroChild({ exitCode: null }), /process identity/);
+  let protocolRequests = 0;
+  const adapter = {
+    ...runner.createDefaultAdapter(),
+    requestMetro: async () => { protocolRequests += 1; return true; },
+    sleep: async () => undefined,
+  };
+  await assert.rejects(
+    adapter.waitForMetro(8099, { pid: 123, exitCode: null, metroCapture: { hasReadiness: () => false } }, 2, '/repo'),
+    /Owned Metro did not become ready/,
+  );
+  assert.equal(protocolRequests, 0);
+  await assert.doesNotReject(
+    adapter.waitForMetro(8099, { pid: 123, exitCode: null, metroCapture: { hasReadiness: () => true } }, 1_000, '/repo'),
+  );
+  assert.equal(protocolRequests, 1);
+});
+
+test('redacts emergency exception and rejection summaries before stderr persistence', () => {
+  const secret = 'fake-emergency-secret';
+  const summary = runner.formatEmergencySummary(
+    'unhandledRejection: serial-1234 ' + secret + ' https://prod.example.test',
+    'FAIL',
+    ['serial-1234', secret],
+  );
+  assert.equal(summary.includes('serial-1234'), false);
+  assert.equal(summary.includes(secret), false);
+  assert.equal(summary.includes('prod.example.test'), false);
+  assert.match(summary, /^unhandledRejection:/);
+  assert.match(summary, /: FAIL\. SIGKILL/);
+});
+
 test('cleanup targets only resources proven owned and is idempotent', async () => {
   const calls = [];
   let alive = true;
@@ -291,7 +377,12 @@ test('cleanup escalation is bounded and signals fail closed before complete evid
   assert.equal(runner.decideSignalOutcome(true, false), 'FAIL');
   assert.equal(runner.decideSignalOutcome(true, true), 'PASS');
   await assert.rejects(
-    runner.createDefaultAdapter().waitForMetro(65534, { exitCode: 1 }, 10),
+    runner.createDefaultAdapter().waitForMetro(
+      65534,
+      { pid: 123, exitCode: 1, metroCapture: { hasReadiness: () => false } },
+      10,
+      '/repo',
+    ),
     /exited before readiness/,
   );
 });
