@@ -12,10 +12,10 @@ Humans decide whether and when to merge. Humans also own rebasing queued PRs. Th
 
 Before evaluating the app:
 
-1. Read `AGENTS.md`, `CONTEXT.md`, applicable ADRs, this playbook, active issues, and open agent-loop PRs.
+1. Read `AGENTS.md`, this playbook, applicable ADRs, active issues, and open agent-loop PRs. Read `CONTEXT.md` when it exists; its absence is not a blocker.
 2. Verify the Git remote resolves to `MannLester/Skill-Flow`, GitHub access is scoped to that repository, and the agent can identify which artifacts it owns. Never modify a human-authored PR, force-push, or write to another repository.
 3. Fetch `origin/main`. Confirm the working tree is clean and start each implementation branch from that exact ref. Preserve and report a dirty tree; never reset, stash, overwrite, or absorb it into loop work. Never use an open PR branch as the next iteration's base.
-4. Stop implementation when three open PRs labeled `agent-loop` exist, whether draft or ready for review. Read-only scouting may continue.
+4. Stop implementation when three open loop-authored PRs exist, whether draft or ready for review. Count the union of PRs labeled `agent-loop`, PRs whose head branch begins `agent-loop/`, and PRs carrying this workflow's run marker. Never exclude an ambiguous PR merely because a label is missing. Read-only scouting may continue.
 5. Claim an existing issue atomically before editing by creating remote ref `refs/heads/agent-loop/issue-<number>` at the fetched `origin/main` SHA through GitHub's create-ref API. Creation must fail if the ref already exists; never update, delete, or force that ref to take a claim. If the host/API cannot provide create-if-absent semantics, stop. After successful creation, apply `agent-claimed`, assign the issue, add a claim comment with the base SHA/run identity, and read back the issue, ref, linked PRs, and open queue.
 
    ```sh
@@ -26,7 +26,7 @@ Before evaluating the app:
 
    GitHub returning `422` because the ref already exists means another run owns the issue; do not retry by changing or deleting the ref.
 6. Confirm the next ticket does not overlap files, behavior, schemas/APIs, fixtures/seeds, dependencies, or acceptance criteria owned by an open PR. Unknown overlap blocks implementation.
-7. Use only an agent-owned local Convex deployment/volume and dedicated emulator/app data. The agent may reset and reseed only those resources. Never reset a developer's shared environment or production.
+7. Establish and record a unique run ID before starting services. Name all disposable resources `skillflow-loop-<run-id>`: the Docker Compose project, Docker volumes, Android Virtual Device, temporary browser profile, and test users where applicable. Before reset or deletion, read back the resource name and ownership metadata. A Docker resource must have `com.docker.compose.project=skillflow-loop-<run-id>`; an emulator must have the exact recorded AVD name and serial. If ownership cannot be proven, do not reset it. Use repository-provided seed/reset commands only; when none exists, preserve state or file a blocker instead of inventing destructive cleanup. Never reset a developer's shared environment or production.
 
 If these conditions cannot be met safely, record the exact blocker instead of improvising around it.
 
@@ -58,7 +58,7 @@ Break ties by dependency-unblocking value, user impact, then oldest issue. A new
 ### 1. Establish a clean baseline
 
 - Install locked dependencies when needed with `npm ci`.
-- Start the dedicated local services and confirm `npm run convex:health` when Convex is involved.
+- Start dedicated local services. When Convex is involved, run the repository's documented health check if one exists; otherwise treat backend health verification as blocked.
 - Reset and seed only the loop-owned environment.
 - Run focused startup checks. If the baseline is already broken, investigate that failure before judging unrelated UX.
 
@@ -121,13 +121,16 @@ Protected work is proposal-only unless a human separately approves it:
 
 ### 6. Verify the change
 
-Run targeted feedback checks during development, then the full repository gate:
+Run targeted feedback checks during development, then the repository's committed gate. For the current baseline:
 
 ```sh
-npm run verify
+npm run typecheck
+npm run lint
+npm test -- --watch=false
+npx expo-doctor
 ```
 
-Run `npm run doctor` after dependency, Expo configuration, or native changes. Convex work also requires local health, code generation/type checks, and focused integration tests. Exercise the fixed flow on Android when available, inspect screenshots, and confirm there is no relevant error screen or runtime/console error.
+If repository instructions later define a consolidated gate, use that command instead of duplicating its component commands. Convex work also requires the documented local health check, code generation/type checks, and focused integration tests; missing commands are blockers, not permission to skip them. Exercise the fixed flow on Android when available, inspect screenshots, and confirm there is no relevant error screen or runtime/console error.
 
 ### 7. Open and independently review the PR
 
@@ -148,7 +151,7 @@ Stop the run when any condition is true:
 - the environment cannot be evaluated safely
 - only proposal-only or protected changes remain
 
-Draft and ready agent-loop PRs both count toward the open queue. Merged and closed PRs do not count toward the open queue, but every new PR created during this invocation counts toward the three-PR run limit. Updating an existing agent-owned PR does not count as creating another PR.
+Draft and ready loop-authored PRs both count toward the open queue using the label, branch-prefix, and run-marker union above. Merged and closed PRs do not count toward the open queue, but every new PR created during this invocation counts toward the three-PR run limit. Updating an existing agent-owned PR does not count as creating another PR.
 
 ## Run report
 

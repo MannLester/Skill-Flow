@@ -5,7 +5,7 @@ Use these defaults only when the repository has no explicit improvement-loop pla
 ## Bounds and integration
 
 - Create no more than three PRs in one run.
-- Permit no more than three open loop-authored PRs.
+- Permit no more than three open loop-authored PRs. Count the union of loop labels, loop branch prefixes, and run markers; include ambiguous PRs rather than undercounting.
 - Humans alone merge and rebase queued PRs.
 - Verify repository identity and scoped permission; never modify human-authored PRs or force-push.
 - Fetch and start each issue branch from the exact latest remote default branch, not another open PR.
@@ -58,7 +58,7 @@ Create a proposal-only issue and stop before implementation for:
 
 ## Isolated state
 
-Use loop-owned service instances/volumes, emulator or simulator state, test users, seed data, and temporary evidence. Automatic reset is permitted only for resources clearly created for this run. Shared developer, staging, and production resources are out of scope. Explain exact targets and obtain approval before any uncertain deletion.
+Create and record a unique run ID. Prefix disposable service instances, Compose projects, volumes, emulator/simulator profiles, browser profiles, and test users with `<app>-loop-<run-id>`. Before reset or deletion, read back exact resource names and ownership metadata. For Docker Compose, require `com.docker.compose.project=<app>-loop-<run-id>`; for an emulator, require the recorded profile name and serial. Use only repository-provided reset/seed commands. If ownership or a safe reset procedure cannot be proven, preserve the state and record a blocker. Shared developer, staging, and production resources are out of scope.
 
 ## Runtime evaluation
 

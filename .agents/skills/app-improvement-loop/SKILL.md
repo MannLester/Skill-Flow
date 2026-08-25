@@ -21,8 +21,8 @@ At the start of each run:
 - inspect current issues, open loop-authored PRs, source authority, working tree, and available runtime targets
 - fetch the exact approved remote base; preserve and report a dirty tree instead of resetting, stashing, overwriting, or absorbing it
 - use a clean checkout and branch each implementation from that fetched base
-- establish an isolated resettable test environment that cannot affect developer or production data
-- stop implementation when the repository's open-PR cap is reached
+- establish an isolated resettable test environment with a unique run ID and read-back ownership proof for every disposable resource; missing reset/seed support is a blocker, not permission to clear shared state
+- stop implementation when the repository's open-PR cap is reached, counting the conservative union of loop labels, loop branch prefixes, and run markers so a missing label cannot bypass the cap
 
 Each iteration must produce at most one issue, one branch, one focused change, and one PR. Before creating an issue for a newly discovered defect, derive the repository-defined deterministic fingerprint (or the default protocol's canonical fingerprint), atomically reserve a finding ref, and embed its exact marker in the issue. A conflicting or orphaned reservation blocks issue creation. Claim the issue separately with a host-supported atomic create-if-absent operation, then re-read the finding reservation, issue, issue claim, linked PRs, and open queue before editing. On GitHub, use deterministic refs at the fetched base SHA through the Git Data create-ref API. Never update, delete, or force a claim ref to take ownership. If atomic claiming is unavailable, stop before editing. Work may continue without waiting for humans to merge only when the next ticket is independent across files, behavior, schemas/APIs, fixtures/seeds, dependencies, and acceptance criteria. Unknown overlap blocks. Never stack the next branch on an unmerged PR unless the project explicitly authorizes stacked changes.
 
