@@ -1,7 +1,16 @@
-import fs from 'node:fs';
-import path from 'node:path';
+type DirectoryEntry = { name: string; isDirectory: () => boolean };
 
-const APP_ROOT = path.join(process.cwd(), 'src');
+const fs = jest.requireActual('fs') as {
+  readFileSync: (file: string, encoding: 'utf8') => string;
+  readdirSync: (directory: string, options: { withFileTypes: true }) => DirectoryEntry[];
+};
+const path = jest.requireActual('path') as {
+  join: (...parts: string[]) => string;
+  relative: (from: string, to: string) => string;
+  resolve: (...parts: string[]) => string;
+};
+
+const APP_ROOT = path.resolve('src');
 const NONCANONICAL_INDEX_ROUTES = [
   '/portfolio/index',
   '/profile/index',
