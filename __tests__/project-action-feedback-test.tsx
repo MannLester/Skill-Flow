@@ -5,7 +5,7 @@ import { DemoAccount, ProjectBooking, ProjectStatus } from '@/context/session';
 
 const mockStudent: DemoAccount = { id: 'student-alex', role: 'student', name: 'Alex', email: 'alex@example.test', password: 'demo', verified: true };
 const mockClient: DemoAccount = { id: 'client-mark', role: 'client', name: 'Mark', email: 'mark@example.test', password: 'demo', verified: true };
-let mockCurrentAccount = mockStudent;
+let mockCurrentAccount: DemoAccount | null = mockStudent;
 let mockStatus: ProjectStatus = 'in_progress';
 const mockActOnProject = jest.fn();
 
@@ -94,5 +94,16 @@ describe('project lifecycle action feedback', () => {
 
     expect(mockActOnProject).toHaveBeenCalledTimes(2);
     expect(mockActOnProject).toHaveBeenLastCalledWith('booking-test', 'review', { rating: 4, comment: 'Excellent work and communication.' });
+  });
+
+  it('keeps every role action unavailable while the session has no current account', () => {
+    mockCurrentAccount = null;
+    mockStatus = 'submitted';
+    const screen = render(<ProjectDetailsScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Approve and Release Demo Earnings' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Request Revision' })).toBeNull();
+    expect(screen.getByText('Waiting for the client’s next action.')).toBeTruthy();
+    expect(mockActOnProject).not.toHaveBeenCalled();
   });
 });
