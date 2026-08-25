@@ -54,7 +54,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
     "verify": "npm run typecheck && npm run lint && npm test -- --watch=false && npx expo export --platform android",
-    "doctor": "npx expo-doctor"
+    "doctor": "npx expo-doctor",
+    "verify:android-device": "node scripts/verify-android-device.mjs"
   },
   "jest": {
     "preset": "jest-expo",
