@@ -16,6 +16,7 @@ function LifecycleHarness() {
       <Text>Releases: {ledger.filter((entry) => entry.type === 'release').length}</Text>
       <Text>Reviews: {reviews.length}</Text>
       <Text>Portfolio: {portfolioItems.length}</Text>
+      <Text testID="lifecycle-state">{JSON.stringify({ status: project?.status ?? 'none', notifications: notifications.length, holds: ledger.filter((entry) => entry.type === 'hold').length, releases: ledger.filter((entry) => entry.type === 'release').length, reviews: reviews.length, deliveryNote: project?.deliveryNote, revisionNote: project?.revisionNote })}</Text>
       <Pressable onPress={() => loginAsRole('client')}><Text>Use Mark</Text></Pressable>
       <Pressable onPress={() => loginAsRole('student')}><Text>Use Alex</Text></Pressable>
       <Pressable onPress={() => createBooking({ serviceId: 'logo', studentId: 'student-alex', title: 'Logo Design', description: 'Create a complete brand logo.', deliveryDays: 3, budget: 1500 })}><Text>Create</Text></Pressable>
@@ -26,10 +27,13 @@ function LifecycleHarness() {
       <Pressable onPress={() => act('start')}><Text>Start</Text></Pressable>
       <Pressable onPress={() => project && sendMessage(project.id, 'The first concept is ready.')}><Text>Message</Text></Pressable>
       <Pressable onPress={() => act('submit', { note: 'Logo files and preview submitted.' })}><Text>Submit</Text></Pressable>
+      <Pressable onPress={() => act('submit', { note: '   ' })}><Text>Submit Empty</Text></Pressable>
       <Pressable onPress={() => act('request_revision', { note: 'Please use a darker red.' })}><Text>Revision</Text></Pressable>
+      <Pressable onPress={() => act('request_revision', { note: '' })}><Text>Revision Empty</Text></Pressable>
       <Pressable onPress={() => act('submit', { note: 'Revised darker-red logo submitted.' })}><Text>Resubmit</Text></Pressable>
       <Pressable onPress={() => act('approve')}><Text>Approve</Text></Pressable>
       <Pressable onPress={() => act('review', { rating: 5, comment: 'Excellent student designer.' })}><Text>Review</Text></Pressable>
+      <Pressable onPress={() => act('review', { rating: 5, comment: ' ' })}><Text>Review Empty</Text></Pressable>
       <Pressable onPress={() => project && addCompletedProjectToPortfolio(project.id)}><Text>Add Work</Text></Pressable>
     </View>
   );
@@ -98,5 +102,41 @@ describe('direct booking closed loop', () => {
     fireEvent.press(screen.getByText('Cancel'));
     expect(screen.getByText('Status: cancelled')).toBeTruthy();
     expect(screen.getByText('Holds: 0')).toBeTruthy();
+  });
+
+  it('does not mutate lifecycle state for blank action payloads and applies valid transitions once', () => {
+    const screen = render(<SessionProvider><LifecycleHarness /></SessionProvider>);
+    const state = () => screen.getByTestId('lifecycle-state').props.children as string;
+    fireEvent.press(screen.getByText('Use Mark'));
+    fireEvent.press(screen.getByText('Create'));
+    fireEvent.press(screen.getByText('Use Alex'));
+    fireEvent.press(screen.getByText('Accept'));
+    fireEvent.press(screen.getByText('Use Mark'));
+    fireEvent.press(screen.getByText('Fund'));
+    fireEvent.press(screen.getByText('Use Alex'));
+    fireEvent.press(screen.getByText('Start'));
+
+    const beforeSubmit = state();
+    fireEvent.press(screen.getByText('Submit Empty'));
+    expect(state()).toBe(beforeSubmit);
+    fireEvent.press(screen.getByText('Submit'));
+    expect(JSON.parse(state())).toMatchObject({ status: 'submitted', deliveryNote: 'Logo files and preview submitted.' });
+
+    fireEvent.press(screen.getByText('Use Mark'));
+    const beforeRevision = state();
+    fireEvent.press(screen.getByText('Revision Empty'));
+    expect(state()).toBe(beforeRevision);
+    fireEvent.press(screen.getByText('Revision'));
+    expect(JSON.parse(state())).toMatchObject({ status: 'revision_requested', revisionNote: 'Please use a darker red.' });
+
+    fireEvent.press(screen.getByText('Use Alex'));
+    fireEvent.press(screen.getByText('Resubmit'));
+    fireEvent.press(screen.getByText('Use Mark'));
+    fireEvent.press(screen.getByText('Approve'));
+    const beforeReview = state();
+    fireEvent.press(screen.getByText('Review Empty'));
+    expect(state()).toBe(beforeReview);
+    fireEvent.press(screen.getByText('Review'));
+    expect(JSON.parse(state())).toMatchObject({ status: 'reviewed', releases: 1, reviews: 1 });
   });
 });
