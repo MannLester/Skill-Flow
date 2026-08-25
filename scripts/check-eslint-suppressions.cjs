@@ -1,9 +1,13 @@
 const { execFileSync } = require('node:child_process');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const suppressionFileName = 'eslint-suppressions.json';
 const ceilingFileName = 'eslint-suppressions-ceiling.json';
+const defaultBaseRef = 'origin/main';
+const bootstrapBaseSha = '8290f4dfb1537b1050ac786c3644a8c6dc3e7a24';
+const bootstrapDigest = '3894d4fad4545e8eaa200d4adb9adca239897cb800120c0404f09dbe0d8a1894';
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -11,16 +15,12 @@ function isRecord(value) {
 
 function validateSuppressionMap(suppressions, label) {
   if (!isRecord(suppressions)) return [`${label} must contain an object.`];
-
   return Object.entries(suppressions).flatMap(([file, rules]) => {
     if (!isRecord(rules)) return [`${label}: ${file} rules must be an object.`];
-
     return Object.entries(rules).flatMap(([rule, entry]) => {
       const count = entry?.count;
-      if (!isRecord(entry) || !Number.isInteger(count) || count < 1) {
-        return [`${label}: ${file} (${rule}) count must be a positive integer.`];
-      }
-      return [];
+      if (isRecord(entry) && Number.isInteger(count) && count > 0) return [];
+      return [`${label}: ${file} (${rule}) count must be a positive integer.`];
     });
   });
 }
@@ -31,7 +31,6 @@ function validateSuppressions(suppressions, ceiling) {
     ...validateSuppressionMap(ceiling, ceilingFileName),
   ];
   if (shapeIssues.length > 0) return shapeIssues;
-
   return Object.entries(suppressions).flatMap(([file, rules]) => (
     validateSuppressionFile(file, rules, ceiling[file])
   ));
@@ -53,46 +52,14 @@ function validateSuppressionRule(file, rule, entry, ceilingEntry) {
 function validateSynchronizedCeiling(suppressions, ceiling) {
   const issues = validateSuppressions(suppressions, ceiling);
   if (issues.length > 0) return issues;
-
   return Object.entries(ceiling).flatMap(([file, rules]) => (
     Object.entries(rules).flatMap(([rule, entry]) => {
-      const currentCount = suppressions[file]?.[rule]?.count ?? 0;
-      if (currentCount === entry.count) return [];
-      return [`${file} (${rule}): committed ceiling ${entry.count} is stale; current count is ${currentCount}.`];
+      const count = suppressions[file]?.[rule]?.count ?? 0;
+      return count === entry.count
+        ? []
+        : [`${file} (${rule}): committed ceiling ${entry.count} is stale; current count is ${count}.`];
     })
   ));
-}
-
-function prefixIssues(label, issues) {
-  return issues.map((issue) => `${label}: ${issue}`);
-}
-
-function validateTrustedState(suppressions, trustedState) {
-  const baseIssues = validateSynchronizedCeiling(
-    trustedState.suppressions,
-    trustedState.ceiling,
-  );
-  if (baseIssues.length > 0) return prefixIssues(`trusted ${trustedState.ref}`, baseIssues);
-  return prefixIssues(`against trusted ${trustedState.ref}`, (
-    validateSuppressions(suppressions, trustedState.ceiling)
-  ));
-}
-
-function validateAgainstHistory(suppressions, history) {
-  if (!history.head) return ['Trusted HEAD suppression state is missing.'];
-  if (history.parents.length === 0) {
-    return ['No trusted parent suppression state is available; fetch parent history before linting.'];
-  }
-
-  return [history.head, ...history.parents].flatMap((state) => (
-    validateTrustedState(suppressions, state)
-  ));
-}
-
-function validateSuppressionState(suppressions, ceiling, history) {
-  const currentIssues = validateSynchronizedCeiling(suppressions, ceiling);
-  if (currentIssues.length > 0) return currentIssues;
-  return validateAgainstHistory(suppressions, history);
 }
 
 function parseJson(contents, label) {
@@ -103,37 +70,20 @@ function parseJson(contents, label) {
   }
 }
 
-function parseTrustedState(ref, suppressionContents, ceilingContents) {
-  if (suppressionContents === null && ceilingContents === null) return null;
-  if (suppressionContents === null || ceilingContents === null) {
-    throw new Error(`Trusted ${ref} has an incomplete suppression baseline.`);
-  }
-  return {
-    ref,
-    suppressions: parseJson(suppressionContents, `${ref}:${suppressionFileName}`),
-    ceiling: parseJson(ceilingContents, `${ref}:${ceilingFileName}`),
-  };
-}
-
-function readWorkingState(projectRoot, readFile = fs.readFileSync) {
-  return {
-    suppressions: parseJson(
-      readFile(path.join(projectRoot, suppressionFileName), 'utf8'),
-      suppressionFileName,
-    ),
-    ceiling: parseJson(
-      readFile(path.join(projectRoot, ceilingFileName), 'utf8'),
-      ceilingFileName,
-    ),
-  };
-}
-
 function runGit(projectRoot, args, execGit = execFileSync) {
   return execGit('git', args, {
     cwd: projectRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
-  });
+  }).trim();
+}
+
+function resolveCommit(projectRoot, ref, execGit = execFileSync) {
+  try {
+    return runGit(projectRoot, ['rev-parse', '--verify', `${ref}^{commit}`], execGit);
+  } catch {
+    throw new Error(`Base ref ${ref} is unavailable; fetch the exact base branch before linting.`);
+  }
 }
 
 function readRefFile(projectRoot, ref, fileName, execGit = execFileSync) {
@@ -144,37 +94,91 @@ function readRefFile(projectRoot, ref, fileName, execGit = execFileSync) {
   }
 }
 
-function readTrustedRef(projectRoot, ref, execGit = execFileSync) {
-  try {
-    runGit(projectRoot, ['cat-file', '-e', `${ref}^{commit}`], execGit);
-  } catch {
-    throw new Error(`Trusted Git object ${ref} is unavailable; fetch parent history before linting.`);
+function parseBaseState(ref, suppressionContents, ceilingContents) {
+  if (suppressionContents === null && ceilingContents === null) return null;
+  if (suppressionContents === null || ceilingContents === null) {
+    throw new Error(`Base ${ref} has an incomplete suppression baseline.`);
   }
-  return parseTrustedState(
+  return {
     ref,
-    readRefFile(projectRoot, ref, suppressionFileName, execGit),
-    readRefFile(projectRoot, ref, ceilingFileName, execGit),
-  );
+    suppressions: parseJson(suppressionContents, `${ref}:${suppressionFileName}`),
+    ceiling: parseJson(ceilingContents, `${ref}:${ceilingFileName}`),
+  };
 }
 
-function readHeadAndParents(projectRoot, execGit = execFileSync) {
-  let fields;
-  try {
-    fields = runGit(projectRoot, ['rev-list', '--parents', '-n', '1', 'HEAD'], execGit).trim().split(/\s+/);
-  } catch {
-    throw new Error('Unable to resolve HEAD and its parents for suppression validation.');
+function validateExpectedBaseSha(baseSha, expectedSha) {
+  if (expectedSha === undefined) return;
+  if (!/^[0-9a-f]{40}$/i.test(expectedSha)) {
+    throw new Error('ESLINT_SUPPRESSIONS_BASE_SHA must be a full 40-character commit SHA.');
   }
-  if (!fields[0]) throw new Error('Unable to resolve HEAD for suppression validation.');
-  return { headRef: fields[0], parentRefs: fields.slice(1) };
+  if (baseSha !== expectedSha.toLowerCase()) {
+    throw new Error(`Base ref is stale: expected ${expectedSha}, resolved ${baseSha}.`);
+  }
 }
 
-function loadTrustedHistory(projectRoot, execGit = execFileSync) {
-  const { headRef, parentRefs } = readHeadAndParents(projectRoot, execGit);
-  const head = readTrustedRef(projectRoot, headRef, execGit);
-  const parents = parentRefs
-    .map((ref) => readTrustedRef(projectRoot, ref, execGit))
-    .filter(Boolean);
-  return { head, parents };
+function requireExpectedBaseSha(expectedSha, required) {
+  if (required && expectedSha === undefined) {
+    throw new Error('ESLINT_SUPPRESSIONS_BASE_SHA is required in CI.');
+  }
+}
+
+function requireBaseAncestor(projectRoot, baseSha, headSha, execGit = execFileSync) {
+  if (baseSha === headSha) return;
+  try {
+    runGit(projectRoot, ['merge-base', '--is-ancestor', baseSha, headSha], execGit);
+  } catch {
+    throw new Error(`HEAD does not contain base ${baseSha}; fetch and rebase onto the latest base.`);
+  }
+}
+
+function loadBaseContext(projectRoot, options = {}) {
+  const execGit = options.execGit ?? execFileSync;
+  const baseRef = options.baseRef ?? process.env.ESLINT_SUPPRESSIONS_BASE_REF ?? defaultBaseRef;
+  const expectedSha = options.baseSha ?? process.env.ESLINT_SUPPRESSIONS_BASE_SHA;
+  requireExpectedBaseSha(expectedSha, options.requireBaseSha ?? Boolean(process.env.CI));
+  const baseSha = resolveCommit(projectRoot, baseRef, execGit).toLowerCase();
+  const headSha = resolveCommit(projectRoot, 'HEAD', execGit).toLowerCase();
+  validateExpectedBaseSha(baseSha, expectedSha);
+  requireBaseAncestor(projectRoot, baseSha, headSha, execGit);
+  const state = parseBaseState(
+    baseRef,
+    readRefFile(projectRoot, baseSha, suppressionFileName, execGit),
+    readRefFile(projectRoot, baseSha, ceilingFileName, execGit),
+  );
+  return { baseRef, baseSha, headSha, state };
+}
+
+function readWorkingState(projectRoot, readFile = fs.readFileSync) {
+  return {
+    suppressions: parseJson(readFile(path.join(projectRoot, suppressionFileName), 'utf8'), suppressionFileName),
+    ceiling: parseJson(readFile(path.join(projectRoot, ceilingFileName), 'utf8'), ceilingFileName),
+  };
+}
+
+function digestSuppressionMap(suppressions) {
+  return crypto.createHash('sha256').update(JSON.stringify(suppressions)).digest('hex');
+}
+
+function validateBootstrap(suppressions, context) {
+  if (context.baseSha !== bootstrapBaseSha) {
+    return [`Base ${context.baseRef} is missing suppression artifacts.`];
+  }
+  if (digestSuppressionMap(suppressions) === bootstrapDigest) return [];
+  return ['Initial suppression baseline differs from the pinned bootstrap baseline.'];
+}
+
+function validateAgainstBase(suppressions, context) {
+  if (!context.state) return validateBootstrap(suppressions, context);
+  const issues = validateSynchronizedCeiling(context.state.suppressions, context.state.ceiling);
+  if (issues.length > 0) return issues.map((issue) => `base ${context.baseRef}: ${issue}`);
+  return validateSuppressions(suppressions, context.state.ceiling)
+    .map((issue) => `against base ${context.baseRef}: ${issue}`);
+}
+
+function validateSuppressionState(suppressions, ceiling, context) {
+  const issues = validateSynchronizedCeiling(suppressions, ceiling);
+  if (issues.length > 0) return issues;
+  return validateAgainstBase(suppressions, context);
 }
 
 function formatIssues(issues) {
@@ -182,30 +186,29 @@ function formatIssues(issues) {
   return `${suppressionFileName} violates the monotonic complexity baseline:\n${details}`;
 }
 
-function ratchetCeiling(projectRoot) {
-  const { suppressions, ceiling } = readWorkingState(projectRoot);
-  const currentIssues = validateSuppressions(suppressions, ceiling);
-  const historyIssues = validateAgainstHistory(suppressions, loadTrustedHistory(projectRoot));
-  const issues = [...currentIssues, ...historyIssues];
+function checkProject(projectRoot, options = {}) {
+  const current = readWorkingState(projectRoot);
+  const context = loadBaseContext(projectRoot, options);
+  const issues = validateSuppressionState(current.suppressions, current.ceiling, context);
   if (issues.length > 0) throw new Error(formatIssues(issues));
+}
 
-  fs.writeFileSync(
-    path.join(projectRoot, ceilingFileName),
-    JSON.stringify(suppressions, null, 2),
-    'utf8',
-  );
+function ratchetCeiling(projectRoot, options = {}) {
+  const current = readWorkingState(projectRoot);
+  const context = loadBaseContext(projectRoot, options);
+  const issues = [
+    ...validateSuppressions(current.suppressions, current.ceiling),
+    ...validateAgainstBase(current.suppressions, context),
+  ];
+  if (issues.length > 0) throw new Error(formatIssues(issues));
+  fs.writeFileSync(path.join(projectRoot, ceilingFileName), JSON.stringify(current.suppressions, null, 2), 'utf8');
 }
 
 function main() {
   const projectRoot = process.cwd();
   try {
-    if (process.argv.includes('--ratchet')) {
-      ratchetCeiling(projectRoot);
-      return;
-    }
-    const { suppressions, ceiling } = readWorkingState(projectRoot);
-    const issues = validateSuppressionState(suppressions, ceiling, loadTrustedHistory(projectRoot));
-    if (issues.length > 0) throw new Error(formatIssues(issues));
+    if (process.argv.includes('--ratchet')) ratchetCeiling(projectRoot);
+    else checkProject(projectRoot);
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
@@ -213,8 +216,13 @@ function main() {
 }
 
 module.exports = {
-  parseTrustedState,
-  validateAgainstHistory,
+  checkProject,
+  loadBaseContext,
+  parseBaseState,
+  ratchetCeiling,
+  requireExpectedBaseSha,
+  validateAgainstBase,
+  validateExpectedBaseSha,
   validateSuppressionState,
   validateSuppressions,
   validateSynchronizedCeiling,

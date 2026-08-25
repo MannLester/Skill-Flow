@@ -104,11 +104,14 @@ npm run doctor
 TypeScript, ESLint with cyclomatic complexity errors above 10, the complete
 Jest suite, and an Android Expo export. Inherited complexity debt is recorded
 in `eslint-suppressions.json` with a matching committed ceiling. Lint compares
-both files against committed `HEAD` and parent artifacts, so paired additions
-or increases fail without a remote Git ref. Offline use works with local Git
-history; CI and shallow checkouts must retain at least one parent commit and
-fail closed otherwise. When a violation is fixed, run `npm run lint:prune` and
-commit both reduced suppression files.
+both files against the exact fetched `origin/main`, so paired additions or
+increases fail and stale feature branches must rebase. Run
+`git fetch origin main` before local verification. CI must fetch the base and set
+`ESLINT_SUPPRESSIONS_BASE_SHA` to the event's full base commit SHA; set
+`ESLINT_SUPPRESSIONS_BASE_REF` too if the fetched ref is not `origin/main`.
+Missing, mismatched, malformed, or incomplete base state fails closed. When a
+violation is fixed, run `npm run lint:prune` and commit both reduced suppression
+files. Both squash merges and merge commits are supported.
 
 The Android Expo export checks that the JavaScript bundle and assets can be
 produced. It does not install the app or prove native runtime behavior. Every

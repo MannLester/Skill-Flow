@@ -1,22 +1,26 @@
 type SuppressionMap = Record<string, Record<string, { count: number }>>;
-type TrustedState = { ref: string; suppressions: SuppressionMap; ceiling: SuppressionMap };
-type TrustedHistory = { head: TrustedState | null; parents: TrustedState[] };
+type BaseContext = {
+  baseRef: string;
+  baseSha: string;
+  headSha: string;
+  state: null | { ref: string; suppressions: SuppressionMap; ceiling: SuppressionMap };
+};
 
 const committedSuppressions = jest.requireActual('../eslint-suppressions.json') as SuppressionMap;
 const {
-  parseTrustedState,
-  validateAgainstHistory,
+  parseBaseState,
+  requireExpectedBaseSha,
+  validateAgainstBase,
+  validateExpectedBaseSha,
   validateSuppressionState,
   validateSuppressions,
   validateSynchronizedCeiling,
 } = jest.requireActual('../scripts/check-eslint-suppressions.cjs') as {
-  parseTrustedState: (ref: string, suppressions: string | null, ceiling: string | null) => TrustedState | null;
-  validateAgainstHistory: (suppressions: SuppressionMap, history: TrustedHistory) => string[];
-  validateSuppressionState: (
-    suppressions: SuppressionMap,
-    ceiling: SuppressionMap,
-    history: TrustedHistory,
-  ) => string[];
+  parseBaseState: (ref: string, suppressions: string | null, ceiling: string | null) => BaseContext['state'];
+  requireExpectedBaseSha: (expectedSha: string | undefined, required: boolean) => void;
+  validateAgainstBase: (suppressions: SuppressionMap, context: BaseContext) => string[];
+  validateExpectedBaseSha: (baseSha: string, expectedSha?: string) => void;
+  validateSuppressionState: (suppressions: SuppressionMap, ceiling: SuppressionMap, context: BaseContext) => string[];
   validateSuppressions: (suppressions: SuppressionMap, ceiling: SuppressionMap) => string[];
   validateSynchronizedCeiling: (suppressions: SuppressionMap, ceiling: SuppressionMap) => string[];
 };
@@ -25,84 +29,80 @@ function cloneBaseline(): SuppressionMap {
   return JSON.parse(JSON.stringify(committedSuppressions)) as SuppressionMap;
 }
 
-function trustedState(ref = 'base'): TrustedState {
-  return { ref, suppressions: cloneBaseline(), ceiling: cloneBaseline() };
-}
-
-function trustedHistory(): { head: TrustedState; parents: TrustedState[] } {
-  return { head: trustedState('HEAD'), parents: [trustedState('parent')] };
+function baseContext(): BaseContext {
+  return {
+    baseRef: 'origin/main',
+    baseSha: 'a'.repeat(40),
+    headSha: 'b'.repeat(40),
+    state: { ref: 'origin/main', suppressions: cloneBaseline(), ceiling: cloneBaseline() },
+  };
 }
 
 describe('ESLint suppression trust anchor', () => {
-  it('rejects a paired new file, rule, or count increase', () => {
+  it('rejects paired current-tree additions and count increases', () => {
     const suppressions = cloneBaseline();
     const ceiling = cloneBaseline();
     suppressions['src/new-screen.tsx'] = { complexity: { count: 1 } };
     ceiling['src/new-screen.tsx'] = { complexity: { count: 1 } };
-    suppressions['src/app/settings.tsx'].newRule = { count: 1 };
-    ceiling['src/app/settings.tsx'].newRule = { count: 1 };
     suppressions['src/context/session.tsx'].complexity.count = 7;
     ceiling['src/context/session.tsx'].complexity.count = 7;
 
-    expect(validateSuppressionState(suppressions, ceiling, trustedHistory())).toEqual(
+    expect(validateSuppressionState(suppressions, ceiling, baseContext())).toEqual(
       expect.arrayContaining([
-        'against trusted HEAD: src/new-screen.tsx: new suppression file is not allowed.',
-        'against trusted HEAD: src/app/settings.tsx (newRule): new suppression rule is not allowed.',
-        'against trusted HEAD: src/context/session.tsx (complexity): suppression count increased from 6 to 7.',
+        'against base origin/main: src/new-screen.tsx: new suppression file is not allowed.',
+        'against base origin/main: src/context/session.tsx (complexity): suppression count increased from 6 to 7.',
       ]),
     );
   });
 
-  it('fails closed when parent history is unavailable', () => {
-    const history = { head: trustedState('HEAD'), parents: [] };
-    expect(validateAgainstHistory(cloneBaseline(), history)).toEqual([
-      'No trusted parent suppression state is available; fetch parent history before linting.',
-    ]);
-  });
-
-  it('rejects malformed, incomplete, or stale trusted artifacts', () => {
-    expect(() => parseTrustedState('parent', '{bad', '{}')).toThrow(
-      'Unable to parse parent:eslint-suppressions.json',
+  it('fails closed for incomplete, malformed, and stale base artifacts', () => {
+    expect(() => parseBaseState('origin/main', '{bad', '{}')).toThrow(
+      'Unable to parse origin/main:eslint-suppressions.json',
     );
-    expect(() => parseTrustedState('parent', '{}', null)).toThrow(
-      'Trusted parent has an incomplete suppression baseline.',
+    expect(() => parseBaseState('origin/main', '{}', null)).toThrow(
+      'Base origin/main has an incomplete suppression baseline.',
     );
-
-    const staleParent = trustedState('parent');
-    staleParent.suppressions['src/context/session.tsx'].complexity.count = 5;
-    expect(validateAgainstHistory(cloneBaseline(), {
-      head: trustedState('HEAD'),
-      parents: [staleParent],
-    })).toContain(
-      'trusted parent: src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5.',
+    const context = baseContext();
+    context.state!.suppressions['src/context/session.tsx'].complexity.count = 5;
+    expect(validateAgainstBase(cloneBaseline(), context)).toContain(
+      'base origin/main: src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5.',
     );
   });
 
-  it('permits pruning but rejects ratcheting back above trusted history', () => {
+  it('requires a full exact expected base SHA', () => {
+    expect(() => requireExpectedBaseSha(undefined, true)).toThrow(
+      'ESLINT_SUPPRESSIONS_BASE_SHA is required in CI',
+    );
+    expect(() => validateExpectedBaseSha('a'.repeat(40), 'abc')).toThrow(
+      'must be a full 40-character commit SHA',
+    );
+    expect(() => validateExpectedBaseSha('a'.repeat(40), 'b'.repeat(40))).toThrow(
+      'Base ref is stale',
+    );
+    expect(() => validateExpectedBaseSha('a'.repeat(40), 'a'.repeat(40))).not.toThrow();
+  });
+
+  it('permits pruning and rejects ratcheting back above the base', () => {
     const suppressions = cloneBaseline();
     const ceiling = cloneBaseline();
     suppressions['src/context/session.tsx'].complexity.count = 5;
     ceiling['src/context/session.tsx'].complexity.count = 5;
     delete suppressions['src/app/settings.tsx'];
     delete ceiling['src/app/settings.tsx'];
+    expect(validateSuppressionState(suppressions, ceiling, baseContext())).toEqual([]);
 
-    expect(validateSuppressionState(suppressions, ceiling, trustedHistory())).toEqual([]);
-
-    const prunedHistory = trustedHistory();
-    prunedHistory.head.suppressions = cloneBaseline();
-    prunedHistory.head.ceiling = cloneBaseline();
-    prunedHistory.head.suppressions['src/context/session.tsx'].complexity.count = 5;
-    prunedHistory.head.ceiling['src/context/session.tsx'].complexity.count = 5;
-    expect(validateAgainstHistory(cloneBaseline(), prunedHistory)).toContain(
-      'against trusted HEAD: src/context/session.tsx (complexity): suppression count increased from 5 to 6.',
+    const context = baseContext();
+    context.state!.suppressions['src/context/session.tsx'].complexity.count = 5;
+    context.state!.ceiling['src/context/session.tsx'].complexity.count = 5;
+    expect(validateAgainstBase(cloneBaseline(), context)).toContain(
+      'against base origin/main: src/context/session.tsx (complexity): suppression count increased from 5 to 6.',
     );
   });
 
-  it('still rejects unsynchronized current files before checking history', () => {
+  it('rejects unsynchronized current files before checking the base', () => {
     const suppressions = cloneBaseline();
     const ceiling = cloneBaseline();
     suppressions['src/context/session.tsx'].complexity.count = 5;
-
     expect(validateSynchronizedCeiling(suppressions, ceiling)).toEqual([
       'src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5.',
     ]);
