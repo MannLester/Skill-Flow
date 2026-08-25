@@ -36,6 +36,7 @@ test('validates full SHA, safe serial, port, and a strict child environment', ()
   const childEnv = runner.sanitizedEnvironment({
     PATH: '/safe/bin',
     HOME: '/safe/home',
+    JAVA_HOME: '/validated/jdk17',
     ANDROID_SERIAL: 'wrong',
     EXPO_TOKEN: 'fake-account-token',
     CLERK_SECRET_KEY: 'fake-clerk-secret',
@@ -44,6 +45,7 @@ test('validates full SHA, safe serial, port, and a strict child environment', ()
   }, { NODE_BINARY: '/safe/node', CLERK_SECRET_KEY: 'injected-secret' });
   assert.deepEqual(childEnv, {
     HOME: '/safe/home',
+    JAVA_HOME: '/validated/jdk17',
     PATH: '/safe/bin',
     NODE_BINARY: '/safe/node',
     CI: '1',
@@ -273,6 +275,21 @@ test('bounds and redacts retained Metro logs after adversarial truncation', () =
 
 test('requires both an owned Metro announcement and the Metro status protocol', async () => {
   assert.equal(runner.metroAnnouncedReady('Metro waiting on http://localhost:8099', 8099), true);
+  assert.equal(runner.metroAnnouncedReady('Metro waiting on http://localhost:80990', 8099), false);
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8099',
+      8099,
+    ),
+    true,
+  );
+  assert.equal(
+    runner.metroAnnouncedReady(
+      'Metro waiting on exp+skillflow://expo-development-client/?url=http%3A%2F%2Flocalhost%3A80990',
+      8099,
+    ),
+    false,
+  );
   assert.equal(runner.metroAnnouncedReady('unrelated listener on :8099', 8099), false);
   assert.equal(runner.isMetroProtocolResponse(200, 'packager-status:running\n', '/repo', '/repo'), true);
   assert.equal(runner.isMetroProtocolResponse(200, 'generic ok', '/repo', '/repo'), false);

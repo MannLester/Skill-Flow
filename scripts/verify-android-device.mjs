@@ -40,7 +40,7 @@ const SENSITIVE_ASSIGNMENT_PATTERN = /((?:["']?[A-Za-z0-9_.-]*(?:secret|token|pa
 const SENSITIVE_ENV_PATTERN = /(?:secret|token|password|credential|api[_-]?key|access[_-]?key|private[_-]?key|deploy[_-]?key|publishable[_-]?key|clerk|convex|url)/i;
 const CHILD_ENV_ALLOWLIST = new Set([
   'ANDROID_HOME', 'ANDROID_NDK_HOME', 'ANDROID_SDK_ROOT',
-  'APPDATA', 'COMSPEC', 'HOME', 'LANG', 'LC_ALL', 'LC_CTYPE',
+  'APPDATA', 'COMSPEC', 'HOME', 'JAVA_HOME', 'LANG', 'LC_ALL', 'LC_CTYPE',
   'LOCALAPPDATA', 'NO_COLOR', 'PATH', 'PATHEXT', 'SYSTEMROOT',
   'TEMP', 'TERM', 'TMP', 'TMPDIR', 'USERPROFILE', 'WINDIR',
 ]);
@@ -896,9 +896,20 @@ export function createBoundedLogCapture({ logPath, maxBytes, fsAdapter, redact =
 export function metroAnnouncedReady(logText, port) {
   const clean = String(logText).replace(ANSI_PATTERN, '');
   return clean.split(/\r?\n/).some((line) => {
-    if (!/(?:Metro waiting on|Waiting on)/i.test(line)) return false;
-    return line.includes(':' + port) || line.toUpperCase().includes('%3A' + port);
+    const announcement = line.match(/(?:Metro waiting on|Waiting on)\s+(\S+)/i)?.[1];
+    return announcement ? announcementUsesPort(announcement, port) : false;
   });
+}
+
+function announcementUsesPort(announcement, port) {
+  try {
+    const url = new URL(announcement);
+    if (url.port === String(port)) return true;
+    const nested = url.searchParams.get('url');
+    return nested ? new URL(nested).port === String(port) : false;
+  } catch {
+    return false;
+  }
 }
 
 export function isMetroProtocolResponse(statusCode, body, rootHeader, expectedRoot) {
