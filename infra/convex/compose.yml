@@ -1,5 +1,9 @@
 name: skillflow-convex
 
+x-skillflow-labels: &skillflow-labels
+  com.skillflow.owner: "${SKILLFLOW_CONVEX_OWNER:-developer}"
+  com.skillflow.project: "${SKILLFLOW_CONVEX_PROJECT:-skillflow-convex}"
+
 services:
   backend:
     image: ghcr.io/get-convex/convex-backend@sha256:1f2044e3eac463ac78973b136c0baf72d4ada602611d853d6f99f280e29e0a98
@@ -10,6 +14,7 @@ services:
       - "${CONVEX_BIND_ADDRESS:-127.0.0.1}:${CONVEX_SITE_PROXY_PORT:-3211}:3211"
     volumes:
       - convex-data:/convex/data
+    labels: *skillflow-labels
     environment:
       - APPLICATION_MAX_CONCURRENT_MUTATIONS=${APPLICATION_MAX_CONCURRENT_MUTATIONS:-16}
       - APPLICATION_MAX_CONCURRENT_NODE_ACTIONS=${APPLICATION_MAX_CONCURRENT_NODE_ACTIONS:-16}
@@ -35,9 +40,11 @@ services:
       - "127.0.0.1:${CONVEX_DASHBOARD_PORT:-6791}:6791"
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=${CONVEX_CLOUD_ORIGIN:-http://127.0.0.1:3210}
+    labels: *skillflow-labels
     depends_on:
       backend:
         condition: service_healthy
 
 volumes:
   convex-data:
+    labels: *skillflow-labels
