@@ -46,11 +46,11 @@ export default function ProjectDetailsScreen() {
   );
 }
 
-function projectActionContext(account: DemoAccount | undefined, booking: ProjectBooking | undefined, projectId: string | undefined) {
+function projectActionContext(account: DemoAccount | null | undefined, booking: ProjectBooking | undefined, projectId: string | undefined) {
   return `${account?.id ?? 'guest'}:${booking?.id ?? projectId ?? 'missing'}:${booking?.status ?? 'missing'}`;
 }
 
-function projectRoles(account: DemoAccount | undefined, booking: ProjectBooking) {
+function projectRoles(account: DemoAccount | null | undefined, booking: ProjectBooking) {
   return { isClient: account?.id === booking.clientId, isStudent: account?.id === booking.studentId };
 }
 
