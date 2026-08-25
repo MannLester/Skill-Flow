@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,8 +17,16 @@ const suggestions = [
 
 export default function AiMentorScreen() {
   const insets = useSafeAreaInsets();
-  const { clearMentorConversation, currentAccount, mentorMessages, sendMentorMessage } = useSession();
+  const { clearMentorConversation, currentAccount, hydrated, mentorMessages, sendMentorMessage } = useSession();
   const [message, setMessage] = useState('');
+  const isClient = currentAccount?.role === 'client';
+
+  useEffect(() => {
+    if (hydrated && isClient) router.replace('/client-home');
+  }, [hydrated, isClient]);
+
+  if (!hydrated || isClient) return <MobilePage><View /></MobilePage>;
+
   const conversation = mentorMessages.filter((item) => item.accountId === currentAccount?.id);
   const send = () => { const result = sendMentorMessage(message); if (!result.ok) Alert.alert('Unable to send', result.message); else setMessage(''); };
   return <MobilePage><StatusBar style="light" /><AppHeader title="AI Project Mentor" onBack={() => router.back()} right={conversation.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear mentor conversation" onPress={() => Alert.alert('Clear conversation?', 'This removes the locally stored mentor messages.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: clearMentorConversation }])}><Ionicons name="trash-outline" size={23} color={colors.white} /></Pressable> : null} />
