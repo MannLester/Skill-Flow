@@ -131,10 +131,22 @@ function requireBaseAncestor(projectRoot, baseSha, headSha, execGit = execFileSy
   }
 }
 
+function isCommitAncestor(projectRoot, ancestorSha, descendantSha, execGit = execFileSync) {
+  try {
+    runGit(projectRoot, ['cat-file', '-e', `${ancestorSha}^{commit}`], execGit);
+    runGit(projectRoot, ['merge-base', '--is-ancestor', ancestorSha, descendantSha], execGit);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function loadBaseContext(projectRoot, options = {}) {
   const execGit = options.execGit ?? execFileSync;
   const baseRef = options.baseRef ?? process.env.ESLINT_SUPPRESSIONS_BASE_REF ?? defaultBaseRef;
   const expectedSha = options.baseSha ?? process.env.ESLINT_SUPPRESSIONS_BASE_SHA;
+  const bootstrapSha = options.bootstrapSha ?? bootstrapBaseSha;
+  const expectedBootstrapDigest = options.bootstrapDigest ?? bootstrapDigest;
   requireExpectedBaseSha(expectedSha, options.requireBaseSha ?? Boolean(process.env.CI));
   const baseSha = resolveCommit(projectRoot, baseRef, execGit).toLowerCase();
   const headSha = resolveCommit(projectRoot, 'HEAD', execGit).toLowerCase();
@@ -145,7 +157,16 @@ function loadBaseContext(projectRoot, options = {}) {
     readRefFile(projectRoot, baseSha, suppressionFileName, execGit),
     readRefFile(projectRoot, baseSha, ceilingFileName, execGit),
   );
-  return { baseRef, baseSha, headSha, state };
+  const bootstrapEligible = state === null
+    && isCommitAncestor(projectRoot, bootstrapSha, baseSha, execGit);
+  return {
+    baseRef,
+    baseSha,
+    bootstrapEligible,
+    expectedBootstrapDigest,
+    headSha,
+    state,
+  };
 }
 
 function readWorkingState(projectRoot, readFile = fs.readFileSync) {
@@ -160,10 +181,10 @@ function digestSuppressionMap(suppressions) {
 }
 
 function validateBootstrap(suppressions, context) {
-  if (context.baseSha !== bootstrapBaseSha) {
-    return [`Base ${context.baseRef} is missing suppression artifacts.`];
+  if (!context.bootstrapEligible) {
+    return [`Base ${context.baseRef} is missing suppression artifacts and is not a descendant of the pinned bootstrap.`];
   }
-  if (digestSuppressionMap(suppressions) === bootstrapDigest) return [];
+  if (digestSuppressionMap(suppressions) === context.expectedBootstrapDigest) return [];
   return ['Initial suppression baseline differs from the pinned bootstrap baseline.'];
 }
 

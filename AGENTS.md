@@ -54,6 +54,9 @@ fetch the base branch. CI must set `ESLINT_SUPPRESSIONS_BASE_SHA` to the event's
 full base commit SHA; it may set `ESLINT_SUPPRESSIONS_BASE_REF` when the fetched
 ref is not `origin/main`. Missing, mismatched, malformed, or incomplete base
 state fails closed, including shallow checkouts that did not fetch the base.
+During initial adoption only, an artifact-free base is accepted when it
+descends from the pinned bootstrap commit and the synchronized pair still
+matches the pinned bootstrap digest.
 After removing a violation, run `npm run lint:prune` and commit both reduced
 suppression files. The check is independent of squash-versus-merge strategy.
 

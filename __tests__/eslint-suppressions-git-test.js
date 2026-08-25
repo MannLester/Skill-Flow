@@ -1,4 +1,5 @@
 const { execFileSync } = require('node:child_process');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -15,6 +16,15 @@ const baseline = { 'src/example.ts': { complexity: { count: 2 } } };
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim();
+}
+
+function gitWithInput(root, args, input) {
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    input,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  }).trim();
 }
 
 function writeMap(root, fileName, map) {
@@ -41,6 +51,23 @@ function initRepo() {
   const sha = commit(root, 'base');
   git(root, ['update-ref', baseRef, sha]);
   return root;
+}
+
+function initArtifactFreeRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'suppression-bootstrap-'));
+  git(root, ['init', '-b', 'main']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'user.name', 'Suppression Test']);
+  fs.writeFileSync(path.join(root, 'seed.txt'), 'seed', 'utf8');
+  const bootstrapSha = commit(root, 'bootstrap');
+  fs.writeFileSync(path.join(root, 'unrelated.txt'), 'unrelated', 'utf8');
+  const baseSha = commit(root, 'unrelated main advance');
+  git(root, ['update-ref', baseRef, baseSha]);
+  return { baseSha, bootstrapSha, root };
+}
+
+function digest(map) {
+  return crypto.createHash('sha256').update(JSON.stringify(map)).digest('hex');
 }
 
 function setRemoteMainToHead(root) {
@@ -84,6 +111,45 @@ describe('ESLint suppression Git base contract', () => {
     commit(root, 'squash feature');
     setRemoteMainToHead(root);
     checkAtCurrentBase(root);
+  });
+
+  it('accepts a rebased feature when artifact-free main advanced from the bootstrap', () => {
+    const { baseSha, bootstrapSha, root } = initArtifactFreeRepo();
+    roots.push(root);
+    git(root, ['checkout', '-b', 'feature']);
+    writePair(root);
+    commit(root, 'add verification gate');
+    expect(() => checkProject(root, {
+      baseRef,
+      baseSha,
+      bootstrapSha,
+      bootstrapDigest: digest(baseline),
+    })).not.toThrow();
+  });
+
+  it('rejects a non-descendant bootstrap and a mutated bootstrap pair', () => {
+    const { baseSha, bootstrapSha, root } = initArtifactFreeRepo();
+    roots.push(root);
+    git(root, ['checkout', '-b', 'feature']);
+    writePair(root);
+    commit(root, 'add verification gate');
+    const emptyTree = gitWithInput(root, ['mktree'], '');
+    const unrelatedBootstrap = gitWithInput(root, ['commit-tree', emptyTree, '-m', 'unrelated root'], '');
+    expect(() => checkProject(root, {
+      baseRef,
+      baseSha,
+      bootstrapSha: unrelatedBootstrap,
+      bootstrapDigest: digest(baseline),
+    })).toThrow('is not a descendant of the pinned bootstrap');
+
+    const mutated = { 'src/example.ts': { complexity: { count: 3 } } };
+    writePair(root, mutated);
+    expect(() => checkProject(root, {
+      baseRef,
+      baseSha,
+      bootstrapSha,
+      bootstrapDigest: digest(baseline),
+    })).toThrow('differs from the pinned bootstrap baseline');
   });
 
   it('rejects a stale feature branch after the base advances', () => {
