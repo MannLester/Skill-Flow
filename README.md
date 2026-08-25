@@ -123,6 +123,11 @@ checks that policy before modifying baselines. New inline complexity disable
 directives fail the gate. Only an exact inherited, identity-bound inline
 exception could remain; the current baseline contains none.
 
+The lint gate independently inventories active JavaScript and TypeScript under
+`src/`, `__tests__/`, `scripts/`, an optional `convex/`, and the repository
+root. Broad ignore rules cannot hide those files. Generated output, supplied
+visual references, dependencies, and isolated agent worktrees remain excluded.
+
 The Android Expo export checks that the JavaScript bundle and assets can be
 produced. It does not install the app or prove native runtime behavior. Every
 user-visible change still needs a manual Android emulator/device walkthrough

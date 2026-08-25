@@ -9,6 +9,8 @@ const { loadBaseContext } = require('./check-eslint-suppressions.cjs');
 
 const baselineFileName = 'eslint-complexity-baseline.json';
 const bootstrapBaselineDigest = 'f07f83fc6a2b7e2a853ba944bdeb9d479c00c7bd7224355dc66385fc6dd67056';
+const lintExtensions = new Set(['.cjs', '.js', '.mjs', '.ts', '.tsx']);
+const requiredDirectories = ['src', '__tests__', 'scripts', 'convex'];
 
 function isFunctionLike(node) {
   return ts.isFunctionDeclaration(node)
@@ -82,6 +84,34 @@ function validateComplexityRule(rule) {
   return rule[1].max === 10 && Object.keys(rule[1]).length === 1;
 }
 
+function collectFiles(directory, files = []) {
+  if (!fs.existsSync(directory)) return files;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) collectFiles(entryPath, files);
+    else if (entry.isFile() && lintExtensions.has(path.extname(entry.name))) files.push(entryPath);
+  }
+  return files;
+}
+
+function requiredLintFiles(projectRoot) {
+  const nested = requiredDirectories.flatMap((directory) => collectFiles(path.join(projectRoot, directory)));
+  const rootFiles = fs.readdirSync(projectRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && lintExtensions.has(path.extname(entry.name)))
+    .map((entry) => path.join(projectRoot, entry.name));
+  return [...nested, ...rootFiles];
+}
+
+async function assertRequiredFilesAreLinted(eslint, projectRoot) {
+  const files = requiredLintFiles(projectRoot);
+  const ignored = (await Promise.all(files.map(async (file) => (
+    await eslint.isPathIgnored(file) ? path.relative(projectRoot, file) : null
+  )))).filter(Boolean);
+  if (ignored.length > 0) {
+    throw new Error(`ESLint ignore policy excludes required code: ${ignored.join(', ')}`);
+  }
+}
+
 async function assertComplexityPolicy(eslint, results) {
   for (const result of results) {
     const config = await eslint.calculateConfigForFile(result.filePath);
@@ -93,6 +123,7 @@ async function assertComplexityPolicy(eslint, results) {
 
 async function collectComplexityDebt(projectRoot) {
   const eslint = new ESLint({ cwd: projectRoot });
+  await assertRequiredFilesAreLinted(eslint, projectRoot);
   const results = await eslint.lintFiles(['.']);
   await assertComplexityPolicy(eslint, results);
   const violations = results.flatMap((result) => result.messages
@@ -240,6 +271,7 @@ async function main() {
 module.exports = {
   checkComplexityDebt,
   collectComplexityDebt,
+  collectFiles,
   compareBaselines,
   compareIdentitySets,
   createIdentity,
@@ -248,6 +280,7 @@ module.exports = {
   pruneComplexityDebt,
   validateBaseBaseline,
   validateComplexityRule,
+  requiredLintFiles,
 };
 
 if (require.main === module) main();

@@ -13,7 +13,7 @@ module.exports = defineConfig([
     },
   },
   {
-    ignores: ['dist/*', 'references/*'],
+    ignores: ['dist/*', 'references/*', '.agent-worktrees/*'],
   },
   {
     rules: {

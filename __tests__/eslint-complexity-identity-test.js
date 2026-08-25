@@ -20,6 +20,20 @@ const diagnostic = {
   column: 10,
   nodeType: 'FunctionDeclaration',
 };
+const complexFunctionSource = `function hidden(values) {
+  if (values[0]) return 0;
+  if (values[1]) return 1;
+  if (values[2]) return 2;
+  if (values[3]) return 3;
+  if (values[4]) return 4;
+  if (values[5]) return 5;
+  if (values[6]) return 6;
+  if (values[7]) return 7;
+  if (values[8]) return 8;
+  if (values[9]) return 9;
+  return values[10] ? 10 : 11;
+}
+hidden([]);\n`;
 
 function identityFor(source, overrides = {}) {
   const message = { ...diagnostic, ...overrides };
@@ -33,14 +47,17 @@ function baseline(violations) {
   return { version: 1, violations, inlineExceptions: [] };
 }
 
-function makeLintProject(max, source) {
+function makeLintProject(max, source, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complexity-policy-'));
+  const ignores = options.ignores ?? [];
   fs.writeFileSync(
     path.join(root, 'eslint.config.js'),
-    `module.exports = [{ rules: { complexity: ['error', { max: ${max} }] } }];\n`,
+    `module.exports = [{ ignores: ${JSON.stringify(ignores)}, rules: { complexity: ['error', { max: ${max} }] } }];\n`,
     'utf8',
   );
-  fs.writeFileSync(path.join(root, 'probe.js'), source, 'utf8');
+  const filePath = path.join(root, options.file ?? 'probe.js');
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, source, 'utf8');
   return root;
 }
 
@@ -115,21 +132,7 @@ describe('identity-aware complexity debt', () => {
   });
 
   it('collects an inline-disabled complexity-12 function as an exception candidate', async () => {
-    const source = `// eslint-disable-next-line complexity
-function hidden(values) {
-  if (values[0]) return 0;
-  if (values[1]) return 1;
-  if (values[2]) return 2;
-  if (values[3]) return 3;
-  if (values[4]) return 4;
-  if (values[5]) return 5;
-  if (values[6]) return 6;
-  if (values[7]) return 7;
-  if (values[8]) return 8;
-  if (values[9]) return 9;
-  return values[10] ? 10 : 11;
-}
-hidden([]);\n`;
+    const source = `// eslint-disable-next-line complexity\n${complexFunctionSource}`;
     const root = makeLintProject(10, source);
     try {
       const collected = collectFromProject(root);
@@ -150,6 +153,28 @@ hidden([]);\n`;
         collectFromProject(root);
       } catch (error) {
         expect(error.stderr).toContain('must be exactly error/max 10');
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ['src/**', 'src/ignored.ts'],
+    ['__tests__/**', '__tests__/ignored-test.ts'],
+    ['scripts/**', 'scripts/ignored.js'],
+  ])('rejects broad active-code ignore pattern %s', (ignore, file) => {
+    const root = makeLintProject(10, complexFunctionSource, {
+      ignores: [ignore],
+      file,
+    });
+    try {
+      expect(() => collectFromProject(root)).toThrow();
+      try {
+        collectFromProject(root);
+      } catch (error) {
+        expect(error.stderr).toContain(file);
+        expect(error.stderr).toMatch(/ignore policy excludes required code|must be exactly error\/max 10/);
       }
     } finally {
       fs.rmSync(root, { recursive: true, force: true });

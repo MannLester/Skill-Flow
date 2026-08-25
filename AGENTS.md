@@ -71,6 +71,12 @@ disable directives are rejected unless an exact inherited function identity
 is already recorded as a trusted inline exception; this repository currently
 has no such exceptions.
 
+ESLint must cover every JavaScript or TypeScript file in `src/`, `__tests__/`,
+`scripts/`, an optional `convex/` directory, and the repository root. The gate
+enumerates those paths independently and fails if ignore rules exclude them.
+Generated `dist/`, visual `references/`, dependencies, and isolated
+`.agent-worktrees/` remain outside the active-code lint boundary.
+
 The Android Expo export only proves that the JavaScript bundle and assets can
 be produced. It does not install the app, exercise native behavior, or prove
 that a user can complete a flow. Every user-visible change still requires a
