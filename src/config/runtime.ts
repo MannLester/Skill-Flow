@@ -19,37 +19,25 @@ type PublicRuntimeEnvironment = Record<string, string | undefined> & {
   EXPO_PUBLIC_CLERK_SECRET_KEY?: string;
 };
 
+type RuntimeValues = {
+  target: string | undefined;
+  convexUrl: string | undefined;
+  clerkPublishableKey: string | undefined;
+};
+
+type CompleteRuntimeValues = {
+  target: RuntimeTarget;
+  convexUrl: string;
+  clerkPublishableKey: string;
+};
+
 const runtimeTargets: RuntimeTarget[] = ['web', 'android-emulator', 'android-device', 'cloud'];
 
 export function parseRuntimeConfiguration(environment: PublicRuntimeEnvironment): RuntimeConfigurationResult {
-  const target = environment.EXPO_PUBLIC_RUNTIME_TARGET?.trim();
-  const convexUrl = environment.EXPO_PUBLIC_CONVEX_URL?.trim();
-  const clerkPublishableKey = environment.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
-  const issues: string[] = [];
-
-  if (!isRuntimeTarget(target)) issues.push('Set EXPO_PUBLIC_RUNTIME_TARGET to web, android-emulator, android-device, or cloud.');
-  if (!convexUrl) issues.push('Set EXPO_PUBLIC_CONVEX_URL to the Convex client URL for this target.');
-  if (!clerkPublishableKey) issues.push('Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY to the Clerk publishable key supplied by the project administrator.');
-
-  if (isRuntimeTarget(target) && convexUrl) {
-    const urlIssue = validateConvexUrl(target, convexUrl);
-    if (urlIssue) issues.push(urlIssue);
-  }
-
-  if (clerkPublishableKey && !/^pk_(test|live)_[A-Za-z0-9_-]+$/.test(clerkPublishableKey)) {
-    issues.push('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a Clerk pk_test_ or pk_live_ publishable key.');
-  }
-
-  if (isRuntimeTarget(target) && clerkPublishableKey) {
-    const clerkIssue = validateClerkKey(target, clerkPublishableKey);
-    if (clerkIssue) issues.push(clerkIssue);
-  }
-
-  const privilegedIssue = findPrivilegedPublicValue(environment);
-  if (privilegedIssue) issues.push(privilegedIssue);
-
-  if (issues.length || !isRuntimeTarget(target) || !convexUrl || !clerkPublishableKey) return { ready: false, issues };
-  return { ready: true, configuration: { target, convexUrl, clerkPublishableKey } };
+  const values = readRuntimeValues(environment);
+  const issues = collectRuntimeIssues(environment, values);
+  if (!isCompleteRuntimeValues(values, issues)) return { ready: false, issues };
+  return { ready: true, configuration: values };
 }
 
 export function readRuntimeConfiguration(): RuntimeConfigurationResult {
@@ -67,35 +55,106 @@ function isRuntimeTarget(value: string | undefined): value is RuntimeTarget {
   return runtimeTargets.some((target) => target === value);
 }
 
-function validateConvexUrl(target: RuntimeTarget, value: string): string | undefined {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return 'EXPO_PUBLIC_CONVEX_URL must be a complete http:// or https:// URL.';
-  }
+function readRuntimeValues(environment: PublicRuntimeEnvironment): RuntimeValues {
+  return {
+    target: environment.EXPO_PUBLIC_RUNTIME_TARGET?.trim(),
+    convexUrl: environment.EXPO_PUBLIC_CONVEX_URL?.trim(),
+    clerkPublishableKey: environment.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim(),
+  };
+}
 
+function collectRuntimeIssues(environment: PublicRuntimeEnvironment, values: RuntimeValues): string[] {
+  return [
+    ...missingRuntimeIssues(values),
+    ...convexRuntimeIssues(values.target, values.convexUrl),
+    ...clerkRuntimeIssues(values.target, values.clerkPublishableKey),
+    findPrivilegedPublicValue(environment),
+  ].filter((issue): issue is string => Boolean(issue));
+}
+
+function missingRuntimeIssues(values: RuntimeValues): string[] {
+  const issues: string[] = [];
+  if (!isRuntimeTarget(values.target)) issues.push('Set EXPO_PUBLIC_RUNTIME_TARGET to web, android-emulator, android-device, or cloud.');
+  if (!values.convexUrl) issues.push('Set EXPO_PUBLIC_CONVEX_URL to the Convex client URL for this target.');
+  if (!values.clerkPublishableKey) issues.push('Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY to the Clerk publishable key supplied by the project administrator.');
+  return issues;
+}
+
+function convexRuntimeIssues(target: string | undefined, value: string | undefined): string[] {
+  if (!isRuntimeTarget(target) || !value) return [];
+  const issue = validateConvexUrl(target, value);
+  return issue ? [issue] : [];
+}
+
+function clerkRuntimeIssues(target: string | undefined, value: string | undefined): string[] {
+  if (!value) return [];
+  const issues: string[] = [];
+  if (!/^pk_(test|live)_[A-Za-z0-9_-]+$/.test(value)) {
+    issues.push('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a Clerk pk_test_ or pk_live_ publishable key.');
+  }
+  if (isRuntimeTarget(target)) {
+    const issue = validateClerkKey(target, value);
+    if (issue) issues.push(issue);
+  }
+  return issues;
+}
+
+function isCompleteRuntimeValues(values: RuntimeValues, issues: string[]): values is CompleteRuntimeValues {
+  return issues.length === 0
+    && isRuntimeTarget(values.target)
+    && Boolean(values.convexUrl)
+    && Boolean(values.clerkPublishableKey);
+}
+
+function validateConvexUrl(target: RuntimeTarget, value: string): string | undefined {
+  const url = parseConvexUrl(value);
+  if (!url) return 'EXPO_PUBLIC_CONVEX_URL must be a complete http:// or https:// URL.';
+  const formatIssue = validateConvexUrlFormat(url);
+  return formatIssue ?? validateConvexTarget(target, url);
+}
+
+function parseConvexUrl(value: string): URL | undefined {
+  try {
+    return new URL(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function validateConvexUrlFormat(url: URL): string | undefined {
   if (!['http:', 'https:'].includes(url.protocol)) return 'EXPO_PUBLIC_CONVEX_URL must use http:// or https://.';
   if (url.username || url.password || url.search || url.hash) return 'EXPO_PUBLIC_CONVEX_URL must not include credentials, query parameters, or fragments.';
+  return undefined;
+}
 
-  if (target !== 'cloud' && isConvexCloudHostname(url.hostname)) {
-    return target === 'android-device'
-      ? 'A physical Android device must use a LAN-reachable self-hosted Convex URL, not a cloud deployment.'
-      : `${target} development must use a local self-hosted Convex URL, not a cloud deployment.`;
-  }
+function validateConvexTarget(target: RuntimeTarget, url: URL): string | undefined {
+  return target === 'cloud' ? validateCloudConvexUrl(url) : validateLocalConvexUrl(target, url);
+}
 
-  if (target === 'cloud') {
-    return url.protocol === 'https:' && isConvexCloudHostname(url.hostname)
-      ? undefined
-      : 'Cloud configuration requires an https://*.convex.cloud client URL.';
-  }
+function validateCloudConvexUrl(url: URL): string | undefined {
+  return url.protocol === 'https:' && isConvexCloudHostname(url.hostname)
+    ? undefined
+    : 'Cloud configuration requires an https://*.convex.cloud client URL.';
+}
 
+function validateLocalConvexUrl(target: Exclude<RuntimeTarget, 'cloud'>, url: URL): string | undefined {
+  const cloudIssue = validateLocalCloudBoundary(target, url);
+  return cloudIssue ?? validateLocalHostBoundary(target, url);
+}
+
+function validateLocalCloudBoundary(target: Exclude<RuntimeTarget, 'cloud'>, url: URL): string | undefined {
+  if (!isConvexCloudHostname(url.hostname)) return undefined;
+  return target === 'android-device'
+    ? 'A physical Android device must use a LAN-reachable self-hosted Convex URL, not a cloud deployment.'
+    : `${target} development must use a local self-hosted Convex URL, not a cloud deployment.`;
+}
+
+function validateLocalHostBoundary(target: Exclude<RuntimeTarget, 'cloud'>, url: URL): string | undefined {
   if (target === 'web' && !isLoopback(url.hostname)) return 'Web local development requires a localhost or loopback Convex URL.';
   if (target === 'android-emulator' && url.hostname !== '10.0.2.2') return 'Android emulator development requires the Convex host 10.0.2.2.';
   if (target === 'android-device' && (isLoopback(url.hostname) || url.hostname === '10.0.2.2')) {
     return 'A physical Android device requires a LAN-reachable Convex hostname, not localhost or 10.0.2.2.';
   }
-
   return undefined;
 }
 

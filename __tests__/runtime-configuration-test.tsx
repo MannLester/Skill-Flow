@@ -27,6 +27,52 @@ describe('runtime configuration', () => {
     if (!result.ready) expect(result.issues).toHaveLength(3);
   });
 
+  it('trims accepted values before returning the typed configuration', () => {
+    expect(parseRuntimeConfiguration({
+      EXPO_PUBLIC_RUNTIME_TARGET: ' cloud ',
+      EXPO_PUBLIC_CONVEX_URL: ' https://example.convex.cloud ',
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ` ${liveClerkKey} `,
+    })).toEqual({
+      ready: true,
+      configuration: {
+        target: 'cloud',
+        convexUrl: 'https://example.convex.cloud',
+        clerkPublishableKey: liveClerkKey,
+      },
+    });
+  });
+
+  test.each([
+    ['not-a-url', 'complete http:// or https:// URL'],
+    ['ftp://127.0.0.1:3210', 'use http:// or https://'],
+  ])('reports malformed or unsupported Convex URL %s', (convexUrl, guidance) => {
+    const result = parseRuntimeConfiguration({
+      EXPO_PUBLIC_RUNTIME_TARGET: 'web',
+      EXPO_PUBLIC_CONVEX_URL: convexUrl,
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: clerkKey,
+    });
+    expect(result.ready).toBe(false);
+    if (!result.ready) expect(result.issues.join(' ')).toContain(guidance);
+  });
+
+  it('keeps independent configuration issues ordered and visible', () => {
+    const result = parseRuntimeConfiguration({
+      EXPO_PUBLIC_RUNTIME_TARGET: 'web',
+      EXPO_PUBLIC_CONVEX_URL: 'not-a-url',
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: 'sk_test_do-not-bundle-this',
+      EXPO_PUBLIC_API_KEY: 'privileged-value',
+    });
+    expect(result).toEqual({
+      ready: false,
+      issues: [
+        'EXPO_PUBLIC_CONVEX_URL must be a complete http:// or https:// URL.',
+        'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a Clerk pk_test_ or pk_live_ publishable key.',
+        'web development requires a test Clerk pk_test_ publishable key.',
+        'Remove EXPO_PUBLIC_API_KEY; privileged credentials must never use an EXPO_PUBLIC_* variable.',
+      ],
+    });
+  });
+
   test.each([
     ['web', 'http://10.0.2.2:3210', 'loopback'],
     ['android-emulator', 'http://127.0.0.1:3210', '10.0.2.2'],
