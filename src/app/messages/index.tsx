@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';
-import { ProjectBooking, ProjectMessage, useSession } from '@/context/session';
+import { ProjectBooking, ProjectMessage, useSession } from '@/context/session.remote';
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export type ThreadSummary = { latest?: ProjectMessage; unread: number };

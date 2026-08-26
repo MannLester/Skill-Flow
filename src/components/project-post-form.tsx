@@ -4,7 +4,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, TextInput, TextInputProps, Vi
 
 import { AppText, FormField, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
-import { ProjectPost, ProjectPostInput, useSession } from '@/context/session';
+import { ProjectPost, ProjectPostInput, useSession } from '@/context/session.remote';
+import { consumeResult } from '@/utils/consume-result';
 
 type ProjectPostField = 'title' | 'description' | 'category' | 'budget' | 'deadline' | 'skills';
 type ProjectPostFormErrors = Partial<Record<ProjectPostField, string>> & { form?: string };
@@ -38,20 +39,19 @@ export function ProjectPostForm({ postId }: { postId?: string }) {
       form.showErrors('Complete every project field with valid values.', localErrors);
       return;
     }
-    const result = saveProjectPost(form.input, publish, existing?.id);
-    if (!result.ok) {
-      form.showErrors(result.message);
-      return;
-    }
-    form.clearErrors();
-    Alert.alert(publish ? 'Project published' : 'Draft saved', publish ? 'Verified Student Designers can now submit proposals.' : 'You can return and publish this project later.');
-    router.replace({ pathname: '/project-posts/[postId]', params: { postId: result.projectPost.id } });
+    consumeResult(saveProjectPost(form.input, publish, existing?.id), (result) => {
+      if (!result.ok) return form.showErrors(result.message);
+      form.clearErrors();
+      Alert.alert(publish ? 'Project published' : 'Draft saved', publish ? 'Verified Student Designers can now submit proposals.' : 'You can return and publish this project later.');
+      router.replace({ pathname: '/project-posts/[postId]', params: { postId: result.projectPost.id } });
+    });
   };
   const archive = () => {
     if (!existing) return;
-    const result = setProjectPostStatus(existing.id, 'archived');
-    Alert.alert(result.ok ? 'Project archived' : 'Unable to archive', result.ok ? 'The project is retained in your local history.' : result.message);
-    if (result.ok) router.replace('/projects');
+    consumeResult(setProjectPostStatus(existing.id, 'archived'), (result) => {
+      Alert.alert(result.ok ? 'Project archived' : 'Unable to archive', result.ok ? 'The project is retained in your SkillFlow history.' : result.message);
+      if (result.ok) router.replace('/projects');
+    });
   };
 
   return <ProjectPostFields form={form} save={save} archive={archive} showArchive={Boolean(existing)} />;
@@ -84,10 +84,10 @@ function useProjectPostValues(existing?: ProjectPost) {
   return { values, input, errors, errorSummaryRef, update, setters: { setTitle, setDescription, setCategory, setBudget, setDeadline, setSkills }, showErrors, clearErrors: () => setErrors({}) };
 }
 
-function ProjectPostFields({ form, save, archive, showArchive }: { form: ReturnType<typeof useProjectPostValues>; save: (publish: boolean) => void; archive: () => void; showArchive: boolean }) {
+function ProjectPostFields({ form, save, archive, showArchive }: { form: ReturnType<typeof useProjectPostValues>; save: (publish: boolean) => void | Promise<void>; archive: () => void | Promise<void>; showArchive: boolean }) {
   const { values, errors, setters } = form;
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-    <View style={styles.note}><AppText weight="semibold" style={styles.noteTitle}>Client project brief</AppText><AppText style={styles.noteText}>Publishing opens this brief for local demo proposals. No real payment or external posting is involved.</AppText></View>
+    <View style={styles.note}><AppText weight="semibold" style={styles.noteTitle}>Client project brief</AppText><AppText style={styles.noteText}>Publishing opens this brief for authenticated Student Designers. Payment remains simulated.</AppText></View>
     <ProjectFormField form={form} field="title" label="Project Title" icon="briefcase-outline" value={values.title} setter={setters.setTitle} placeholder="Project title" accessibilityLabel="Project title" hint="Required. Enter a project title." />
     <ProjectFormField form={form} field="category" label="Category" icon="grid-outline" value={values.category} setter={setters.setCategory} placeholder="Category" accessibilityLabel="Project category" hint="Required. Enter a category." />
     <ProjectDescriptionField form={form} value={values.description} setter={setters.setDescription} />

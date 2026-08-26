@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
-import { DemoAccount, Proposal, StudentVerification, UserProfile, useSession } from '@/context/session';
+import { DemoAccount, Proposal, StudentVerification, UserProfile, useSession } from '@/context/session.remote';
 
 type ProposalLookupIndexes = {
   accountsById: Map<string, DemoAccount>;
@@ -37,11 +37,11 @@ export default function ProposalsScreen() {
   const post = projectPosts.find((item) => item.id === postId);
   const visible = useMemo(() => proposals.filter((item) => item.projectPostId === postId && item.status !== 'withdrawn'), [postId, proposals]);
   const lookupIndexes = useMemo(() => buildProposalLookupIndexes(accounts, profiles, verifications), [accounts, profiles, verifications]);
-  const decide = useCallback((proposal: Proposal, accept: boolean) => {
-    const result = decideProposal(proposal.id, accept);
+  const decide = useCallback(async (proposal: Proposal, accept: boolean) => {
+    const result = await decideProposal(proposal.id, accept);
     if (!result.ok) return Alert.alert('Unable to update proposal', result.message);
     if (accept && result.bookingId) { Alert.alert('Proposal accepted', 'A shared project booking has been created. Demo funding is the next step.'); router.replace({ pathname: '/projects/[projectId]', params: { projectId: result.bookingId } }); }
-    else Alert.alert('Proposal rejected', 'The Student Designer has been notified locally.');
+    else Alert.alert('Proposal rejected', 'The Student Designer has been notified through SkillFlow Cloud.');
   }, [decideProposal]);
   const renderItem = useCallback(({ item }: { item: Proposal }) => {
     const student = lookupIndexes.accountsById.get(item.studentId);

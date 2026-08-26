@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 
 import { AppText, FormField, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
-import { ServiceInput, StoreResult, useSession } from '@/context/session';
+import { ServiceInput, StoreResult, useSession } from '@/context/session.remote';
 import { Service } from '@/data/fixtures';
 
 export function ServiceForm({ serviceId }: { serviceId?: string }) {
@@ -87,13 +87,13 @@ function ServiceActions({ hasExisting, onSave, onArchive }: Omit<ServiceFormCont
 }
 
 function saveServiceWithFeedback(
-  saveService: (input: ServiceInput, publish: boolean, serviceId?: string) => { ok: true; service: Service } | { ok: false; message: string },
+  saveService: (input: ServiceInput, publish: boolean, serviceId?: string) => Promise<{ ok: true; service: Service } | { ok: false; message: string }>,
   input: ServiceInput,
   publish: boolean,
   serviceId: string | undefined,
   isVerified: boolean,
 ) {
-  const result = saveService(input, publish, serviceId);
+  return saveService(input, publish, serviceId).then((result) => {
   if (!result.ok) {
     const needsVerification = publish && !isVerified;
     Alert.alert(
@@ -103,13 +103,14 @@ function saveServiceWithFeedback(
     );
     return;
   }
-  Alert.alert(publish ? 'Service published' : 'Draft saved', `${result.service.title} was saved locally.`);
+  Alert.alert(publish ? 'Service published' : 'Draft saved', `${result.service.title} was saved to SkillFlow.`);
   router.replace('/profile');
+  });
 }
 
-function archiveService(existing: Service | undefined, setServiceStatus: (serviceId: string, status: Service['status']) => StoreResult) {
+async function archiveService(existing: Service | undefined, setServiceStatus: (serviceId: string, status: Service['status']) => Promise<StoreResult>) {
   if (!existing) return;
-  const result = setServiceStatus(existing.id, 'archived');
+  const result = await setServiceStatus(existing.id, 'archived');
   Alert.alert(result.ok ? 'Service archived' : 'Unable to archive', result.ok ? 'The service is no longer visible in the marketplace.' : result.message);
   if (result.ok) router.replace('/profile');
 }

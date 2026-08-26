@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, HeroDecor, MobilePage } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
-import { UserRole } from '@/context/session';
+import type { UserRole } from '@/context/session.remote';
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role }: { body: ReactNode; featured: ReactNode; featuredOnPress?: () => void; hero: ReactNode; role: UserRole }) {
@@ -15,7 +15,7 @@ export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role
   const roleStyle = roleStyles[role];
   return (
     <PrimaryTabScene active="home">
-      <MobilePage>
+      <MobilePage backgroundColor={colors.red}>
         <StatusBar style="light" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={{ minHeight: screenHeight }}>
@@ -30,20 +30,22 @@ export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role
   );
 }
 
-export function DashboardHomeHero({ activeCount, onNotifications, role, unreadCount }: { activeCount: number; onNotifications: () => void; role: UserRole; unreadCount: number }) {
+export function DashboardHomeHero({ accountName, activeCount, onNotifications, onOpenMenu, role, unreadCount }: { accountName?: string; activeCount: number; onNotifications: () => void; onOpenMenu?: () => void; role: UserRole; unreadCount: number }) {
   const variant = heroVariants[role];
+  const firstName = accountName?.split(' ')[0] ?? variant.fallbackName;
   const subtitle = activeCount > 0
     ? `You have ${activeCount} active project${activeCount === 1 ? '' : 's'} in progress.`
     : variant.emptySubtitle;
   return <>
     <View style={styles.topRow}>
+      {onOpenMenu ? <Pressable accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={onOpenMenu} hitSlop={12}><Ionicons name="menu" size={31} color={colors.white} /></Pressable> : null}
       <Pressable accessibilityLabel="Open notifications" onPress={onNotifications} style={styles.bellWrap}>
         <Ionicons name="notifications-outline" size={variant.notificationIconSize} color={colors.white} />
         {unreadCount ? <View style={[styles.badge, { backgroundColor: variant.badgeColor }]}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}
       </Pressable>
     </View>
     <View style={styles.greetingRow}>
-      <View style={styles.greetingCopy}><AppText weight="bold" style={styles.greeting}>{variant.greeting}</AppText><AppText style={[styles.heroSubtitle, variant.subtitle]}>{subtitle}</AppText></View>
+      <View style={styles.greetingCopy}><AppText weight="bold" style={styles.greeting}>Hi, {firstName}!</AppText><AppText style={[styles.heroSubtitle, variant.subtitle]}>{subtitle}</AppText></View>
       <View style={styles.avatarCircle}><Ionicons name="person" size={28} color={colors.red} /></View>
     </View>
   </>;
@@ -59,7 +61,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1 },
   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87, overflow: 'hidden' },
   heroExtension: { backgroundColor: colors.red, height: 97 },
-  topRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bellWrap: { position: 'relative' },
   badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: colors.white, fontSize: 10 },
@@ -81,6 +83,6 @@ const roleStyles = {
 };
 
 const heroVariants = {
-  client: { greeting: 'Hi, Mark!', emptySubtitle: 'Find the best student talent for your project.', notificationIconSize: 28, badgeColor: '#e56a6a', subtitle: undefined },
-  student: { greeting: 'Hi, Alex!', emptySubtitle: 'Explore new project opportunities today.', notificationIconSize: 29, badgeColor: '#ef8585', subtitle: styles.studentSubtitle },
+  client: { fallbackName: 'Client', emptySubtitle: 'Find the best student talent for your project.', notificationIconSize: 28, badgeColor: '#e56a6a', subtitle: undefined },
+  student: { fallbackName: 'Student', emptySubtitle: 'Explore new project opportunities today.', notificationIconSize: 29, badgeColor: '#ef8585', subtitle: styles.studentSubtitle },
 };

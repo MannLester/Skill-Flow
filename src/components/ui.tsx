@@ -7,14 +7,16 @@ import {
 import { Svg, Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { UserRole } from '@/context/session';
+import type { UserRole } from '@/context/session';
 import { colors, font, MAX_PHONE_WIDTH, shadow } from '@/constants/theme';
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
-type BottomNavActive = 'home' | 'projects' | 'portfolio' | 'messages' | 'saved' | 'profile' | 'none';
-type BottomNavVariant = 'student' | 'client' | 'marketplace' | 'compact';
-type BottomNavEntry = { key: BottomNavActive; label: string; icon: IconName; action?: () => void; dot?: boolean };
+type BottomNavProps = {
+  active: 'home' | 'projects' | 'portfolio' | 'messages' | 'saved' | 'profile' | 'none';
+  onHome: () => void; onProjects?: () => void; onPortfolio?: () => void; onMessages?: () => void; onCreate?: () => void; onSaved?: () => void; onProfile?: () => void; messageUnread?: boolean; variant?: 'student' | 'client' | 'marketplace' | 'compact';
+};
+type BottomNavItem = { key: BottomNavProps['active']; label: string; icon: IconName; action?: () => void; dot?: boolean };
 
 export function AppText({ children, weight = 'regular', style, ...props }: ComponentProps<typeof Text> & { weight?: keyof typeof font }) {
   return <Text maxFontSizeMultiplier={1.5} {...props} style={[{ color: colors.ink, fontFamily: font[weight] }, style]}>{children}</Text>;
@@ -51,9 +53,9 @@ export function AppHeader({ title, onBack, right, red = true }: { title: string;
   );
 }
 
-export function PrimaryButton({ title, onPress, style }: { title: string; onPress?: () => void; style?: StyleProp<ViewStyle> }) {
+export function PrimaryButton({ title, onPress, style, disabled = false }: { title: string; onPress?: () => void | Promise<void>; style?: StyleProp<ViewStyle>; disabled?: boolean }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.primaryButton, style, pressed && onPress ? { opacity: 0.85 } : null]}>
+    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.primaryButton, style, disabled ? { opacity: 0.55 } : null, pressed && onPress ? { opacity: 0.85 } : null]}>
       <AppText weight="semibold" style={styles.primaryButtonText}>{title}</AppText>
     </Pressable>
   );
@@ -98,62 +100,29 @@ function RoleButton({ label, icon, active, onPress }: { label: string; icon: Ico
   );
 }
 
-export function BottomNav({ active, onHome, onProjects, onPortfolio, onMessages, onCreate, onSaved, onProfile, messageUnread = false, variant = 'student' }: {
-  active: BottomNavActive;
-  onHome: () => void; onProjects?: () => void; onPortfolio?: () => void; onMessages?: () => void; onCreate?: () => void; onSaved?: () => void; onProfile?: () => void; messageUnread?: boolean; variant?: BottomNavVariant;
-}) {
+function buildBottomNavItems({ onHome, onProjects, onPortfolio, onMessages, onCreate, onSaved, onProfile, messageUnread = false, variant = 'student' }: BottomNavProps): BottomNavItem[] {
+  const common = { home: { key: 'home' as const, label: 'Home', icon: 'home' as IconName, action: onHome }, projects: { key: 'projects' as const, label: 'Projects', icon: 'briefcase' as IconName, action: onProjects } };
+  if (variant === 'client') return [common.home, common.projects, { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages }, { key: 'saved', label: 'Saved', icon: 'heart', action: onSaved }, { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile }];
+  if (variant === 'compact') return [common.home, common.projects, { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages }, { key: 'profile', label: 'Profile', icon: 'person', action: onProfile }];
+  const center: BottomNavItem = variant === 'marketplace' ? { key: 'none', label: '', icon: 'add', action: onCreate } : { key: 'portfolio', label: 'Portfolio', icon: 'folder', action: onPortfolio };
+  return [common.home, common.projects, center, { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages, dot: messageUnread }, { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile }];
+}
+
+export function BottomNav(props: BottomNavProps) {
+  const { active, variant = 'student' } = props;
   const insets = useSafeAreaInsets();
-  const items: BottomNavEntry[] = variant === 'client'
-    ? [
-        { key: 'home', label: 'Home', icon: 'home', action: onHome },
-        { key: 'projects', label: 'Projects', icon: 'briefcase', action: onProjects },
-        { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages },
-        { key: 'saved', label: 'Saved', icon: 'heart', action: onSaved },
-        { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile },
-      ]
-    : variant === 'compact'
-      ? [
-          { key: 'home', label: 'Home', icon: 'home', action: onHome },
-          { key: 'projects', label: 'Projects', icon: 'briefcase', action: onProjects },
-          { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages },
-          { key: 'profile', label: 'Profile', icon: 'person', action: onProfile },
-        ]
-      : [
-          { key: 'home', label: 'Home', icon: 'home', action: onHome },
-          { key: 'projects', label: 'Projects', icon: 'briefcase', action: onProjects },
-          ...(variant === 'marketplace' ? [{ key: 'none' as const, label: '', icon: 'add' as IconName, action: onCreate }] : [{ key: 'portfolio' as const, label: 'Portfolio', icon: 'folder' as IconName, action: onPortfolio }]),
-          { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages, dot: messageUnread },
-          { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile },
-        ];
+  const items = buildBottomNavItems(props);
 
   return (
     <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8), height: 76 + Math.max(insets.bottom, 8) }]}> 
-      {items.map((item, index) => <BottomNavItem key={`${item.key}-${index}`} active={active} item={item} plus={variant === 'marketplace' && item.key === 'none'} />)}
+      {items.map((item, index) => <BottomNavButton key={`${item.key}-${index}`} item={item} selected={item.key === active} plus={variant === 'marketplace' && item.key === 'none'} />)}
     </View>
   );
 }
 
-function BottomNavItem({ active, item, plus }: { active: BottomNavActive; item: BottomNavEntry; plus: boolean }) {
-  const selected = item.key === active;
+function BottomNavButton({ item, selected, plus }: { item: BottomNavItem; selected: boolean; plus: boolean }) {
   const iconColor = plus ? colors.white : selected ? colors.red : '#555';
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={plus ? 'Create' : item.label}
-      accessibilityState={{ disabled: !item.action, selected }}
-      disabled={!item.action}
-      onPress={item.action}
-      style={styles.navItem}
-    >
-      <View style={styles.navIconWrap}>
-        <View style={plus ? styles.plusButton : undefined}>
-          <Ionicons name={item.icon} size={plus ? 32 : 27} color={iconColor} />
-        </View>
-        {item.dot ? <View style={styles.messageDot} /> : null}
-      </View>
-      {!plus ? <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText> : null}
-    </Pressable>
-  );
+  return <Pressable accessibilityRole="button" accessibilityLabel={plus ? 'Create' : item.label} accessibilityState={{ disabled: !item.action, selected }} disabled={!item.action} onPress={item.action} style={styles.navItem}><View style={styles.navIconWrap}><View style={plus ? styles.plusButton : undefined}><Ionicons name={item.icon} size={plus ? 32 : 27} color={iconColor} /></View>{item.dot ? <View style={styles.messageDot} /> : null}</View>{plus ? null : <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText>}</Pressable>;
 }
 
 export function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; onPress?: () => void }) {

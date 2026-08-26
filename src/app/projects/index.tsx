@@ -7,11 +7,11 @@ import { StatusBar } from 'expo-status-bar';
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
-import { ProjectBooking, ProjectPost, ProjectStatus, Proposal, UserRole, useSession } from '@/context/session';
+import { ProjectBooking, ProjectPost, ProjectStatus, Proposal, UserRole, useSession } from '@/context/session.remote';
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 const statusLabels: Record<ProjectStatus, string> = {
-  requested: 'Request Sent', accepted: 'Accepted', declined: 'Declined', cancelled: 'Cancelled', demo_funded: 'Demo Funds Reserved', in_progress: 'In Progress', submitted: 'Delivery Submitted', revision_requested: 'Revision Requested', approved: 'Approved', completed: 'Completed', reviewed: 'Reviewed',
+  requested: 'Request Sent', accepted: 'Accepted', declined: 'Declined', cancelled: 'Cancelled', demo_funded: 'Demo Funds Reserved', in_progress: 'In Progress', submitted: 'Delivery Submitted', revision_requested: 'Revision Requested', completed: 'Completed', reviewed: 'Reviewed',
 };
 
 export function buildProjectPostIndex(projectPosts: ProjectPost[]): Map<string, ProjectPost> {

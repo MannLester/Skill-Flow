@@ -14,10 +14,11 @@ import {
   StoreResult,
   StudentVerification,
   useSession,
-} from '@/context/session';
+} from '@/context/session.remote';
 import { formatPeso } from '@/data/fixtures';
+import { consumeResult } from '@/utils/consume-result';
 
-type ProposalSubmitter = (projectPostId: string, input: ProposalInput) => StoreResult;
+type ProposalSubmitter = (projectPostId: string, input: ProposalInput) => Promise<StoreResult>;
 
 export default function ProjectPostDetailsScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
@@ -124,11 +125,12 @@ function OwnerControls({
 }: {
   post: ProjectPost;
   proposalCount: number;
-  setProjectPostStatus: (projectPostId: string, status: ProjectPost['status']) => StoreResult;
+  setProjectPostStatus: (projectPostId: string, status: ProjectPost['status']) => Promise<StoreResult>;
 }) {
   const changeStatus = (status: ProjectPost['status']) => {
-    const result = setProjectPostStatus(post.id, status);
-    Alert.alert(result.ok ? 'Project updated' : 'Unable to update', result.ok ? `Project is now ${status}.` : result.message);
+    consumeResult(setProjectPostStatus(post.id, status), (result) => {
+      Alert.alert(result.ok ? 'Project updated' : 'Unable to update', result.ok ? `Project is now ${status}.` : result.message);
+    });
   };
   const canEdit = !['closed', 'archived'].includes(post.status);
   const canOpen = post.status === 'draft' || (post.status === 'closed' && !post.acceptedProposalId);
@@ -158,12 +160,13 @@ function StudentProposalSection({
   proposal?: Proposal;
   verification?: StudentVerification;
   submitProposal: ProposalSubmitter;
-  withdrawProposal: (proposalId: string) => StoreResult;
+  withdrawProposal: (proposalId: string) => Promise<StoreResult>;
 }) {
   const withdraw = () => {
     if (!proposal) return;
-    const result = withdrawProposal(proposal.id);
-    Alert.alert(result.ok ? 'Proposal withdrawn' : 'Unable to withdraw', result.ok ? 'You may submit a new proposal while the post remains open.' : result.message);
+    consumeResult(withdrawProposal(proposal.id), (result) => {
+      Alert.alert(result.ok ? 'Proposal withdrawn' : 'Unable to withdraw', result.ok ? 'You may submit a new proposal while the post remains open.' : result.message);
+    });
   };
 
   return (
@@ -202,17 +205,15 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
   }, [verification?.status]);
 
   const handleSubmit = () => {
-    const result = submitProposal(post.id, {
+    consumeResult(submitProposal(post.id, {
       coverLetter,
       amount: parseNumberOrZero(amount),
       deliveryDays: parseNumberOrZero(deliveryDays),
+    }), (result) => {
+      if (!result.ok) return setFeedback(result.message);
+      setFeedback(undefined);
+      Alert.alert('Proposal submitted', 'The client can now compare your proposal.');
     });
-    if (!result.ok) {
-      setFeedback(result.message);
-      return;
-    }
-    setFeedback(undefined);
-    Alert.alert('Proposal submitted', 'The client can now compare your proposal.');
   };
   const clearFeedback = () => setFeedback(undefined);
   const verificationRequired = verification?.status !== 'verified';

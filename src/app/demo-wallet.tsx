@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
-import { DemoLedgerEntry, ProjectBooking, useSession } from '@/context/session';
+import { DemoLedgerEntry, ProjectBooking, useSession } from '@/context/session.remote';
 
 export function buildBookingIndex(bookings: ProjectBooking[]) {
   return new Map(bookings.map((booking) => [booking.id, booking]));
@@ -26,7 +26,7 @@ function ledgerKeyExtractor(item: DemoLedgerEntry) {
 }
 
 function WalletEmptyState() {
-  return <View style={styles.empty}><Ionicons name="wallet-outline" size={50} color={colors.muted} /><AppText weight="semibold" style={{ marginTop: 11 }}>No demo transactions yet</AppText><AppText style={styles.detail}>Funding and approval events will create local ledger entries.</AppText></View>;
+  return <View style={styles.empty}><Ionicons name="wallet-outline" size={50} color={colors.muted} /><AppText weight="semibold" style={{ marginTop: 11 }}>No demo transactions yet</AppText><AppText style={styles.detail}>Funding and approval events will create simulated cloud ledger entries.</AppText></View>;
 }
 
 export default function DemoWalletScreen() {

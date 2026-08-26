@@ -7,7 +7,7 @@ import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
 import { CareerReadinessBreakdown } from '@/domain/career-readiness';
-import { Certification, DemoAccount, PortfolioItem, ProjectBooking, ProjectReview, StudentVerification, UserProfile, useSession } from '@/context/session';
+import { Certification, DemoAccount, PortfolioItem, ProjectBooking, ProjectReview, StudentVerification, UserProfile, useSession } from '@/context/session.remote';
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export default function ProfileScreen() {
@@ -22,7 +22,7 @@ export default function ProfileScreen() {
   const ownReviews = reviews.filter((item) => item.studentId === currentAccount.id);
   const earnings = currentAccount.role === 'student' ? bookings.filter((item) => item.studentId === currentAccount.id && ['completed', 'reviewed'].includes(item.status)).reduce((total, item) => total + item.budget, 0) : 0;
   const completedNotAdded = ownProjects.filter((item) => item.studentId === currentAccount.id && ['completed', 'reviewed'].includes(item.status) && !ownPortfolio.some((portfolio) => portfolio.sourceProjectId === item.id));
-  const addProject = (projectId: string) => { const result = addCompletedProjectToPortfolio(projectId); Alert.alert(result.ok ? 'Added to portfolio' : 'Unable to add project', result.ok ? 'The completed work is now part of your portfolio.' : result.message); };
+  const addProject = async (projectId: string) => { const result = await addCompletedProjectToPortfolio(projectId); Alert.alert(result.ok ? 'Added to portfolio' : 'Unable to add project', result.ok ? 'The completed work is now part of your portfolio.' : result.message); };
   const readiness = currentAccount.role === 'student' ? getCareerReadiness(currentAccount.id) : null;
 
   return (

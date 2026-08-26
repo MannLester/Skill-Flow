@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { CareerReadinessCategory, ReadinessCategoryKey } from '@/domain/career-readiness';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
 
 const iconByCategory: Record<ReadinessCategoryKey, keyof typeof Ionicons.glyphMap> = {
   profile: 'person-outline', verification: 'shield-checkmark-outline', portfolio: 'images-outline', projects: 'briefcase-outline', ratings: 'star-outline', certifications: 'ribbon-outline',

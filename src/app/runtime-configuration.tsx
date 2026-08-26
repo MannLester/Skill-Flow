@@ -15,7 +15,7 @@ export default function RuntimeConfigurationScreen() {
       <RuntimeConfigurationState result={readRuntimeConfiguration()}>
         <View style={styles.ready}>
           <AppText weight="bold" style={styles.readyTitle}>Configuration looks valid</AppText>
-          <AppText style={styles.readyBody}>Provider wiring is intentionally deferred until the administrator supplies the approved Clerk and Convex integration settings. The seeded demo remains the current source of truth.</AppText>
+          <AppText style={styles.readyBody}>Clerk authentication and Convex Cloud are configured for this build. Public client configuration is bundled with the app; protected deployment secrets remain server-side.</AppText>
         </View>
       </RuntimeConfigurationState>
     </MobilePage>

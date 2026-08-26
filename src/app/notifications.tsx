@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';
-import { DemoNotification, useSession } from '@/context/session';
+import { DemoNotification, useSession } from '@/context/session.remote';
 
 type Filter = 'All' | 'Unread' | 'Mentions';
 

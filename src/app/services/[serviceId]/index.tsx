@@ -7,7 +7,7 @@ import { OptimizedArtwork, optimizedArtwork, ServiceArtwork as ServiceThumbnail 
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
 
 
 export default function ServiceDetailsScreen() {
@@ -22,7 +22,7 @@ export default function ServiceDetailsScreen() {
   const favorite = savedServiceIds.includes(service.id);
   const requestService = () => {
     if (currentAccount?.role !== 'client') {
-      Alert.alert('Client action', 'Switch to the Mark demo account to request a student service.');
+      Alert.alert('Client action', 'Sign in with a Client account to request a student service.');
       return;
     }
     router.push({ pathname: '/services/[serviceId]/request', params: { serviceId: service.id } });

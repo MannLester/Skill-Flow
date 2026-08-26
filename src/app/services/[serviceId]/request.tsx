@@ -9,7 +9,7 @@ import { ServiceArtwork } from '@/components/optimized-artwork';
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
 
 
 type SelectorKey = 'delivery' | 'budget';
@@ -37,9 +37,9 @@ export default function BookServiceScreen() {
   const chooseBudget = (value: number) => { setBudget(value); setOpenSelector(null); };
   const deliveryOptions = [3, 5, 7].map((value) => ({ value, label: `${value} Days` }));
   const budgetOptions = [service.price, service.price + 500, service.price + 1000].map((value) => ({ value, label: formatPeso(value) }));
-  const submit = () => {
+  const submit = async () => {
     if (currentAccount?.role !== 'client') {
-      Alert.alert('Client action', 'Log in with the Mark demo account to send a service request.');
+      Alert.alert('Client action', 'Sign in with a Client account to send a service request.');
       return;
     }
     if (description.trim().length < 10) {
@@ -47,7 +47,7 @@ export default function BookServiceScreen() {
       return;
     }
     setDescriptionError(undefined);
-    const booking = createBooking({ serviceId: service.id, studentId: service.providerId, title: service.title, description: description.trim(), deliveryDays, budget });
+    const booking = await createBooking({ serviceId: service.id, studentId: service.providerId, title: service.title, description: description.trim(), deliveryDays, budget });
     router.replace({ pathname: '/projects/[projectId]', params: { projectId: booking.id } });
   };
 

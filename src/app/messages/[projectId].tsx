@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
-import { DemoAccount, ProjectMessage, useSession } from '@/context/session';
+import { DemoAccount, ProjectMessage, useSession } from '@/context/session.remote';
 
 export function buildMessageSenderIndex(accounts: DemoAccount[]) {
   return new Map(accounts.map((account) => [account.id, account.name]));
@@ -18,7 +18,7 @@ function messageKeyExtractor(item: ProjectMessage) {
 }
 
 function ConversationEmptyState() {
-  return <View style={styles.empty}><AppText weight="semibold">Start the conversation</AppText><AppText style={styles.emptyText}>Messages are stored locally with this demonstration project.</AppText></View>;
+  return <View style={styles.empty}><AppText weight="semibold">Start the conversation</AppText><AppText style={styles.emptyText}>Messages sync through the shared SkillFlow development backend.</AppText></View>;
 }
 
 export default function ProjectMessagesScreen() {
@@ -31,10 +31,10 @@ export default function ProjectMessagesScreen() {
   const senderNames = useMemo(() => buildMessageSenderIndex(accounts), [accounts]);
   const renderItem = useCallback(({ item }: { item: ProjectMessage }) => <MessageBubble message={item} own={item.senderId === currentAccount?.id} sender={senderNames.get(item.senderId) ?? 'User'} />, [currentAccount?.id, senderNames]);
 
-  useEffect(() => { if (booking) markProjectMessagesRead(booking.id); }, [booking, markProjectMessagesRead, thread.length]);
+  useEffect(() => { if (booking) void markProjectMessagesRead(booking.id); }, [booking, markProjectMessagesRead, thread.length]);
   if (!booking) return <MobilePage><StatusBar style="light" /><AppHeader title="Messages" onBack={() => router.back()} /><View style={styles.empty}><AppText>Project conversation not found.</AppText></View></MobilePage>;
 
-  const submit = () => { const result = sendMessage(booking.id, body); if (result.ok) setBody(''); };
+  const submit = async () => { const result = await sendMessage(booking.id, body); if (result.ok) setBody(''); };
   return (
     <MobilePage>
       <StatusBar style="light" />

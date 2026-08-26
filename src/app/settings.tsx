@@ -6,13 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
 
 type Row = { label: string; icon: keyof typeof Ionicons.glyphMap; value?: string; toggle?: boolean; enabled?: boolean; onPress: () => void };
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { logout, preferences, resetDemoData, updatePreferences } = useSession();
+  const { logout, preferences, updatePreferences } = useSession();
   const dark = preferences.darkMode;
   const sections: { title: string; rows: Row[] }[] = [
     { title: 'Account', rows: [
@@ -32,12 +32,11 @@ export default function SettingsScreen() {
       { label: 'Privacy Policy', icon: 'information-circle-outline', onPress: () => router.push('/privacy-policy') },
     ] },
   ];
-  const logOut = () => { logout(); router.replace('/'); };
-  const reset = () => Alert.alert('Reset demo data?', 'This removes locally created records and restores the seeded demo.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Reset', style: 'destructive', onPress: () => { resetDemoData().then(() => router.replace('/')); } }]);
+  const logOut = async () => { await logout(); router.replace('/'); };
   return <MobilePage backgroundColor={dark ? '#171717' : colors.white}><StatusBar style="light" /><AppHeader title="Settings" onBack={() => router.back()} /><ScrollView showsVerticalScrollIndicator={false} style={dark ? styles.darkPage : undefined} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 20, 30) }]}>
     {dark ? <View style={styles.themeNotice}><Ionicons name="moon" size={18} color={colors.white} /><AppText style={styles.darkCopy}>Dark styling is active for Settings. This local preference is preserved when the app restarts.</AppText></View> : null}
     {sections.map((section) => <View key={section.title} style={[styles.section, dark && styles.darkSection]}><AppText weight="semibold" style={[styles.sectionTitle, dark && styles.darkText]}>{section.title}</AppText>{section.rows.map((row) => <SettingsRow key={row.label} {...row} dark={dark} />)}</View>)}
-    <Pressable onPress={reset} style={styles.reset}><AppText weight="medium" style={[styles.resetText, dark && styles.darkCopy]}>Reset Demo Data</AppText></Pressable><Pressable onPress={logOut} style={[styles.logout, dark && styles.darkBorder]}><AppText weight="semibold" style={[styles.logoutText, dark && { color: '#ff9999' }]}>Log Out</AppText></Pressable>
+    <AppText style={[styles.resetText, dark && styles.darkCopy]}>Development demo resets are operator-only and never run from the mobile app.</AppText><Pressable onPress={logOut} style={[styles.logout, dark && styles.darkBorder]}><AppText weight="semibold" style={[styles.logoutText, dark && { color: '#ff9999' }]}>Log Out</AppText></Pressable>
   </ScrollView></MobilePage>;
 }
 

@@ -9,7 +9,7 @@ import { ServiceArtwork } from '@/components/optimized-artwork';
 import { AppText, BottomNav, MobilePage } from '@/components/ui';
 import { colors, font, shadow } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
 import { PrimaryTabScene, replacePrimaryTab } from '@/navigation/primary-navigation';
 
 type MarketplaceFilterState = {

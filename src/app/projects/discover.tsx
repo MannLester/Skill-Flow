@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
-import { ProjectPost, useSession } from '@/context/session';
+import { ProjectPost, useSession } from '@/context/session.remote';
 
 export default function DiscoverProjectsScreen() {
   const { projectPosts } = useSession();

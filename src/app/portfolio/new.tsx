@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
+import { consumeResult } from '@/utils/consume-result';
 
 type PortfolioFormErrors = { title?: string; category?: string; description?: string; form?: string };
 type PortfolioFormValues = Pick<PortfolioFormErrors, 'title' | 'category' | 'description'>;
@@ -27,11 +28,12 @@ export default function NewPortfolioItemScreen() {
   const save = () => {
     const nextErrors = validatePortfolioForm({ title, category, description });
     if (nextErrors.form) return setErrors(nextErrors);
-    const result = addPortfolioItem({ title, category, description });
-    if (!result.ok) return setErrors({ form: result.message });
-    setErrors({});
-    Alert.alert('Portfolio updated', 'The work sample was added locally.');
-    router.back();
+    consumeResult(addPortfolioItem({ title, category, description }), (result) => {
+      if (!result.ok) return setErrors({ form: result.message });
+      setErrors({});
+      Alert.alert('Portfolio updated', 'The work sample was added to your SkillFlow profile.');
+      router.back();
+    });
   };
   return <MobilePage><StatusBar style="light" /><AppHeader title="Add Portfolio Item" onBack={() => router.back()} /><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
     <Label text="Project Title" /><FormField icon="images-outline" value={title} onChangeText={(value) => { setTitle(value); clearError('title'); }} placeholder="Project Title" accessibilityLabel="Project title" accessibilityHint={errors.title ?? 'Required. Enter a project title.'} style={errors.title ? styles.fieldError : undefined} /><FieldError message={errors.title} />

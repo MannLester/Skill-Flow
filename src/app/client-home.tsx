@@ -1,29 +1,32 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DashboardHomeHero, DashboardHomeShell } from '@/components/dashboard-home-shell';
+import { NavigationDrawer } from '@/components/navigation-drawer';
 import { AppText, QuickAction } from '@/components/ui';
 import { colors, shadow } from '@/constants/theme';
-import { ProjectBooking, useSession } from '@/context/session';
+import { ProjectBooking, useSession } from '@/context/session.remote';
 import { formatPeso } from '@/data/fixtures';
 import { countActiveProjects } from '@/domain/project-status';
 
 export default function ClientHomeScreen() {
   const { bookings, currentAccount, projectPosts, unreadCount } = useSession();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const myBookings = currentAccount ? bookings.filter((booking) => booking.clientId === currentAccount.id) : [];
   const activeCount = countActiveProjects(myBookings);
   const myPosts = currentAccount ? projectPosts.filter((post) => post.clientId === currentAccount.id) : [];
-  return (
+  return <>
     <DashboardHomeShell
       role="client"
-      hero={<DashboardHomeHero role="client" activeCount={activeCount} unreadCount={unreadCount} onNotifications={() => router.push('/notifications')} />}
+      hero={<DashboardHomeHero role="client" accountName={currentAccount?.name} activeCount={activeCount} unreadCount={unreadCount} onOpenMenu={() => setDrawerOpen(true)} onNotifications={() => router.push('/notifications')} />}
       featured={
         <View style={styles.activeCard}>
           <View style={styles.activeCardBody}>
             <AppText weight="semibold" style={styles.activeTitle}>Active Projects</AppText>
             <AppText weight="bold" style={styles.activeCount}>{activeCount}</AppText>
-            <AppText style={styles.activeStatus}>From local demo activity</AppText>
+            <AppText style={styles.activeStatus}>Synced with SkillFlow Cloud</AppText>
           </View>
           <View style={styles.activeCardIcon}>
             <Ionicons name="briefcase" size={32} color={colors.red} />
@@ -42,12 +45,13 @@ export default function ClientHomeScreen() {
           </View>
           <View style={styles.titleRow}><AppText weight="semibold" style={styles.sectionText}>Recent Projects</AppText><Pressable onPress={() => router.push('/projects')}><AppText weight="medium" style={styles.viewAll}>View All</AppText></Pressable></View>
           <View style={styles.projectList}>
-            {myBookings.length ? myBookings.slice(0, 3).map((booking, index) => <BookingRow key={booking.id} booking={booking} last={index === Math.min(myBookings.length, 3) - 1} />) : myPosts.length ? myPosts.slice(0, 3).map((post) => <Pressable key={post.id} onPress={() => router.push({ pathname: '/project-posts/[postId]', params: { postId: post.id } })} style={styles.projectRow}><View style={styles.bookingIcon}><Ionicons name="document-text" size={26} color={colors.red} /></View><View style={{ flex: 1 }}><AppText weight="semibold" style={{ fontSize: 14 }}>{post.title}</AppText><AppText style={styles.emptyProjectText}>{post.status} · {post.category}</AppText></View><Ionicons name="chevron-forward" size={20} color={colors.muted} /></Pressable>) : <View style={styles.emptyProjects}><AppText weight="medium">No project activity yet.</AppText><AppText style={styles.emptyProjectText}>Post a project or request a student service to begin.</AppText></View>}
+            {myBookings.length ? myBookings.slice(0, 3).map((booking, index) => <BookingRow key={booking.id} booking={booking} last={index === Math.min(myBookings.length, 3) - 1} />) : myPosts.length ? myPosts.slice(0, 3).map((post) => <Pressable key={post.id} onPress={() => router.push({ pathname: '/project-posts/[postId]', params: { postId: post.id } })} style={styles.projectRow}><View style={styles.bookingIcon}><Ionicons name="document-text" size={26} color={colors.red} /></View><View style={{ flex: 1 }}><AppText weight="semibold" style={{ fontSize: 14 }}>{post.title}</AppText><AppText style={styles.emptyProjectText}>{post.status} - {post.category}</AppText></View><Ionicons name="chevron-forward" size={20} color={colors.muted} /></Pressable>) : <View style={styles.emptyProjects}><AppText weight="medium">No project activity yet.</AppText><AppText style={styles.emptyProjectText}>Post a project or request a student service to begin.</AppText></View>}
           </View>
         </>
       }
     />
-  );
+    <NavigationDrawer visible={drawerOpen} role="client" onClose={() => setDrawerOpen(false)} />
+  </>;
 }
 
 function BookingRow({ booking, last }: { booking: ProjectBooking; last: boolean }) {

@@ -7,10 +7,11 @@ import { useEffect, useState } from 'react';
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
-import { DemoAccount, ProjectAction, ProjectBooking, ProjectReview, ProjectStatus, useSession } from '@/context/session';
+import { DemoAccount, ProjectAction, ProjectBooking, ProjectReview, ProjectStatus, useSession } from '@/context/session.remote';
+import { consumeResult } from '@/utils/consume-result';
 
 const statusLabels: Record<ProjectStatus, string> = {
-  requested: 'Request Sent', accepted: 'Accepted', declined: 'Declined', cancelled: 'Cancelled', demo_funded: 'Demo Funds Reserved', in_progress: 'In Progress', submitted: 'Delivery Submitted', revision_requested: 'Revision Requested', approved: 'Approved', completed: 'Completed', reviewed: 'Reviewed',
+  requested: 'Request Sent', accepted: 'Accepted', declined: 'Declined', cancelled: 'Cancelled', demo_funded: 'Demo Funds Reserved', in_progress: 'In Progress', submitted: 'Delivery Submitted', revision_requested: 'Revision Requested', completed: 'Completed', reviewed: 'Reviewed',
 };
 
 type ProjectActionPayload = { note?: string; rating?: number; comment?: string };
@@ -61,14 +62,12 @@ function useProjectActionForm(bookingId: string, actionContext: string, actOnPro
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback>();
   useEffect(() => setActionFeedback(undefined), [actionContext]);
   const run: RunProjectAction = (action, payload) => {
-    const result = actOnProject(bookingId, action, payload);
-    if (!result.ok) {
-      setActionFeedback({ context: actionContext, message: result.message });
-      return;
-    }
-    setActionFeedback(undefined);
-    setNote('');
-    if (action === 'review') setComment('');
+    consumeResult(actOnProject(bookingId, action, payload), (result) => {
+      if (!result.ok) return setActionFeedback({ context: actionContext, message: result.message });
+      setActionFeedback(undefined);
+      setNote('');
+      if (action === 'review') setComment('');
+    });
   };
   const clearActionFeedback = () => setActionFeedback(undefined);
   const updateNote = (value: string) => { setNote(value); clearActionFeedback(); };
@@ -91,8 +90,9 @@ function ProjectDetailCard({ booking, review }: { booking: ProjectBooking; revie
 function ProjectLinks({ booking, isClient, isStudent, addedToPortfolio, addToPortfolio }: { booking: ProjectBooking; isClient: boolean; isStudent: boolean; addedToPortfolio: boolean; addToPortfolio: ReturnType<typeof useSession>['addCompletedProjectToPortfolio'] }) {
   const canAdd = isStudent && ['completed', 'reviewed'].includes(booking.status) && !addedToPortfolio;
   const add = () => {
-    const result = addToPortfolio(booking.id);
-    Alert.alert(result.ok ? 'Added to portfolio' : 'Unable to add project', result.ok ? 'The completed project is now portfolio evidence.' : result.message);
+    consumeResult(addToPortfolio(booking.id), (result) => {
+      Alert.alert(result.ok ? 'Added to portfolio' : 'Unable to add project', result.ok ? 'The completed project is now portfolio evidence.' : result.message);
+    });
   };
   return <>{isClient || isStudent ? <PrimaryButton title="Open Project Messages" onPress={() => router.push({ pathname: '/messages/[projectId]', params: { projectId: booking.id } })} /> : null}{canAdd ? <SecondaryButton title="Add Completed Work to Portfolio" onPress={add} /> : null}</>;
 }

@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui';
@@ -30,25 +29,6 @@ export function NavigationDrawer({ visible, role, onClose }: { visible: boolean;
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const drawerWidth = Math.min(width * 0.82, 340);
-  const [mounted, setMounted] = useState(visible);
-  const translateX = useRef(new Animated.Value(-drawerWidth)).current;
-
-  useEffect(() => {
-    if (visible) setMounted(true);
-  }, [visible]);
-
-  useEffect(() => {
-    if (!mounted) return;
-    translateX.stopAnimation();
-    if (visible) {
-      translateX.setValue(-drawerWidth);
-      Animated.timing(translateX, { toValue: 0, duration: 220, useNativeDriver: true }).start();
-      return;
-    }
-    Animated.timing(translateX, { toValue: -drawerWidth, duration: 180, useNativeDriver: true }).start(({ finished }) => {
-      if (finished) setMounted(false);
-    });
-  }, [drawerWidth, mounted, translateX, visible]);
 
   const select = (key: DrawerItem['key']) => {
     onClose();
@@ -56,11 +36,11 @@ export function NavigationDrawer({ visible, role, onClose }: { visible: boolean;
     else replacePrimaryTab(role, 'home', key);
   };
 
-  if (!mounted) return null;
+  if (!visible) return null;
   return <Modal transparent visible statusBarTranslucent animationType="none" onRequestClose={onClose}>
     <View style={styles.modal}>
       <Pressable testID="navigation-drawer-scrim" accessibilityRole="button" accessibilityLabel="Close navigation menu" onPress={onClose} style={styles.scrim} />
-      <Animated.View accessibilityViewIsModal importantForAccessibility="yes" style={[styles.drawer, { width: drawerWidth, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 18, transform: [{ translateX }] }]}>
+      <View accessibilityViewIsModal importantForAccessibility="yes" style={[styles.drawer, { width: drawerWidth, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 18 }]}>
         <View style={styles.heading}>
           <View><AppText weight="bold" style={styles.brand}>SkillFlow</AppText><AppText style={styles.role}>{role === 'client' ? 'Client workspace' : 'Student Designer workspace'}</AppText></View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close navigation menu" hitSlop={12} onPress={onClose}><Ionicons name="close" size={29} color={colors.ink} /></Pressable>
@@ -74,7 +54,7 @@ export function NavigationDrawer({ visible, role, onClose }: { visible: boolean;
             </Pressable>;
           })}
         </View>
-      </Animated.View>
+      </View>
     </View>
   </Modal>;
 }

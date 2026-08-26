@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
-import { StoreResult, StudentVerification, VerificationStatus, useSession } from '@/context/session';
+import { StoreResult, StudentVerification, VerificationStatus, useSession } from '@/context/session.remote';
 
 export default function VerificationScreen() {
   const { currentAccount, simulateVerificationReview, submitVerification, verifications } = useSession();
@@ -55,8 +55,8 @@ type VerificationContentProps = {
   setGradeLevel: (value: string) => void;
   setYear: (value: string) => void;
   setSampleDocument: (value: string) => void;
-  submitVerification: (input: VerificationInput) => StoreResult;
-  simulateVerificationReview: (approved: boolean, rejectionReason?: string) => StoreResult;
+  submitVerification: (input: VerificationInput) => Promise<StoreResult>;
+  simulateVerificationReview: (approved: boolean, rejectionReason?: string) => Promise<StoreResult>;
 };
 
 function VerificationContent({ current, status, school, studentNumber, program, gradeLevel, year, sampleDocument, setSchool, setStudentNumber, setProgram, setGradeLevel, setYear, setSampleDocument, submitVerification, simulateVerificationReview }: VerificationContentProps) {
@@ -67,14 +67,14 @@ function VerificationContent({ current, status, school, studentNumber, program, 
   return <VerificationForm current={current} status={status} school={school} studentNumber={studentNumber} program={program} gradeLevel={gradeLevel} year={year} sampleDocument={sampleDocument} setSchool={setSchool} setStudentNumber={setStudentNumber} setProgram={setProgram} setGradeLevel={setGradeLevel} setYear={setYear} setSampleDocument={setSampleDocument} onSubmit={submit} />;
 }
 
-function submitVerificationForm(submitVerification: (input: VerificationInput) => StoreResult, input: VerificationInput) {
-  const result = submitVerification(input);
+async function submitVerificationForm(submitVerification: (input: VerificationInput) => Promise<StoreResult>, input: VerificationInput) {
+  const result = await submitVerification(input);
   Alert.alert(result.ok ? 'Submitted' : 'Unable to submit', result.ok ? 'The demo verification is now pending review.' : result.message);
 }
 
-function reviewVerification(simulateVerificationReview: (approved: boolean, rejectionReason?: string) => StoreResult, approved: boolean) {
+async function reviewVerification(simulateVerificationReview: (approved: boolean, rejectionReason?: string) => Promise<StoreResult>, approved: boolean) {
   const reason = approved ? undefined : 'Student ID image is unclear.';
-  const result = simulateVerificationReview(approved, reason);
+  const result = await simulateVerificationReview(approved, reason);
   Alert.alert(result.ok ? (approved ? 'Simulation approved' : 'Simulation rejected') : 'Unable to review', result.ok ? (approved ? 'The verified badge is now active.' : 'The student can correct the form and resubmit.') : result.message);
 }
 
@@ -82,7 +82,7 @@ function VerifiedVerification({ current }: { current?: StudentVerification }) {
   return <VerificationPage><View style={styles.statusPage}><View style={[styles.statusIcon, { backgroundColor: colors.greenSoft }]}><Ionicons name="checkmark-circle" size={55} color={colors.green} /></View><AppText weight="bold" style={styles.statusTitle}>Verified Student</AppText><AppText style={styles.centerCopy}>This is a simulated verification for the academic demonstration.</AppText><View style={styles.summary}><Row label="School" value={current?.school ?? ''} /><Row label="Student Number" value={current?.studentNumberMasked ?? ''} /><Row label="Program" value={current?.program ?? ''} /><Row label="Grade" value={current?.gradeLevel ?? ''} /></View><PrimaryButton title="Return to Profile" onPress={() => router.replace('/profile')} style={{ width: '100%' }} /></View></VerificationPage>;
 }
 
-function PendingVerification({ onReview }: { onReview: (approved: boolean) => void }) {
+function PendingVerification({ onReview }: { onReview: (approved: boolean) => Promise<void> }) {
   return <VerificationPage><View style={styles.statusPage}><View style={styles.statusIcon}><Ionicons name="time-outline" size={52} color={colors.burgundy} /></View><AppText weight="bold" style={styles.statusTitle}>Review Pending</AppText><AppText style={styles.centerCopy}>No university or external verifier is contacted. Use one of the controls below to demonstrate the review outcome.</AppText><PrimaryButton title="Simulate Approval" onPress={() => onReview(true)} style={{ width: '100%', marginTop: 20 }} /><Pressable onPress={() => onReview(false)} style={styles.reject}><AppText weight="semibold" style={{ color: colors.red }}>Simulate Rejection</AppText></Pressable></View></VerificationPage>;
 }
 

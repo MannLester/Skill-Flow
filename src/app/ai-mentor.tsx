@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
-import { MentorMessage, useSession } from '@/context/session';
+import { MentorMessage, useSession } from '@/context/session.remote';
 
 const suggestions = [
   { icon: 'color-wand-outline' as const, label: 'Improve my project idea' }, { icon: 'scan-outline' as const, label: 'Check my design' },
@@ -47,8 +47,8 @@ export default function AiMentorScreen() {
   const listHeader = useMemo(() => <MentorListHeader accountName={currentAccount?.name} hasConversation={conversation.length > 0} onSuggestion={chooseSuggestion} />, [conversation.length, currentAccount?.name, chooseSuggestion]);
   if (!hydrated || isClient) return <MobilePage><View /></MobilePage>;
 
-  const send = () => { const result = sendMentorMessage(message); if (!result.ok) Alert.alert('Unable to send', result.message); else setMessage(''); };
-  return <MobilePage><StatusBar style="light" /><AppHeader title="AI Project Mentor" onBack={() => router.back()} right={conversation.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear mentor conversation" onPress={() => Alert.alert('Clear conversation?', 'This removes the locally stored mentor messages.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: clearMentorConversation }])}><Ionicons name="trash-outline" size={23} color={colors.white} /></Pressable> : null} />
+  const send = async () => { const result = await sendMentorMessage(message); if (!result.ok) Alert.alert('Unable to send', result.message); else setMessage(''); };
+  return <MobilePage><StatusBar style="light" /><AppHeader title="AI Project Mentor" onBack={() => router.back()} right={conversation.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear mentor conversation" onPress={() => Alert.alert('Clear conversation?', 'This removes the mentor messages stored in SkillFlow Cloud.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: clearMentorConversation }])}><Ionicons name="trash-outline" size={23} color={colors.white} /></Pressable> : null} />
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <FlatList
         testID="mentor-transcript"

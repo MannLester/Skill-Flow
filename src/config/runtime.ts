@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-export type RuntimeTarget = 'web' | 'android-emulator' | 'android-device' | 'cloud';
+export type RuntimeTarget = 'web' | 'android-emulator' | 'android-device' | 'cloud-development' | 'cloud';
 
 export type RuntimeConfiguration = {
   target: RuntimeTarget;
@@ -30,7 +30,7 @@ type RuntimeConfigurationContext = {
   hasUnknownPublicValues?: boolean;
 };
 
-const runtimeTargets: RuntimeTarget[] = ['web', 'android-emulator', 'android-device', 'cloud'];
+const runtimeTargets: RuntimeTarget[] = ['web', 'android-emulator', 'android-device', 'cloud-development', 'cloud'];
 const documentedPublicRuntimeKeys = new Set([
   'EXPO_PUBLIC_RUNTIME_TARGET',
   'EXPO_PUBLIC_CONVEX_URL',
@@ -88,7 +88,7 @@ function findUnknownPublicValue(environment: PublicRuntimeEnvironment, context: 
 
 function missingRuntimeIssues(values: RuntimeValues): string[] {
   const issues: string[] = [];
-  if (!isRuntimeTarget(values.target)) issues.push('Set EXPO_PUBLIC_RUNTIME_TARGET to web, android-emulator, android-device, or cloud.');
+  if (!isRuntimeTarget(values.target)) issues.push('Set EXPO_PUBLIC_RUNTIME_TARGET to web, android-emulator, android-device, cloud-development, or cloud.');
   if (!values.convexUrl) issues.push('Set EXPO_PUBLIC_CONVEX_URL to the Convex client URL for this target.');
   if (!values.clerkPublishableKey) issues.push('Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY to the Clerk publishable key supplied by the project administrator.');
   return issues;
@@ -142,7 +142,7 @@ function validateConvexUrlFormat(url: URL): string | undefined {
 }
 
 function validateConvexTarget(target: RuntimeTarget, url: URL): string | undefined {
-  return target === 'cloud' ? validateCloudConvexUrl(url) : validateLocalConvexUrl(target, url);
+  return isCloudTarget(target) ? validateCloudConvexUrl(url) : validateLocalConvexUrl(target, url);
 }
 
 function validateCloudConvexUrl(url: URL): string | undefined {
@@ -151,19 +151,19 @@ function validateCloudConvexUrl(url: URL): string | undefined {
     : 'Cloud configuration requires an https://*.convex.cloud client URL.';
 }
 
-function validateLocalConvexUrl(target: Exclude<RuntimeTarget, 'cloud'>, url: URL): string | undefined {
+function validateLocalConvexUrl(target: Exclude<RuntimeTarget, 'cloud-development' | 'cloud'>, url: URL): string | undefined {
   const cloudIssue = validateLocalCloudBoundary(target, url);
   return cloudIssue ?? validateLocalHostBoundary(target, url);
 }
 
-function validateLocalCloudBoundary(target: Exclude<RuntimeTarget, 'cloud'>, url: URL): string | undefined {
+function validateLocalCloudBoundary(target: Exclude<RuntimeTarget, 'cloud-development' | 'cloud'>, url: URL): string | undefined {
   if (!isConvexCloudHostname(url.hostname)) return undefined;
   return target === 'android-device'
     ? 'A physical Android device must use a LAN-reachable self-hosted Convex URL, not a cloud deployment.'
     : `${target} development must use a local self-hosted Convex URL, not a cloud deployment.`;
 }
 
-function validateLocalHostBoundary(target: Exclude<RuntimeTarget, 'cloud'>, url: URL): string | undefined {
+function validateLocalHostBoundary(target: Exclude<RuntimeTarget, 'cloud-development' | 'cloud'>, url: URL): string | undefined {
   if (target === 'web' && !isLoopback(url.hostname)) return 'Web local development requires a localhost or loopback Convex URL.';
   if (target === 'android-emulator' && url.hostname !== '10.0.2.2') return 'Android emulator development requires the Convex host 10.0.2.2.';
   if (target === 'android-device' && (isLoopback(url.hostname) || url.hostname === '10.0.2.2')) {
@@ -179,6 +179,10 @@ function validateClerkKey(target: RuntimeTarget, value: string): string | undefi
     : target === 'cloud'
       ? 'Cloud configuration requires a live Clerk pk_live_ publishable key.'
       : `${target} development requires a test Clerk pk_test_ publishable key.`;
+}
+
+function isCloudTarget(target: RuntimeTarget): target is 'cloud-development' | 'cloud' {
+  return target === 'cloud-development' || target === 'cloud';
 }
 
 function isConvexCloudHostname(hostname: string): boolean {

@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export default function PortfolioScreen() {

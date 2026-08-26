@@ -5,12 +5,12 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
 import { contentPadding } from '@/constants/theme';
-import { useSession } from '@/context/session';
+import { useSession } from '@/context/session.remote';
 
 export default function NewCertificationScreen() {
   const { addCertification } = useSession();
   const [name, setName] = useState(''); const [issuer, setIssuer] = useState(''); const [year, setYear] = useState(String(new Date().getFullYear()));
-  const save = () => { const result = addCertification({ name, issuer, year: Number(year) }); if (!result.ok) Alert.alert('Unable to add certification', result.message); else { Alert.alert('Certification added', 'The credential was saved to the local demo portfolio.'); router.back(); } };
+  const save = async () => { const result = await addCertification({ name, issuer, year: Number(year) }); if (!result.ok) Alert.alert('Unable to add certification', result.message); else { Alert.alert('Certification added', 'The credential was saved to your SkillFlow profile.'); router.back(); } };
   return <MobilePage><StatusBar style="light" /><AppHeader title="Add Certification" onBack={() => router.back()} /><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}><Label text="Certification Name" /><FormField icon="ribbon-outline" value={name} onChangeText={setName} placeholder="Certification Name" /><Label text="Issuer" /><FormField icon="business-outline" value={issuer} onChangeText={setIssuer} placeholder="Issuer" /><Label text="Year" /><FormField icon="calendar-outline" value={year} onChangeText={setYear} placeholder="Year" keyboardType="number-pad" /><PrimaryButton title="Add Certification" onPress={save} style={{ marginTop: 24 }} /></ScrollView></MobilePage>;
 }
 function Label({ text }: { text: string }) { return <AppText weight="semibold" style={styles.label}>{text}</AppText>; }

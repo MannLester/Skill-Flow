@@ -1,28 +1,31 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Svg, Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { DashboardHomeHero, DashboardHomeShell } from '@/components/dashboard-home-shell';
+import { NavigationDrawer } from '@/components/navigation-drawer';
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 import { AppText, QuickAction } from '@/components/ui';
 import { colors, shadow } from '@/constants/theme';
-import { ProjectBooking, ProjectPost, useSession } from '@/context/session';
+import { ProjectBooking, ProjectPost, useSession } from '@/context/session.remote';
 import { CareerReadinessBreakdown } from '@/domain/career-readiness';
 import { formatPeso } from '@/data/fixtures';
 import { countActiveProjects } from '@/domain/project-status';
 
 export default function StudentHomeScreen() {
   const { bookings, getCareerReadiness, ledger, currentAccount, projectPosts, unreadCount } = useSession();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const myBookings = currentAccount ? bookings.filter((booking) => booking.studentId === currentAccount.id) : [];
   const latestBooking = myBookings[0];
   const earnings = currentAccount ? ledger.filter((entry) => entry.userId === currentAccount.id && entry.type === 'release').reduce((total, entry) => total + entry.amount, 0) : 0;
   const readiness = currentAccount ? getCareerReadiness(currentAccount.id) : null;
   const activeCount = countActiveProjects(myBookings);
-  return (
+  return <>
     <DashboardHomeShell
       role="student"
-      hero={<DashboardHomeHero role="student" activeCount={activeCount} unreadCount={unreadCount} onNotifications={() => router.push('/notifications')} />}
+      hero={<DashboardHomeHero role="student" accountName={currentAccount?.name} activeCount={activeCount} unreadCount={unreadCount} onOpenMenu={() => setDrawerOpen(true)} onNotifications={() => router.push('/notifications')} />}
       featured={<StudentEarnings earnings={earnings} />}
       body={
         <>
@@ -41,7 +44,8 @@ export default function StudentHomeScreen() {
         </>
       }
     />
-  );
+    <NavigationDrawer visible={drawerOpen} role="student" onClose={() => setDrawerOpen(false)} />
+  </>;
 }
 
 function StudentEarnings({ earnings }: { earnings: number }) {
@@ -50,7 +54,7 @@ function StudentEarnings({ earnings }: { earnings: number }) {
     <View style={styles.earningsRow}>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-          <AppText weight="bold" style={styles.pesoSign}>₱</AppText>
+          <AppText weight="bold" style={styles.pesoSign}>{'\u20b1'}</AppText>
           <AppText weight="bold" style={styles.earnings}>{earnings.toLocaleString('en-PH')}</AppText>
         </View>
         <AppText style={styles.muted}>Simulated Earnings</AppText>
@@ -62,7 +66,7 @@ function StudentEarnings({ earnings }: { earnings: number }) {
 
 function StudentReadiness({ readiness }: { readiness: CareerReadinessBreakdown | null }) {
   if (!readiness) return null;
-  const detail = `${readiness.level} · See what to improve next`;
+  const detail = `${readiness.level} \u00b7 See what to improve next`;
   return (
     <Pressable
       testID="career-readiness-card"
@@ -123,7 +127,7 @@ function Sparkline() {
 }
 
 const styles = StyleSheet.create({
-  earningsCardContent: { flex: 1 }, cardTitle: { fontSize: 20, marginBottom: 8 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 28 }, pesoSign: { fontSize: 26 }, muted: { color: colors.muted, fontSize: 13, marginTop: 2 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
+  earningsCardContent: { flex: 1 }, cardTitle: { fontSize: 20, marginBottom: 8 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 28 }, pesoSign: { fontSize: 18 }, muted: { color: colors.muted, fontSize: 13, marginTop: 2 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 29, marginBottom: 16 }, quickRow: { flexDirection: 'row', gap: 4 },
   projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, aspectRatio: 122 / 117, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
   recommendCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 14, backgroundColor: colors.white, padding: 12, ...shadow }, recommendImage: { width: 72, height: 62, borderRadius: 10, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
