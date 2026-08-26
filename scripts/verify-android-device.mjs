@@ -141,14 +141,16 @@ function assertExactReverseMapping(output, serial, target) {
 export function hasExactReverseMapping(output, claim) {
   const mappings = String(output).split(/\r?\n/).map((line) => {
     const columns = line.trim().split(/\s+/);
-    return columns.length >= 3 ? {
-      serial: columns[0],
+    return columns.length >= 2 ? {
       remote: columns[columns.length - 2],
       local: columns[columns.length - 1],
     } : null;
   }).filter((mapping) => mapping?.remote === claim.remote);
-  return mappings.length === 1 && mappings[0].serial === claim.serial
-    && mappings[0].local === claim.local;
+  // `adb -s <serial> reverse --list` is already scoped to the authorized device.
+  // ADB versions label rows inconsistently (for example, `UsbFfs` instead of
+  // the serial), so ownership is the unique exact remote/local pair created
+  // with --no-rebind rather than the display-only leading column.
+  return mappings.length === 1 && mappings[0].local === claim.local;
 }
 
 export function mutateVersionName(source, baseVersion, expectedSha) {

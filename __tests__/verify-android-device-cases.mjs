@@ -119,7 +119,7 @@ test('rejects occupied ports/reverses and mutates exactly one version anchor', a
 
 test('claims a reverse with an immediate no-rebind check and verifies exact ownership', () => {
   const calls = [];
-  const responses = ['', '', 'authorized tcp:8099 tcp:8099\n'];
+  const responses = ['', '', 'UsbFfs tcp:8099 tcp:8099\n'];
   const cleanup = { reverseCreated: false };
   runner.createOwnedReverse({
     adapter: { run: (_command, args) => { calls.push(args); return { stdout: responses.shift() }; } },
@@ -134,6 +134,10 @@ test('claims a reverse with an immediate no-rebind check and verifies exact owne
     ['-s', 'authorized', 'reverse', '--no-rebind', 'tcp:8099', 'tcp:8099'],
     ['-s', 'authorized', 'reverse', '--list'],
   ]);
+  assert.equal(runner.hasExactReverseMapping(
+    'UsbFfs tcp:8099 tcp:8099\n',
+    { serial: 'authorized', remote: 'tcp:8099', local: 'tcp:8099' },
+  ), true);
   const conflictCalls = [];
   assert.throws(() => runner.createOwnedReverse({
     adapter: {
