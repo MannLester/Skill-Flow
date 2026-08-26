@@ -138,6 +138,10 @@ and cloud values remain pending from the project administrator. Never put a
 Convex admin key, Clerk secret key, or deploy key in an `EXPO_PUBLIC_*`
 variable: Expo bundles those variables into the application.
 
+The runtime guard allows only those three application keys plus Expo Router's
+exact framework-owned `EXPO_PUBLIC_PROJECT_ROOT` key. Other `EXPO_PUBLIC_*`
+names fail closed without copying their names or values into the client bundle.
+
 Application integrations must read these values through
 `src/config/runtime.ts`. When a connected provider is introduced, wrap it in
 `RuntimeConfigurationState` so missing or mismatched values display setup

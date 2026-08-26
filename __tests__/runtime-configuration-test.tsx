@@ -1,11 +1,38 @@
 import { render } from '@testing-library/react-native';
+import Constants from 'expo-constants';
 import { Text } from 'react-native';
 
 import { RuntimeConfigurationState } from '@/components/runtime-configuration-state';
 import { parseRuntimeConfiguration, readRuntimeConfiguration } from '@/config/runtime';
 
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: { runtimeConfigurationHasUnknownPublicValues: false },
+    },
+  },
+}));
+
 const clerkKey = 'pk_test_c2tpbGxmbG93';
 const liveClerkKey = 'pk_live_c2tpbGxmbG93';
+const runtimeExtra = Constants.expoConfig?.extra as { runtimeConfigurationHasUnknownPublicValues?: boolean };
+
+function withRuntimeEnvironment(values: Record<string, string>, hasUnknownPublicValues: boolean, assertion: () => void) {
+  const previousValues = Object.fromEntries(Object.keys(values).map((key) => [key, process.env[key]]));
+  const previousSignal = runtimeExtra.runtimeConfigurationHasUnknownPublicValues;
+  Object.assign(process.env, values);
+  runtimeExtra.runtimeConfigurationHasUnknownPublicValues = hasUnknownPublicValues;
+  try {
+    assertion();
+  } finally {
+    for (const [key, value] of Object.entries(previousValues)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    runtimeExtra.runtimeConfigurationHasUnknownPublicValues = previousSignal;
+  }
+}
 
 describe('runtime configuration', () => {
   test.each([
@@ -73,33 +100,37 @@ describe('runtime configuration', () => {
     });
   });
 
-  it('fails closed when the real reader sees an undocumented public variable', () => {
-    const previousValues = {
-      target: process.env.EXPO_PUBLIC_RUNTIME_TARGET,
-      convexUrl: process.env.EXPO_PUBLIC_CONVEX_URL,
-      clerkKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-      undocumented: process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE,
-    };
-    process.env.EXPO_PUBLIC_RUNTIME_TARGET = 'web';
-    process.env.EXPO_PUBLIC_CONVEX_URL = 'http://127.0.0.1:3210';
-    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = clerkKey;
-    process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE = 'SkillFlowVerifierSecretSentinel';
+  it('keeps the real reader ready with Expo Router framework metadata', () => {
+    withRuntimeEnvironment({
+      EXPO_PUBLIC_RUNTIME_TARGET: 'web',
+      EXPO_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3210',
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: clerkKey,
+      EXPO_PUBLIC_PROJECT_ROOT: '/framework-owned/expo-router',
+    }, false, () => {
+      expect(readRuntimeConfiguration()).toEqual({
+        ready: true,
+        configuration: {
+          target: 'web',
+          convexUrl: 'http://127.0.0.1:3210',
+          clerkPublishableKey: clerkKey,
+        },
+      });
+    });
+  });
 
-    try {
+  it('fails closed when Expo reports an undocumented public variable', () => {
+    withRuntimeEnvironment({
+      EXPO_PUBLIC_RUNTIME_TARGET: 'web',
+      EXPO_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3210',
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: clerkKey,
+      EXPO_PUBLIC_PROJECT_ROOT: '/framework-owned/expo-router',
+      EXPO_PUBLIC_API_KEY: 'SkillFlowVerifierSecretSentinel',
+    }, true, () => {
       expect(readRuntimeConfiguration()).toEqual({
         ready: false,
         issues: ['Remove unknown EXPO_PUBLIC_* variables; only the documented public runtime values are supported.'],
       });
-    } finally {
-      if (previousValues.target === undefined) delete process.env.EXPO_PUBLIC_RUNTIME_TARGET;
-      else process.env.EXPO_PUBLIC_RUNTIME_TARGET = previousValues.target;
-      if (previousValues.convexUrl === undefined) delete process.env.EXPO_PUBLIC_CONVEX_URL;
-      else process.env.EXPO_PUBLIC_CONVEX_URL = previousValues.convexUrl;
-      if (previousValues.clerkKey === undefined) delete process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-      else process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = previousValues.clerkKey;
-      if (previousValues.undocumented === undefined) delete process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE;
-      else process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE = previousValues.undocumented;
-    }
+    });
   });
 
   test.each([

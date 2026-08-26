@@ -3,7 +3,7 @@ const { describe, expect, it } = require('@jest/globals');
 
 describe('runtime bundle boundary', () => {
   it('allows only the documented public runtime names', () => {
-    expect(scanBundleText('EXPO_PUBLIC_RUNTIME_TARGET EXPO_PUBLIC_CONVEX_URL EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY')).toEqual({
+    expect(scanBundleText('EXPO_PUBLIC_RUNTIME_TARGET EXPO_PUBLIC_CONVEX_URL EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY EXPO_PUBLIC_PROJECT_ROOT')).toEqual({
       unknownPublicKeys: [],
       containsForbiddenSentinel: false,
     });

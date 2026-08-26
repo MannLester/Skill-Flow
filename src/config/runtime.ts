@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+
 export type RuntimeTarget = 'web' | 'android-emulator' | 'android-device' | 'cloud';
 
 export type RuntimeConfiguration = {
@@ -24,6 +26,10 @@ type CompleteRuntimeValues = {
   clerkPublishableKey: string;
 };
 
+type RuntimeConfigurationContext = {
+  hasUnknownPublicValues?: boolean;
+};
+
 const runtimeTargets: RuntimeTarget[] = ['web', 'android-emulator', 'android-device', 'cloud'];
 const documentedPublicRuntimeKeys = new Set([
   'EXPO_PUBLIC_RUNTIME_TARGET',
@@ -31,20 +37,23 @@ const documentedPublicRuntimeKeys = new Set([
   'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
 ]);
 
-export function parseRuntimeConfiguration(environment: PublicRuntimeEnvironment): RuntimeConfigurationResult {
+export function parseRuntimeConfiguration(environment: PublicRuntimeEnvironment, context: RuntimeConfigurationContext = {}): RuntimeConfigurationResult {
   const values = readRuntimeValues(environment);
-  const issues = collectRuntimeIssues(environment, values);
+  const issues = collectRuntimeIssues(environment, values, context);
   if (!isCompleteRuntimeValues(values, issues)) return { ready: false, issues };
   return { ready: true, configuration: values };
 }
 
 export function readRuntimeConfiguration(): RuntimeConfigurationResult {
   return parseRuntimeConfiguration({
-    ...process.env,
     EXPO_PUBLIC_RUNTIME_TARGET: process.env.EXPO_PUBLIC_RUNTIME_TARGET,
     EXPO_PUBLIC_CONVEX_URL: process.env.EXPO_PUBLIC_CONVEX_URL,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  });
+  }, { hasUnknownPublicValues: readUnknownPublicValueSignal() });
+}
+
+function readUnknownPublicValueSignal(): boolean {
+  return Constants.expoConfig?.extra?.runtimeConfigurationHasUnknownPublicValues !== false;
 }
 
 function isRuntimeTarget(value: string | undefined): value is RuntimeTarget {
@@ -59,17 +68,17 @@ function readRuntimeValues(environment: PublicRuntimeEnvironment): RuntimeValues
   };
 }
 
-function collectRuntimeIssues(environment: PublicRuntimeEnvironment, values: RuntimeValues): string[] {
+function collectRuntimeIssues(environment: PublicRuntimeEnvironment, values: RuntimeValues, context: RuntimeConfigurationContext): string[] {
   return [
-    findUnknownPublicValue(environment),
+    findUnknownPublicValue(environment, context),
     ...missingRuntimeIssues(values),
     ...convexRuntimeIssues(values.target, values.convexUrl),
     ...clerkRuntimeIssues(values.target, values.clerkPublishableKey),
   ].filter((issue): issue is string => Boolean(issue));
 }
 
-function findUnknownPublicValue(environment: PublicRuntimeEnvironment): string | undefined {
-  const hasUnknownPublicValue = Object.keys(environment).some((key) => (
+function findUnknownPublicValue(environment: PublicRuntimeEnvironment, context: RuntimeConfigurationContext): string | undefined {
+  const hasUnknownPublicValue = context.hasUnknownPublicValues === true || Object.keys(environment).some((key) => (
     key.startsWith('EXPO_PUBLIC_') && !documentedPublicRuntimeKeys.has(key)
   ));
   return hasUnknownPublicValue
