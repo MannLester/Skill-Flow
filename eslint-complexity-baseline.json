@@ -74,15 +74,6 @@
       "sourceHash": "5e2e47adeea748ae0361bb12c97a12f27ff024bc78750c6c6a6b116bfb6e408f"
     },
     {
-      "file": "src/components/project-post-form.tsx",
-      "line": 9,
-      "column": 8,
-      "nodeType": "FunctionDeclaration",
-      "name": "ProjectPostForm",
-      "complexity": 18,
-      "sourceHash": "cb1c8ebcccd2352bd36cb61342f35a43b4a41f299667cc67ba336a49cfcafbe7"
-    },
-    {
       "file": "src/components/ui.tsx",
       "line": 117,
       "column": 32,
