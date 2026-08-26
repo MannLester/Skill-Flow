@@ -93,6 +93,34 @@ npm run start:client
 Use `npm run android` only when building and installing the native Android
 development app locally.
 
+### Static web preview
+
+Use the development server for normal web work:
+
+```sh
+npm run web
+```
+
+To verify the production-style static export, build it first and then serve that
+existing output with SkillFlow's Expo Router-aware preview:
+
+```sh
+npm run web:export
+npm run web:preview
+```
+
+The preview defaults to `http://127.0.0.1:4173`. Direct links such as
+`/notifications`, `/messages`, and `/projects/<project-id>` resolve to their
+generated HTML without changing the browser URL. Invalid app routes and missing
+assets remain genuine HTTP 404 responses; this is local verification tooling,
+not production hosting or deployment.
+
+Set `SKILLFLOW_WEB_PREVIEW_HOST`, `SKILLFLOW_WEB_PREVIEW_PORT`, or
+`SKILLFLOW_WEB_PREVIEW_DIR` to override the loopback host, port, or export
+directory. Non-loopback hosts expose the preview to the local network and print
+a warning. Press Ctrl+C to stop only the preview process. `npm run web:verify`
+creates a fresh export and runs a bounded HTTP smoke check.
+
 Quality checks:
 
 ```powershell
