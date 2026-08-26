@@ -73,6 +73,13 @@ describe('static web preview configuration', () => {
     expect(() => createManifest(makeExport({ 'projects/[...slug].html': 'catch all' }))).toThrow(/Unsupported/);
   });
 
+  it('requires index.html to be a readable regular file', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'skillflow-web-preview-invalid-index-'));
+    ownedDirectories.push(root);
+    fs.mkdirSync(path.join(root, 'index.html'));
+    expect(() => createManifest(root)).toThrow(/web:export/);
+  });
+
   it('rejects duplicate route shapes and export symlinks', () => {
     expect(() => createManifest(makeExport({ 'messages.html': 'duplicate' }))).toThrow(/Duplicate exported static route/);
     const root = makeExport();

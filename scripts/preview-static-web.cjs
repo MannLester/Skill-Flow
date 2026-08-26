@@ -53,7 +53,9 @@ function validateRoot(root) {
   try {
     rootReal = fs.realpathSync(root);
     if (!fs.statSync(rootReal).isDirectory()) throw new Error('not a directory');
-    fs.accessSync(path.join(rootReal, 'index.html'), fs.constants.R_OK);
+    const indexFile = path.join(rootReal, 'index.html');
+    if (!fs.statSync(indexFile).isFile()) throw new Error('index is not a file');
+    fs.accessSync(indexFile, fs.constants.R_OK);
   } catch {
     throw safeError('Web export is unavailable. Run `npm run web:export` first.');
   }
