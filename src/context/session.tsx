@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Service, services as seededServices } from '@/data/fixtures';
 import { calculateCareerReadiness, CareerReadinessBreakdown } from '@/domain/career-readiness';
@@ -316,6 +316,46 @@ const migrateState = (value: unknown): PersistedDemoState | null => {
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const makeNotification = (userId: string, title: string, detail: string, kind: NotificationKind, projectId: string, createdAt: string): DemoNotification => ({ id: makeId('notification'), userId, title, detail, kind, projectId, createdAt, read: false });
 const makeProjectPostNotification = (userId: string, title: string, detail: string, projectPostId: string, createdAt: string): DemoNotification => ({ id: makeId('notification'), userId, title, detail, kind: 'project', projectPostId, createdAt, read: false });
+type ProposalDecisionPlan = { now: string; bookingId?: string };
+type ProposalDecisionTransaction = { state: PersistedDemoState; result: ProposalDecisionResult };
+
+const staleProposalDecision = (state: PersistedDemoState): ProposalDecisionTransaction => ({ state, result: { ok: false, message: 'This proposal is no longer available for a decision.' } });
+
+const rejectProposal = (state: PersistedDemoState, proposal: Proposal, post: ProjectPost, proposalId: string, plan: ProposalDecisionPlan): ProposalDecisionTransaction => {
+  const notification = makeProjectPostNotification(proposal.studentId, 'Proposal not selected', post.title, post.id, plan.now);
+  return {
+    state: { ...state, proposals: state.proposals.map((item) => item.id === proposalId ? { ...item, status: 'rejected' } : item), notifications: [notification, ...state.notifications] },
+    result: { ok: true },
+  };
+};
+
+const acceptProposal = (state: PersistedDemoState, proposal: Proposal, post: ProjectPost, proposalId: string, plan: ProposalDecisionPlan): ProposalDecisionTransaction => {
+  if (!plan.bookingId) return staleProposalDecision(state);
+  const booking: ProjectBooking = { id: plan.bookingId, source: 'proposal', projectPostId: post.id, proposalId: proposal.id, clientId: post.clientId, studentId: proposal.studentId, title: post.title, description: post.description, deliveryDays: proposal.deliveryDays, budget: proposal.amount, status: 'accepted', createdAt: plan.now, updatedAt: plan.now };
+  const affected = state.proposals.filter((item) => item.projectPostId === post.id && item.status === 'submitted');
+  const notifications = affected.map((item) => item.id === proposal.id ? makeNotification(item.studentId, 'Proposal accepted', post.title, 'project', booking.id, plan.now) : makeProjectPostNotification(item.studentId, 'Proposal not selected', post.title, post.id, plan.now));
+  return {
+    state: {
+      ...state,
+      projectPosts: state.projectPosts.map((item) => item.id === post.id ? { ...item, status: 'closed', acceptedProposalId: proposal.id, updatedAt: plan.now } : item),
+      proposals: state.proposals.map((item) => item.projectPostId === post.id && item.status === 'submitted' ? { ...item, status: item.id === proposal.id ? 'accepted' : 'rejected' } : item),
+      bookings: [booking, ...state.bookings],
+      notifications: [...notifications, ...state.notifications],
+    },
+    result: { ok: true, bookingId: booking.id },
+  };
+};
+
+const applyProposalDecision = (state: PersistedDemoState, proposalId: string, accept: boolean, clientId: string, plan: ProposalDecisionPlan): ProposalDecisionTransaction => {
+  const proposal = state.proposals.find((item) => item.id === proposalId);
+  if (!proposal) return staleProposalDecision(state);
+  const post = state.projectPosts.find((item) => item.id === proposal.projectPostId);
+  if (!post || post.clientId !== clientId) return staleProposalDecision(state);
+  if (accept && state.bookings.some((item) => item.proposalId === proposal.id)) return { state, result: { ok: false, message: 'This proposal has already been accepted.' } };
+  if (post.status !== 'open' || proposal.status !== 'submitted') return staleProposalDecision(state);
+  return accept ? acceptProposal(state, proposal, post, proposalId, plan) : rejectProposal(state, proposal, post, proposalId, plan);
+};
+
 const mentorResponse = (body: string) => {
   const prompt = body.toLowerCase();
   if (prompt.includes('portfolio')) return 'Choose three to four pieces that show different skills. For each one, explain the goal, your design decisions, and the outcome. Lead with your strongest work.';
@@ -330,6 +370,8 @@ const SessionContext = createContext<SessionValue | null>(null);
 export function SessionProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<PersistedDemoState>(createSeedState);
   const [hydrated, setHydrated] = useState(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
     let active = true;
@@ -519,26 +561,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const decideProposal = useCallback((proposalId: string, accept: boolean): ProposalDecisionResult => {
     if (!currentAccount || currentAccount.role !== 'client') return { ok: false, message: 'Only the project Client can decide proposals.' };
-    const proposal = state.proposals.find((item) => item.id === proposalId);
-    const post = proposal ? state.projectPosts.find((item) => item.id === proposal.projectPostId) : undefined;
-    if (!proposal || !post || post.clientId !== currentAccount.id || post.status !== 'open' || proposal.status !== 'submitted') return { ok: false, message: 'This proposal is no longer available for a decision.' };
-    const now = new Date().toISOString();
-    if (!accept) {
-      const notification = makeProjectPostNotification(proposal.studentId, 'Proposal not selected', post.title, post.id, now);
-      setState((current) => ({ ...current, proposals: current.proposals.map((item) => item.id === proposalId ? { ...item, status: 'rejected' } : item), notifications: [notification, ...current.notifications] }));
-      return { ok: true };
-    }
-    const booking: ProjectBooking = { id: makeId('booking'), source: 'proposal', projectPostId: post.id, proposalId: proposal.id, clientId: post.clientId, studentId: proposal.studentId, title: post.title, description: post.description, deliveryDays: proposal.deliveryDays, budget: proposal.amount, status: 'accepted', createdAt: now, updatedAt: now };
-    const affected = state.proposals.filter((item) => item.projectPostId === post.id && item.status === 'submitted');
-    const notifications = affected.map((item) => item.id === proposal.id ? makeNotification(item.studentId, 'Proposal accepted', post.title, 'project', booking.id, now) : makeProjectPostNotification(item.studentId, 'Proposal not selected', post.title, post.id, now));
-    setState((current) => ({
-      ...current,
-      projectPosts: current.projectPosts.map((item) => item.id === post.id ? { ...item, status: 'closed', acceptedProposalId: proposal.id, updatedAt: now } : item),
-      proposals: current.proposals.map((item) => item.projectPostId === post.id && item.status === 'submitted' ? { ...item, status: item.id === proposal.id ? 'accepted' : 'rejected' } : item),
-      bookings: [booking, ...current.bookings], notifications: [...notifications, ...current.notifications],
-    }));
-    return { ok: true, bookingId: booking.id };
-  }, [currentAccount, state.projectPosts, state.proposals]);
+    const plan: ProposalDecisionPlan = { now: new Date().toISOString(), bookingId: accept ? makeId('booking') : undefined };
+    const transaction = applyProposalDecision(stateRef.current, proposalId, accept, currentAccount.id, plan);
+    if (!transaction.result.ok) return transaction.result;
+    stateRef.current = transaction.state;
+    setState((current) => {
+      const latest = applyProposalDecision(current, proposalId, accept, currentAccount.id, plan);
+      return latest.result.ok ? latest.state : current;
+    });
+    return transaction.result;
+  }, [currentAccount]);
 
   const logout = useCallback(() => setState((current) => ({ ...current, currentAccountId: null })), []);
 
