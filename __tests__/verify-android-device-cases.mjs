@@ -208,6 +208,8 @@ test('requires analyzed and post-install exact identity', () => {
   assert.throws(() => runner.assertLaunchSuccess('Status: timeout'), /successful bounded start/);
   const resumed = 'mResumedActivity: ActivityRecord{abc ' + runner.APP_ID + '/.MainActivity}';
   assert.doesNotThrow(() => runner.assertForegroundActivity(resumed));
+  const topResumed = 'topResumedActivity=ActivityRecord{abc ' + runner.APP_ID + '/.MainActivity}';
+  assert.doesNotThrow(() => runner.assertForegroundActivity(topResumed));
   assert.throws(() => runner.assertForegroundActivity('mResumedActivity other.app/.Main'), /foreground/);
   assert.equal(runner.parseSinglePid('1234\n'), '1234');
   assert.throws(() => runner.parseSinglePid('1234 5678'), /one live/);

@@ -272,7 +272,9 @@ export function assertLaunchSuccess(output) {
 }
 
 export function assertForegroundActivity(output, appId = APP_ID) {
-  const foreground = new RegExp('mResumedActivity[^\\n]*' + escapeRegex(appId) + '/');
+  const foreground = new RegExp(
+    '(?:mResumedActivity|topResumedActivity)[^\\n]*' + escapeRegex(appId) + '/',
+  );
   if (!foreground.test(String(output))) throw new Error('SkillFlow is not the resumed foreground activity.');
 }
 
