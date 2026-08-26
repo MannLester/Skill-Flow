@@ -1,5 +1,7 @@
 # SkillFlow agent-ready backlog
 
+> Historical planning record: the Clerk/Convex foundation and domain migration described by SF-100 through SF-115 have now been implemented in the working tree. Verify current code and deployment behavior before using the original statuses below; do not treat this table as current runtime truth.
+
 These are issue-ready work units created from the PM direction, repository audit, supplied screenshots, and manual web walkthrough. Each ticket is intended for one branch and one focused PR. Before starting, confirm its dependencies are merged and copy the ticket into the issue tracker. Clerk- and production-dependent tickets remain blocked until Mann completes the named administrator step.
 
 Published in `MannLester/Skill-Flow` as GitHub issues #1–#29 and #31. SF-100 and SF-101 are #27 and #28; the remaining original tickets follow their table order as #1–#26. SF-305 is issue #29, and SF-306 is issue #31.

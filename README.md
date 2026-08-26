@@ -1,6 +1,6 @@
 # Skill Flow
 
-Android-first React Native recreation of the supplied Skill Flow mobile mockups. The app uses Expo Router, TypeScript, Poppins, versioned local demo data, and responsive portrait layouts.
+Android-first React Native academic demonstration built with Expo Router, Clerk authentication, and a Convex Cloud backend. Expo Go and distributed builds connect directly to the configured cloud services over the internet.
 
 The complete functional audit and ordered implementation checklist are in [docs/SKILLFLOW_SYSTEM_AUDIT_AND_ROADMAP.md](docs/SKILLFLOW_SYSTEM_AUDIT_AND_ROADMAP.md).
 Canonical product terms are defined in [CONTEXT.md](CONTEXT.md). Architectural
@@ -14,71 +14,31 @@ npm install
 npm start
 ```
 
-## Local Convex
+## Convex development
 
-Local development uses the official self-hosted Convex backend and dashboard in Docker. Production will remain a separate PM-owned Convex Cloud deployment.
-
-```sh
-npm run convex:bootstrap
-npm run convex:dev
-```
-
-`convex:bootstrap` starts the pinned backend and dashboard images, waits for a healthy backend, generates a local admin key, and saves it to the ignored `.env.local` file with mode `0600` without printing it. Later starts can use `npm run convex:up`. The dashboard is available at `http://127.0.0.1:6791`.
-
-`convex:dev` is deliberately local-only. Its wrapper reads and validates `CONVEX_SELF_HOSTED_URL` and `CONVEX_SELF_HOSTED_ADMIN_KEY`, rejects cloud deployment fields and target-overriding flags, disables CLI telemetry and external version checks, then runs the pinned local Convex CLI with that ignored environment file. Run `convex:bootstrap` first.
-
-Useful commands:
+The primary developer workflow uses Mann's `skill-flow` Convex Cloud project. Expo Go connects to the developer deployment over the internet, so a physical phone does not need Docker, a LAN backend URL, or the same Wi-Fi as the development machine.
 
 ```sh
-npm run convex:status
-npm run convex:health
-npm run convex:logs
-npm run convex:down
+npx convex dev
 ```
 
-All commands accept the same optional port variables: `CONVEX_PORT`, `CONVEX_SITE_PROXY_PORT`, and `CONVEX_DASHBOARD_PORT`. Bootstrap writes matching URLs, and `convex:health` checks the selected backend port.
+Select the `skill-flow` project and its cloud development deployment. The CLI writes `CONVEX_DEPLOYMENT` to ignored `.env.local`; set `EXPO_PUBLIC_RUNTIME_TARGET=cloud-development` and use the displayed `https://…convex.cloud` URL as `EXPO_PUBLIC_CONVEX_URL`. Production remains a separate deployment and uses the `cloud` target only after an explicitly authorized release.
 
-### Isolated improvement-loop resources
+## Clerk and demonstration data
 
-The ordinary commands use the developer-owned Compose project `skillflow-convex`. An improvement-loop run must export a unique run ID and, when the developer ports are occupied, unique ports before every Convex command:
+Authentication uses the Clerk development instance configured by `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`. Create two ordinary Clerk development users in the app—one Student Designer and one Client—then complete each account's immutable role onboarding.
 
-```sh
-export SKILLFLOW_LOOP_RUN_ID=20260825-a
-export CONVEX_PORT=3320
-export CONVEX_SITE_PROXY_PORT=3321
-export CONVEX_DASHBOARD_PORT=6891
-npm run convex:bootstrap
-npm run convex:health
-npm run convex:status
+The cloud-development seed is explicit and resettable. It never creates passwords or fake Clerk identities:
+
+```powershell
+npm run seed:preview
+npm run seed:candidates
+npm run seed:apply -- <student-profile-id> <client-profile-id>
 ```
 
-This creates the Compose project `skillflow-loop-20260825-a`, adds project and owner labels to its containers and volume, and writes its credentials to the ignored `.convex/skillflow-loop-20260825-a.env` instead of the developer's `.env.local`. Keep the same variables exported for `convex:dev`, `up`, `down`, `status`, `logs`, and `health` so every command targets the same owned resources. `SKILLFLOW_CONVEX_PROJECT` may select an explicit project name when no loop run ID is used. Never use `docker compose down -v`; volume deletion requires explicit approval after ownership is verified.
+`seed:apply` publishes representative services and a project post, marks only the selected demonstration student as simulated-verified, and adds portfolio/certification examples. It is idempotent. `npm run seed:reset` removes only records in the `skillflow-foundation:v1` seed namespace and is hard-disabled unless the target Convex deployment is classified as `cloud-development`.
 
-The default public URL works for web on the development machine. Android needs a host-reachable URL:
-
-- Android emulator: `EXPO_PUBLIC_CONVEX_URL=http://10.0.2.2:3210`
-- Physical device: use the development machine's LAN address. Explicitly set `CONVEX_BIND_ADDRESS=0.0.0.0`, `CONVEX_CLOUD_ORIGIN=http://<LAN-IP>:3210`, and `CONVEX_SITE_ORIGIN=http://<LAN-IP>:3211` in the shell that starts Docker, then set `EXPO_PUBLIC_CONVEX_URL=http://<LAN-IP>:3210`. This exposes the development backend to the local network, so return to the loopback defaults afterward.
-
-Do not commit `.env.local` or `.convex/`. `CONVEX_SELF_HOSTED_ADMIN_KEY` is privileged and must never use the `EXPO_PUBLIC_` prefix. Removing a `<compose-project>_convex-data` Docker volume permanently deletes that project's local Convex data and requires explicit approval.
-
-### Updating the pinned images
-
-Backend and dashboard images must stay on matching official Convex releases and immutable `sha256` digests. To update them:
-
-1. Select one official self-hosted Convex release and its matching backend and dashboard tags.
-2. Pull both tagged images, inspect their `RepoDigests`, and replace both digest references in `infra/convex/compose.yml` in the same change. Never commit a mutable tag.
-3. Run `docker compose -f infra/convex/compose.yml config --quiet` and `config --images` to confirm the resolved references.
-4. Bootstrap a new loop-owned project with unused ports, then run `npm run convex:health`, `npm run convex:status`, and `npm run convex:dev -- --once`. Confirm both resources carry the expected Compose project and SkillFlow ownership labels.
-5. Run the repository verification gate. Preserve the test volume unless its exact ownership is proven and deletion is separately approved.
-
-Clerk is not configured yet. Mann must provision the Clerk development and production applications before the Clerk integration tickets can proceed; see [the agent-ready backlog](docs/tickets/BACKLOG.md).
-
-## Seeded demo accounts
-
-- Student Designer: `alex@skillflow.demo` / `demo123`
-- Client: `mark@skillflow.demo` / `demo123`
-
-The login screen also provides one-tap Alex and Mark buttons. Logging out and switching accounts preserves their shared local project state. Use only demonstration data.
+Production needs a separate Clerk production instance, Convex production deployment, and explicit release authorization. There is no production fallback to local accounts or AsyncStorage data.
 
 The project targets Expo SDK 54 for compatibility with the Play Store version
 of Expo Go. For a remote client demo or manual verification, start a public
@@ -126,15 +86,14 @@ creates a fresh export and runs a bounded HTTP smoke check.
 Copy `.env.example` to the ignored `.env.local` and use one matching public
 runtime target and Convex client URL:
 
-| `EXPO_PUBLIC_RUNTIME_TARGET` | Convex URL for development |
+| `EXPO_PUBLIC_RUNTIME_TARGET` | Matching Convex URL |
 | --- | --- |
-| `web` | `http://127.0.0.1:3210` |
-| `android-emulator` | `http://10.0.2.2:3210` |
-| `android-device` | A LAN-reachable host such as `http://192.168.1.25:3210` |
-| `cloud` | The PM-owned `https://…convex.cloud` deployment URL |
+| `cloud-development` | The developer `https://…convex.cloud` deployment URL with a Clerk `pk_test_…` key |
+| `cloud` | The production `https://…convex.cloud` deployment URL with a Clerk `pk_live_…` key |
 
-`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` accepts only Clerk publishable keys. Clerk
-and cloud values remain pending from the project administrator. Never put a
+Use `cloud-development` for Expo Go on a physical phone, an emulator, or web during development. The Convex Cloud URL works from any internet-connected network; the phone does not need to share Wi-Fi with the developer machine. Use `cloud` only in an approved client release.
+
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` accepts only Clerk publishable keys. Never put a
 Convex admin key, Clerk secret key, or deploy key in an `EXPO_PUBLIC_*`
 variable: Expo bundles those variables into the application.
 
@@ -142,14 +101,11 @@ The runtime guard allows only those three application keys plus Expo Router's
 exact framework-owned `EXPO_PUBLIC_PROJECT_ROOT` key. Other `EXPO_PUBLIC_*`
 names fail closed without copying their names or values into the client bundle.
 
-Application integrations must read these values through
-`src/config/runtime.ts`. When a connected provider is introduced, wrap it in
-`RuntimeConfigurationState` so missing or mismatched values display setup
-guidance instead of an error screen. The current seeded demo intentionally
-remains available until those providers are added by their migration tickets.
-While providers are not mounted, inspect this guidance from the seeded demo at
-`Settings > Connected Services`; missing values do not gate or replace the
-AsyncStorage demo.
+Application integrations read these values through `src/config/runtime.ts`.
+The root mounts Clerk and a single `ConvexProviderWithClerk`; missing or
+mismatched values fail closed with setup guidance. Authenticated domain data is
+stored in Convex, and the app removes obsolete local demo-store keys after a
+cloud profile is established.
 
 Quality checks:
 
@@ -160,7 +116,7 @@ npm run doctor
 
 `npm run verify` is the moderately strict automated gate. It runs strict
 TypeScript, ESLint with cyclomatic complexity errors above 10, the complete
-Jest suite, and an Android Expo export. Inherited complexity debt is recorded
+Jest suite, Convex authorization tests, and an Android Expo export. Inherited complexity debt is recorded
 in `eslint-suppressions.json`, a matching committed ceiling, and the
 function-level `eslint-complexity-baseline.json`. Stable identity uses file,
 name, node type, complexity, and source hash; line and column are refreshable

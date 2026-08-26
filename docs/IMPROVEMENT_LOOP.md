@@ -17,7 +17,7 @@ Ambiguous ownership is not agent ownership. Protected or subjective work becomes
 
 ## Current delivery priorities
 
-Prioritize the foundational local Dockerized Convex work. Mann owns Convex Cloud production and Clerk provisioning; never invent or request those credentials. Until Clerk is available, keep AsyncStorage authoritative for the running UI and do not start its live data migration. Backend lanes may implement the approved full domain schema and indexes, deterministic lifecycle seeds, and isolated development-only reset support.
+Use Mann's Convex Cloud development deployment while production remains protected. Mann owns production and Clerk configuration; never invent or request protected credentials. Convex is authoritative for authenticated application records. Prefer `convex-test` for deterministic schema, lifecycle, and authorization verification; isolated Docker resources are optional infrastructure, not a mobile runtime dependency.
 
 UI scouting continues across both roles, but while the backend foundation is readying, implement only reproducible Critical or High journey defects. Lower-severity UI findings remain evidence-backed backlog issues.
 
