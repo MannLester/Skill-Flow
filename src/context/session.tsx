@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Service, services as seededServices } from '@/data/fixtures';
 import { calculateCareerReadiness, CareerReadinessBreakdown } from '@/domain/career-readiness';
@@ -316,6 +316,46 @@ const migrateState = (value: unknown): PersistedDemoState | null => {
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const makeNotification = (userId: string, title: string, detail: string, kind: NotificationKind, projectId: string, createdAt: string): DemoNotification => ({ id: makeId('notification'), userId, title, detail, kind, projectId, createdAt, read: false });
 const makeProjectPostNotification = (userId: string, title: string, detail: string, projectPostId: string, createdAt: string): DemoNotification => ({ id: makeId('notification'), userId, title, detail, kind: 'project', projectPostId, createdAt, read: false });
+type ProposalDecisionPlan = { now: string; bookingId?: string };
+type ProposalDecisionTransaction = { state: PersistedDemoState; result: ProposalDecisionResult };
+
+const staleProposalDecision = (state: PersistedDemoState): ProposalDecisionTransaction => ({ state, result: { ok: false, message: 'This proposal is no longer available for a decision.' } });
+
+const rejectProposal = (state: PersistedDemoState, proposal: Proposal, post: ProjectPost, proposalId: string, plan: ProposalDecisionPlan): ProposalDecisionTransaction => {
+  const notification = makeProjectPostNotification(proposal.studentId, 'Proposal not selected', post.title, post.id, plan.now);
+  return {
+    state: { ...state, proposals: state.proposals.map((item) => item.id === proposalId ? { ...item, status: 'rejected' } : item), notifications: [notification, ...state.notifications] },
+    result: { ok: true },
+  };
+};
+
+const acceptProposal = (state: PersistedDemoState, proposal: Proposal, post: ProjectPost, proposalId: string, plan: ProposalDecisionPlan): ProposalDecisionTransaction => {
+  if (!plan.bookingId) return staleProposalDecision(state);
+  const booking: ProjectBooking = { id: plan.bookingId, source: 'proposal', projectPostId: post.id, proposalId: proposal.id, clientId: post.clientId, studentId: proposal.studentId, title: post.title, description: post.description, deliveryDays: proposal.deliveryDays, budget: proposal.amount, status: 'accepted', createdAt: plan.now, updatedAt: plan.now };
+  const affected = state.proposals.filter((item) => item.projectPostId === post.id && item.status === 'submitted');
+  const notifications = affected.map((item) => item.id === proposal.id ? makeNotification(item.studentId, 'Proposal accepted', post.title, 'project', booking.id, plan.now) : makeProjectPostNotification(item.studentId, 'Proposal not selected', post.title, post.id, plan.now));
+  return {
+    state: {
+      ...state,
+      projectPosts: state.projectPosts.map((item) => item.id === post.id ? { ...item, status: 'closed', acceptedProposalId: proposal.id, updatedAt: plan.now } : item),
+      proposals: state.proposals.map((item) => item.projectPostId === post.id && item.status === 'submitted' ? { ...item, status: item.id === proposal.id ? 'accepted' : 'rejected' } : item),
+      bookings: [booking, ...state.bookings],
+      notifications: [...notifications, ...state.notifications],
+    },
+    result: { ok: true, bookingId: booking.id },
+  };
+};
+
+const applyProposalDecision = (state: PersistedDemoState, proposalId: string, accept: boolean, clientId: string, plan: ProposalDecisionPlan): ProposalDecisionTransaction => {
+  const proposal = state.proposals.find((item) => item.id === proposalId);
+  if (!proposal) return staleProposalDecision(state);
+  const post = state.projectPosts.find((item) => item.id === proposal.projectPostId);
+  if (!post || post.clientId !== clientId) return staleProposalDecision(state);
+  if (accept && state.bookings.some((item) => item.proposalId === proposal.id)) return { state, result: { ok: false, message: 'This proposal has already been accepted.' } };
+  if (post.status !== 'open' || proposal.status !== 'submitted') return staleProposalDecision(state);
+  return accept ? acceptProposal(state, proposal, post, proposalId, plan) : rejectProposal(state, proposal, post, proposalId, plan);
+};
+
 const mentorResponse = (body: string) => {
   const prompt = body.toLowerCase();
   if (prompt.includes('portfolio')) return 'Choose three to four pieces that show different skills. For each one, explain the goal, your design decisions, and the outcome. Lead with your strongest work.';
@@ -328,8 +368,14 @@ const mentorResponse = (body: string) => {
 const SessionContext = createContext<SessionValue | null>(null);
 
 export function SessionProvider({ children }: PropsWithChildren) {
-  const [state, setState] = useState<PersistedDemoState>(createSeedState);
+  const [state, setReactState] = useState<PersistedDemoState>(createSeedState);
   const [hydrated, setHydrated] = useState(false);
+  const stateRef = useRef(state);
+  const setState = useCallback((update: SetStateAction<PersistedDemoState>) => {
+    const next = typeof update === 'function' ? update(stateRef.current) : update;
+    stateRef.current = next;
+    setReactState(next);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -344,7 +390,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       .catch(() => undefined)
       .finally(() => { if (active) setHydrated(true); });
     return () => { active = false; };
-  }, []);
+  }, [setState]);
 
   useEffect(() => {
     if (hydrated) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => undefined);
@@ -356,7 +402,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const loginAsRole = useCallback((nextRole: UserRole) => {
     const demoId = nextRole === 'student' ? 'student-alex' : 'client-mark';
     setState((current) => ({ ...current, currentAccountId: demoId }));
-  }, []);
+  }, [setState]);
 
   const login = useCallback((email: string, password: string, selectedRole: UserRole): AuthResult => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -365,7 +411,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     if (account.role !== selectedRole) return { ok: false, message: `This account is registered as a ${account.role === 'student' ? 'Student Designer' : 'Client'}.` };
     setState((current) => ({ ...current, currentAccountId: account.id }));
     return { ok: true, account };
-  }, [state.accounts]);
+  }, [setState, state.accounts]);
 
   const registerAccount = useCallback((input: RegisterAccountInput): AuthResult => {
     const normalizedEmail = input.email.trim().toLowerCase();
@@ -375,7 +421,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const verification: StudentVerification | null = input.role === 'student' ? { studentId: account.id, status: 'not_submitted', school: '', studentNumberMasked: '', program: '', gradeLevel: '' } : null;
     setState((current) => ({ ...current, accounts: [...current.accounts, account], profiles: [...current.profiles, profile], verifications: verification ? [...current.verifications, verification] : current.verifications, currentAccountId: account.id }));
     return { ok: true, account };
-  }, [state.accounts]);
+  }, [setState, state.accounts]);
 
   const updateProfile = useCallback((input: ProfileInput): StoreResult => {
     if (!currentAccount || !input.name.trim()) return { ok: false, message: 'A profile name is required.' };
@@ -387,7 +433,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       services: current.services.map((service) => service.providerId === currentAccount.id ? { ...service, provider: input.name.trim() } : service),
     }));
     return { ok: true };
-  }, [currentAccount]);
+  }, [currentAccount, setState]);
 
   const submitVerification = useCallback((input: VerificationInput): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designer accounts can submit verification.' };
@@ -404,7 +450,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       profiles: current.profiles.map((profile) => profile.accountId === currentAccount.id ? { ...profile, school: record.school, program: record.program, gradeLevel: record.gradeLevel, graduationYear: record.graduationYear } : profile),
     }));
     return { ok: true };
-  }, [currentAccount]);
+  }, [currentAccount, setState]);
 
   const simulateVerificationReview = useCallback((approved: boolean, rejectionReason?: string): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only a Student Designer verification can be reviewed in this demo.' };
@@ -414,7 +460,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const updated: StudentVerification = { ...verification, status: approved ? 'verified' : 'rejected', reviewedAt: new Date().toISOString(), rejectionReason: approved ? undefined : rejectionReason?.trim() };
     setState((current) => ({ ...current, accounts: current.accounts.map((account) => account.id === currentAccount.id ? { ...account, verified: approved } : account), verifications: current.verifications.map((item) => item.studentId === currentAccount.id ? updated : item) }));
     return { ok: true };
-  }, [currentAccount, state.verifications]);
+  }, [currentAccount, setState, state.verifications]);
 
   const addPortfolioItem = useCallback((input: PortfolioInput): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers have portfolios.' };
@@ -422,7 +468,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const item: PortfolioItem = { id: makeId('portfolio'), studentId: currentAccount.id, title: input.title.trim(), description: input.description.trim(), category: input.category.trim(), sourceProjectId: input.sourceProjectId, createdAt: new Date().toISOString() };
     setState((current) => ({ ...current, portfolioItems: [item, ...current.portfolioItems] }));
     return { ok: true };
-  }, [currentAccount]);
+  }, [currentAccount, setState]);
 
   const addCertification = useCallback((input: CertificationInput): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can add certifications.' };
@@ -430,7 +476,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const item: Certification = { id: makeId('certification'), studentId: currentAccount.id, name: input.name.trim(), issuer: input.issuer.trim(), year: input.year, createdAt: new Date().toISOString() };
     setState((current) => ({ ...current, certifications: [item, ...current.certifications] }));
     return { ok: true };
-  }, [currentAccount]);
+  }, [currentAccount, setState]);
 
   const addCompletedProjectToPortfolio = useCallback((projectId: string): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can add completed work.' };
@@ -440,7 +486,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const item: PortfolioItem = { id: makeId('portfolio'), studentId: currentAccount.id, title: booking.title, description: booking.deliveryNote ?? booking.description, category: 'Completed Client Project', sourceProjectId: projectId, createdAt: new Date().toISOString() };
     setState((current) => ({ ...current, portfolioItems: [item, ...current.portfolioItems] }));
     return { ok: true };
-  }, [currentAccount, state.bookings, state.portfolioItems]);
+  }, [currentAccount, setState, state.bookings, state.portfolioItems]);
 
   const saveService = useCallback((input: ServiceInput, publish: boolean, serviceId?: string): ServiceResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can manage services.' };
@@ -452,7 +498,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const service: Service = existing ? { ...existing, ...input, provider: currentAccount.name, status: publish ? 'published' : 'draft' } : { ...input, id: makeId('service'), provider: currentAccount.name, providerId: currentAccount.id, rating: 0, reviews: 0, status: publish ? 'published' : 'draft', crop: seededServices[0].crop };
     setState((current) => ({ ...current, services: existing ? current.services.map((item) => item.id === existing.id ? service : item) : [service, ...current.services] }));
     return { ok: true, service };
-  }, [currentAccount, state.services, state.verifications]);
+  }, [currentAccount, setState, state.services, state.verifications]);
 
   const setServiceStatus = useCallback((serviceId: string, status: Service['status']): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can manage services.' };
@@ -461,7 +507,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     if (status === 'published' && state.verifications.find((item) => item.studentId === currentAccount.id)?.status !== 'verified') return { ok: false, message: 'Student verification is required before publishing.' };
     setState((current) => ({ ...current, services: current.services.map((item) => item.id === serviceId ? { ...item, status } : item) }));
     return { ok: true };
-  }, [currentAccount, state.services, state.verifications]);
+  }, [currentAccount, setState, state.services, state.verifications]);
 
   const saveProjectPost = useCallback((input: ProjectPostInput, publish: boolean, projectPostId?: string): ProjectPostResult => {
     if (!currentAccount || currentAccount.role !== 'client') return { ok: false, message: 'Only Clients can manage project posts.' };
@@ -482,7 +528,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     };
     setState((current) => ({ ...current, projectPosts: existing ? current.projectPosts.map((item) => item.id === existing.id ? projectPost : item) : [projectPost, ...current.projectPosts] }));
     return { ok: true, projectPost };
-  }, [currentAccount, state.projectPosts]);
+  }, [currentAccount, setState, state.projectPosts]);
 
   const setProjectPostStatus = useCallback((projectPostId: string, status: ProjectPostStatus): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'client') return { ok: false, message: 'Only Clients can manage project posts.' };
@@ -492,7 +538,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     if (status === 'open' && post.status === 'archived') return { ok: false, message: 'Archived projects cannot be reopened.' };
     setState((current) => ({ ...current, projectPosts: current.projectPosts.map((item) => item.id === projectPostId ? { ...item, status, updatedAt: new Date().toISOString() } : item) }));
     return { ok: true };
-  }, [currentAccount, state.projectPosts]);
+  }, [currentAccount, setState, state.projectPosts]);
 
   const submitProposal = useCallback((projectPostId: string, input: ProposalInput): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can submit proposals.' };
@@ -507,7 +553,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const notification = makeProjectPostNotification(post.clientId, 'New project proposal', `${currentAccount.name} proposed for ${post.title}`, post.id, now);
     setState((current) => ({ ...current, proposals: [proposal, ...current.proposals], notifications: [notification, ...current.notifications] }));
     return { ok: true };
-  }, [currentAccount, state.projectPosts, state.proposals, state.verifications]);
+  }, [currentAccount, setState, state.projectPosts, state.proposals, state.verifications]);
 
   const withdrawProposal = useCallback((proposalId: string): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can withdraw proposals.' };
@@ -515,32 +561,18 @@ export function SessionProvider({ children }: PropsWithChildren) {
     if (!proposal || proposal.status !== 'submitted') return { ok: false, message: 'Only your submitted proposal can be withdrawn.' };
     setState((current) => ({ ...current, proposals: current.proposals.map((item) => item.id === proposalId ? { ...item, status: 'withdrawn' } : item) }));
     return { ok: true };
-  }, [currentAccount, state.proposals]);
+  }, [currentAccount, setState, state.proposals]);
 
   const decideProposal = useCallback((proposalId: string, accept: boolean): ProposalDecisionResult => {
     if (!currentAccount || currentAccount.role !== 'client') return { ok: false, message: 'Only the project Client can decide proposals.' };
-    const proposal = state.proposals.find((item) => item.id === proposalId);
-    const post = proposal ? state.projectPosts.find((item) => item.id === proposal.projectPostId) : undefined;
-    if (!proposal || !post || post.clientId !== currentAccount.id || post.status !== 'open' || proposal.status !== 'submitted') return { ok: false, message: 'This proposal is no longer available for a decision.' };
-    const now = new Date().toISOString();
-    if (!accept) {
-      const notification = makeProjectPostNotification(proposal.studentId, 'Proposal not selected', post.title, post.id, now);
-      setState((current) => ({ ...current, proposals: current.proposals.map((item) => item.id === proposalId ? { ...item, status: 'rejected' } : item), notifications: [notification, ...current.notifications] }));
-      return { ok: true };
-    }
-    const booking: ProjectBooking = { id: makeId('booking'), source: 'proposal', projectPostId: post.id, proposalId: proposal.id, clientId: post.clientId, studentId: proposal.studentId, title: post.title, description: post.description, deliveryDays: proposal.deliveryDays, budget: proposal.amount, status: 'accepted', createdAt: now, updatedAt: now };
-    const affected = state.proposals.filter((item) => item.projectPostId === post.id && item.status === 'submitted');
-    const notifications = affected.map((item) => item.id === proposal.id ? makeNotification(item.studentId, 'Proposal accepted', post.title, 'project', booking.id, now) : makeProjectPostNotification(item.studentId, 'Proposal not selected', post.title, post.id, now));
-    setState((current) => ({
-      ...current,
-      projectPosts: current.projectPosts.map((item) => item.id === post.id ? { ...item, status: 'closed', acceptedProposalId: proposal.id, updatedAt: now } : item),
-      proposals: current.proposals.map((item) => item.projectPostId === post.id && item.status === 'submitted' ? { ...item, status: item.id === proposal.id ? 'accepted' : 'rejected' } : item),
-      bookings: [booking, ...current.bookings], notifications: [...notifications, ...current.notifications],
-    }));
-    return { ok: true, bookingId: booking.id };
-  }, [currentAccount, state.projectPosts, state.proposals]);
+    const plan: ProposalDecisionPlan = { now: new Date().toISOString(), bookingId: accept ? makeId('booking') : undefined };
+    const transaction = applyProposalDecision(stateRef.current, proposalId, accept, currentAccount.id, plan);
+    if (!transaction.result.ok) return transaction.result;
+    setState(transaction.state);
+    return transaction.result;
+  }, [currentAccount, setState]);
 
-  const logout = useCallback(() => setState((current) => ({ ...current, currentAccountId: null })), []);
+  const logout = useCallback(() => setState((current) => ({ ...current, currentAccountId: null })), [setState]);
 
   const createBooking = useCallback((input: CreateBookingInput) => {
     const clientId = currentAccount?.role === 'client' ? currentAccount.id : state.accounts.find((account) => account.id === 'client-mark')?.id;
@@ -550,7 +582,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const notification = makeNotification(input.studentId, 'New service request', input.title, 'project', booking.id, now);
     setState((current) => ({ ...current, bookings: [booking, ...current.bookings], notifications: [notification, ...current.notifications] }));
     return booking;
-  }, [currentAccount, state.accounts]);
+  }, [currentAccount, setState, state.accounts]);
 
   const actOnProject = useCallback((projectId: string, action: ProjectAction, payload: ProjectActionPayload = {}): StoreResult => {
     const booking = state.bookings.find((item) => item.id === projectId);
@@ -596,7 +628,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       reviews: review ? [review, ...current.reviews] : current.reviews,
     }));
     return { ok: true };
-  }, [currentAccount, state.bookings]);
+  }, [currentAccount, setState, state.bookings]);
 
   const sendMessage = useCallback((projectId: string, body: string): StoreResult => {
     const booking = state.bookings.find((item) => item.id === projectId);
@@ -609,9 +641,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const notification = makeNotification(recipientId, `${currentAccount.name} sent a message`, trimmed, 'message', projectId, now);
     setState((current) => ({ ...current, messages: [...current.messages, message], notifications: [notification, ...current.notifications] }));
     return { ok: true };
-  }, [currentAccount, state.bookings]);
+  }, [currentAccount, setState, state.bookings]);
 
-  const markNotificationRead = useCallback((notificationId: string) => setState((current) => ({ ...current, notifications: current.notifications.map((item) => item.id === notificationId ? { ...item, read: true } : item) })), []);
+  const markNotificationRead = useCallback((notificationId: string) => setState((current) => ({ ...current, notifications: current.notifications.map((item) => item.id === notificationId ? { ...item, read: true } : item) })), [setState]);
   const markProjectMessagesRead = useCallback((projectId: string) => {
     if (!currentAccount) return;
     setState((current) => ({
@@ -619,7 +651,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       messages: current.messages.map((message) => message.projectId === projectId && !message.readBy.includes(currentAccount.id) ? { ...message, readBy: [...message.readBy, currentAccount.id] } : message),
       notifications: current.notifications.map((notification) => notification.userId === currentAccount.id && notification.projectId === projectId && notification.kind === 'message' ? { ...notification, read: true } : notification),
     }));
-  }, [currentAccount]);
+  }, [currentAccount, setState]);
   const sendMentorMessage = useCallback((body: string): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'The AI Project Mentor is available to Student Designers.' };
     const trimmed = body.trim();
@@ -629,18 +661,18 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const reply: MentorMessage = { id: makeId('mentor-reply'), accountId: currentAccount.id, role: 'mentor', body: mentorResponse(trimmed), createdAt: new Date(Date.now() + 1).toISOString() };
     setState((current) => ({ ...current, mentorMessages: [...current.mentorMessages, userMessage, reply] }));
     return { ok: true };
-  }, [currentAccount]);
-  const clearMentorConversation = useCallback(() => { if (currentAccount) setState((current) => ({ ...current, mentorMessages: current.mentorMessages.filter((item) => item.accountId !== currentAccount.id) })); }, [currentAccount]);
-  const updatePreferences = useCallback((input: Partial<DemoPreferences>) => setState((current) => ({ ...current, preferences: { ...current.preferences, ...input, language: 'English' } })), []);
+  }, [currentAccount, setState]);
+  const clearMentorConversation = useCallback(() => { if (currentAccount) setState((current) => ({ ...current, mentorMessages: current.mentorMessages.filter((item) => item.accountId !== currentAccount.id) })); }, [currentAccount, setState]);
+  const updatePreferences = useCallback((input: Partial<DemoPreferences>) => setState((current) => ({ ...current, preferences: { ...current.preferences, ...input, language: 'English' } })), [setState]);
   const changePassword = useCallback((currentPassword: string, newPassword: string): StoreResult => {
     if (!currentAccount || currentAccount.password !== currentPassword) return { ok: false, message: 'Current password is incorrect.' };
     if (newPassword.length < 6) return { ok: false, message: 'New password must contain at least 6 characters.' };
     if (currentPassword === newPassword) return { ok: false, message: 'Choose a password different from the current password.' };
     setState((current) => ({ ...current, accounts: current.accounts.map((account) => account.id === currentAccount.id ? { ...account, password: newPassword } : account) }));
     return { ok: true };
-  }, [currentAccount]);
-  const toggleSavedService = useCallback((serviceId: string) => setState((current) => ({ ...current, savedServiceIds: current.savedServiceIds.includes(serviceId) ? current.savedServiceIds.filter((id) => id !== serviceId) : [...current.savedServiceIds, serviceId] })), []);
-  const resetDemoData = useCallback(async () => { const seed = createSeedState(); setState(seed); await Promise.all([AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seed)), AsyncStorage.removeItem(LEGACY_STORAGE_KEY)]); }, []);
+  }, [currentAccount, setState]);
+  const toggleSavedService = useCallback((serviceId: string) => setState((current) => ({ ...current, savedServiceIds: current.savedServiceIds.includes(serviceId) ? current.savedServiceIds.filter((id) => id !== serviceId) : [...current.savedServiceIds, serviceId] })), [setState]);
+  const resetDemoData = useCallback(async () => { const seed = createSeedState(); setState(seed); await Promise.all([AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seed)), AsyncStorage.removeItem(LEGACY_STORAGE_KEY)]); }, [setState]);
 
   const unreadCount = currentAccount && state.preferences.notificationsEnabled ? state.notifications.filter((item) => item.userId === currentAccount.id && !item.read).length : 0;
   const getCareerReadiness = useCallback((studentId: string) => calculateCareerReadiness(studentId, state), [state]);
