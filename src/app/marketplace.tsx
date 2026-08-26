@@ -33,32 +33,45 @@ export default function MarketplaceScreen() {
   return (
     <MobilePage>
       <StatusBar style="light" />
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.titleRow}><Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="menu" size={30} color={colors.white} /></Pressable><AppText weight="semibold" style={styles.title}>Marketplace</AppText><View style={{ width: 30 }} /></View>
-        <View style={styles.searchRow}>
-          <View style={styles.search}><Ionicons name="search-outline" size={22} color={colors.muted} /><TextInput accessibilityLabel="Search marketplace services" value={query} onChangeText={setQuery} placeholder="Search services…" placeholderTextColor="#858585" style={styles.searchInput} /></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Open marketplace filters" onPress={() => setFiltersOpen((value) => !value)} style={[styles.filter, filtersOpen && styles.filterActive]}><Ionicons name="filter-outline" size={25} color={filtersOpen ? colors.white : colors.burgundy} /></Pressable>
-        </View>
-      </View>
-      {filtersOpen ? <View style={styles.filterPanel}><View style={styles.filterHeading}><AppText weight="semibold">Filters</AppText><Pressable onPress={clearFilters}><AppText weight="medium" style={styles.clear}>Clear all</AppText></Pressable></View><FilterRow label="Budget" values={[{ label: 'Any', value: 0 }, { label: 'Up to ₱1,000', value: 1000 }, { label: 'Up to ₱1,500', value: 1500 }]} selected={maximumBudget} onSelect={setMaximumBudget} /><FilterRow label="Rating" values={[{ label: 'Any', value: 0 }, { label: '4.8+', value: 4.8 }, { label: '4.9+', value: 4.9 }]} selected={minimumRating} onSelect={setMinimumRating} /><FilterRow label="Delivery" values={[{ label: 'Any', value: 0 }, { label: '3 days', value: 3 }, { label: '5 days', value: 5 }]} selected={maximumDelivery} onSelect={setMaximumDelivery} /><Pressable onPress={() => setSavedOnly((value) => !value)} style={[styles.savedFilter, savedOnly && styles.optionActive]}><Ionicons name={savedOnly ? 'heart' : 'heart-outline'} size={18} color={savedOnly ? colors.white : colors.burgundy} /><AppText weight="medium" style={[styles.optionText, savedOnly && { color: colors.white }]}>Saved services only</AppText></Pressable></View> : null}
-      <View style={styles.categories}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContent}>{categories.map((item) => <Pressable key={item} onPress={() => setCategory(item)} style={[styles.chip, category === item && styles.chipActive]}><AppText weight="medium" style={[styles.chipText, category === item && { color: colors.white }]}>{item}</AppText></Pressable>)}</ScrollView></View>
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ServiceRow service={item} favorite={savedServiceIds.includes(item.id)} onToggleFavorite={() => toggleSavedService(item.id)} />}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
-        ListHeaderComponent={<AppText style={styles.results}>{filtered.length} service{filtered.length === 1 ? '' : 's'} found</AppText>}
-        ListEmptyComponent={<AppText style={styles.empty}>{savedOnly ? 'No saved services match these filters.' : 'No matching services.'}</AppText>}
-      />
-      <BottomNav active={savedOnly ? 'saved' : 'none'} onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages/index')} onCreate={currentAccount?.role === 'student' ? () => router.push('/services/new') : () => router.push('/project-posts/new')} onProfile={() => router.push('/profile/index')} variant="marketplace" />
+      <MarketplaceHeader insetsTop={insets.top} query={query} filtersOpen={filtersOpen} onQueryChange={setQuery} onToggleFilters={() => setFiltersOpen((value) => !value)} />
+      <MarketplaceFilters open={filtersOpen} maximumBudget={maximumBudget} minimumRating={minimumRating} maximumDelivery={maximumDelivery} savedOnly={savedOnly} onBudgetChange={setMaximumBudget} onRatingChange={setMinimumRating} onDeliveryChange={setMaximumDelivery} onSavedOnlyChange={setSavedOnly} onClear={clearFilters} />
+      <MarketplaceCategories categories={categories} category={category} onCategoryChange={setCategory} />
+      <MarketplaceList filtered={filtered} savedOnly={savedOnly} savedServiceIds={savedServiceIds} onToggleFavorite={toggleSavedService} />
+      <MarketplaceBottomNav savedOnly={savedOnly} homeRoute={homeRoute} currentAccountRole={currentAccount?.role} />
     </MobilePage>
   );
 }
 
+function MarketplaceHeader({ insetsTop, query, filtersOpen, onQueryChange, onToggleFilters }: { insetsTop: number; query: string; filtersOpen: boolean; onQueryChange: (value: string) => void; onToggleFilters: () => void }) {
+  return <View style={[styles.header, { paddingTop: insetsTop + 8 }]}>
+    <View style={styles.titleRow}><Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="menu" size={30} color={colors.white} /></Pressable><AppText weight="semibold" style={styles.title}>Marketplace</AppText><View style={{ width: 30 }} /></View>
+    <View style={styles.searchRow}>
+      <View style={styles.search}><Ionicons name="search-outline" size={22} color={colors.muted} /><TextInput accessibilityLabel="Search marketplace services" value={query} onChangeText={onQueryChange} placeholder="Search services…" placeholderTextColor="#858585" style={styles.searchInput} /></View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open marketplace filters" onPress={onToggleFilters} style={[styles.filter, filtersOpen && styles.filterActive]}><Ionicons name="filter-outline" size={25} color={filtersOpen ? colors.white : colors.burgundy} /></Pressable>
+    </View>
+  </View>;
+}
+
+function MarketplaceFilters({ open, maximumBudget, minimumRating, maximumDelivery, savedOnly, onBudgetChange, onRatingChange, onDeliveryChange, onSavedOnlyChange, onClear }: { open: boolean; maximumBudget: number; minimumRating: number; maximumDelivery: number; savedOnly: boolean; onBudgetChange: (value: number) => void; onRatingChange: (value: number) => void; onDeliveryChange: (value: number) => void; onSavedOnlyChange: (value: boolean | ((current: boolean) => boolean)) => void; onClear: () => void }) {
+  if (!open) return null;
+  return <View style={styles.filterPanel}><View style={styles.filterHeading}><AppText weight="semibold">Filters</AppText><Pressable onPress={onClear}><AppText weight="medium" style={styles.clear}>Clear all</AppText></Pressable></View><FilterRow label="Budget" values={[{ label: 'Any', value: 0 }, { label: 'Up to ₱1,000', value: 1000 }, { label: 'Up to ₱1,500', value: 1500 }]} selected={maximumBudget} onSelect={onBudgetChange} /><FilterRow label="Rating" values={[{ label: 'Any', value: 0 }, { label: '4.8+', value: 4.8 }, { label: '4.9+', value: 4.9 }]} selected={minimumRating} onSelect={onRatingChange} /><FilterRow label="Delivery" values={[{ label: 'Any', value: 0 }, { label: '3 days', value: 3 }, { label: '5 days', value: 5 }]} selected={maximumDelivery} onSelect={onDeliveryChange} /><Pressable onPress={() => onSavedOnlyChange((value) => !value)} style={[styles.savedFilter, savedOnly && styles.optionActive]}><Ionicons name={savedOnly ? 'heart' : 'heart-outline'} size={18} color={savedOnly ? colors.white : colors.burgundy} /><AppText weight="medium" style={[styles.optionText, savedOnly && { color: colors.white }]}>Saved services only</AppText></Pressable></View>;
+}
+
+function MarketplaceCategories({ categories, category, onCategoryChange }: { categories: string[]; category: string; onCategoryChange: (value: string) => void }) {
+  return <View style={styles.categories}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContent}>{categories.map((item) => <Pressable key={item} onPress={() => onCategoryChange(item)} style={[styles.chip, category === item && styles.chipActive]}><AppText weight="medium" style={[styles.chipText, category === item && { color: colors.white }]}>{item}</AppText></Pressable>)}</ScrollView></View>;
+}
+
+function MarketplaceList({ filtered, savedOnly, savedServiceIds, onToggleFavorite }: { filtered: Service[]; savedOnly: boolean; savedServiceIds: string[]; onToggleFavorite: (serviceId: string) => void }) {
+  return <FlatList data={filtered} keyExtractor={(item) => item.id} renderItem={({ item }) => <ServiceRow service={item} favorite={savedServiceIds.includes(item.id)} onToggleFavorite={() => onToggleFavorite(item.id)} />} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} ListHeaderComponent={<AppText style={styles.results}>{filtered.length} service{filtered.length === 1 ? '' : 's'} found</AppText>} ListEmptyComponent={<AppText style={styles.empty}>{savedOnly ? 'No saved services match these filters.' : 'No matching services.'}</AppText>} />;
+}
+
+function MarketplaceBottomNav({ savedOnly, homeRoute, currentAccountRole }: { savedOnly: boolean; homeRoute: '/student-home' | '/client-home'; currentAccountRole?: 'student' | 'client' }) {
+  return <BottomNav active={savedOnly ? 'saved' : 'none'} onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages')} onCreate={currentAccountRole === 'student' ? () => router.push('/services/new') : () => router.push('/project-posts/new')} onProfile={() => router.push('/profile')} variant="marketplace" />;
+}
+
 function ServiceRow({ service, favorite, onToggleFavorite }: { service: Service; favorite: boolean; onToggleFavorite: () => void }) {
   return (
-    <Pressable onPress={() => router.push({ pathname: '/services/[serviceId]/index', params: { serviceId: service.id } })} style={styles.serviceRow}>
+    <Pressable onPress={() => router.push({ pathname: '/services/[serviceId]', params: { serviceId: service.id } })} style={styles.serviceRow}>
       <ReferenceCrop source={marketReference} sourceSize={{ width: 1920, height: 1080 }} crop={service.crop} style={styles.thumb} />
       <View style={{ flex: 1 }}>
         <AppText weight="semibold" style={styles.serviceTitle}>{service.title}</AppText><AppText style={styles.serviceSubtitle}>{service.subtitle}</AppText><Pressable accessibilityRole="link" onPress={(event) => { event.stopPropagation(); router.push({ pathname: '/profiles/[userId]', params: { userId: service.providerId } }); }}><AppText weight="medium" style={styles.provider}>By {service.provider}</AppText></Pressable>

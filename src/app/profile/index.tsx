@@ -5,8 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, BottomNav, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
-import { formatPeso } from '@/data/fixtures';
-import { useSession } from '@/context/session';
+import { formatPeso, Service } from '@/data/fixtures';
+import { CareerReadinessBreakdown } from '@/domain/career-readiness';
+import { Certification, DemoAccount, PortfolioItem, ProjectBooking, ProjectReview, StudentVerification, UserProfile, useSession } from '@/context/session';
 
 export default function ProfileScreen() {
   const { addCompletedProjectToPortfolio, bookings, certifications, currentAccount, getCareerReadiness, homeRoute, messages, portfolioItems, profiles, reviews, services, verifications } = useSession();
@@ -29,21 +30,102 @@ export default function ProfileScreen() {
       <StatusBar style="light" />
       <AppHeader title="Profile" onBack={() => router.back()} right={<Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="settings-outline" size={25} color={colors.white} /></Pressable>} />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.identity}><View style={styles.avatar}><Ionicons name={currentAccount.role === 'student' ? 'school' : 'person'} size={43} color={colors.red} /></View><AppText weight="bold" style={styles.name}>{currentAccount.name}</AppText><AppText style={styles.role}>{currentAccount.role === 'student' ? 'Student Designer' : 'Client'}</AppText>{currentAccount.role === 'student' ? <Pressable onPress={() => router.push('/verification')} style={[styles.verification, verification?.status === 'verified' && styles.verified]}><Ionicons name={verification?.status === 'verified' ? 'checkmark-circle' : 'shield-outline'} size={17} color={verification?.status === 'verified' ? colors.green : colors.burgundy} /><AppText weight="medium" style={styles.verificationText}>{verification?.status === 'verified' ? 'Verified Student' : `Verification: ${(verification?.status ?? 'not submitted').replace('_', ' ')}`}</AppText></Pressable> : null}</View>
-        <View style={styles.card}><AppText weight="semibold" style={styles.heading}>About</AppText><AppText style={styles.copy}>{profile?.bio || 'No biography added yet.'}</AppText>{profile?.location ? <Info icon="location-outline" text={profile.location} /> : null}{profile?.organization ? <Info icon="business-outline" text={profile.organization} /> : null}{profile?.school ? <Info icon="school-outline" text={profile.school} /> : null}{profile?.program ? <Info icon="book-outline" text={`${profile.program}${profile.gradeLevel ? ` · ${profile.gradeLevel}` : ''}`} /> : null}{profile?.skills.length ? <View style={styles.skills}>{profile.skills.map((skill) => <View key={skill} style={styles.skill}><AppText style={styles.skillText}>{skill}</AppText></View>)}</View> : null}<PrimaryButton title="Edit Profile" onPress={() => router.push('/profile/edit')} style={{ marginTop: 18 }} /></View>
+        <ProfileIdentity account={currentAccount} verification={verification} />
+        <ProfileAbout profile={profile} />
 
-        {currentAccount.role === 'student' ? <>
-          {readiness ? <Pressable onPress={() => router.push('/career-readiness')} style={styles.readiness}><View><AppText weight="semibold" style={styles.heading}>Career Readiness</AppText><AppText style={styles.copy}>{readiness.level} · View the transparent breakdown</AppText></View><View style={styles.readinessScore}><AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText><AppText style={styles.readinessMax}>/100</AppText></View><Ionicons name="chevron-forward" size={22} color={colors.burgundy} /></Pressable> : null}
-          <View style={styles.stats}><Stat value={String(ownPortfolio.length)} label="Portfolio" /><Stat value={String(ownServices.filter((item) => item.status === 'published').length)} label="Services" /><Stat value={formatPeso(earnings)} label="Earned" /></View>
-          <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>Portfolio & Certifications</AppText><Pressable onPress={() => router.push('/portfolio/index')}><AppText weight="medium" style={styles.link}>Manage</AppText></Pressable></View><AppText style={styles.copy}>{ownPortfolio.length} portfolio item{ownPortfolio.length === 1 ? '' : 's'} · {ownCertifications.length} certification{ownCertifications.length === 1 ? '' : 's'}</AppText></View>
-          {completedNotAdded.length ? <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Completed Work</AppText><AppText style={styles.copy}>Add finished client projects as portfolio evidence.</AppText>{completedNotAdded.map((project) => <Pressable key={project.id} onPress={() => addProject(project.id)} style={styles.actionRow}><AppText weight="medium" style={{ flex: 1 }}>{project.title}</AppText><AppText weight="semibold" style={styles.link}>Add</AppText></Pressable>)}</View> : null}
-          <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>My Services</AppText><Pressable onPress={() => router.push('/services/new')}><AppText weight="medium" style={styles.link}>Create</AppText></Pressable></View>{ownServices.length ? ownServices.map((service) => <Pressable key={service.id} onPress={() => router.push({ pathname: '/services/[serviceId]/edit', params: { serviceId: service.id } })} style={styles.actionRow}><View style={{ flex: 1 }}><AppText weight="medium">{service.title}</AppText><AppText style={styles.small}>{service.status}</AppText></View><Ionicons name="create-outline" size={21} color={colors.burgundy} /></Pressable>) : <AppText style={styles.copy}>No services created yet.</AppText>}</View>
-          {ownReviews.length ? <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Client Reviews</AppText>{ownReviews.map((review) => <View key={review.id} style={styles.review}><AppText weight="semibold">{review.rating}/5</AppText><AppText style={styles.copy}>{review.comment}</AppText></View>)}</View> : null}
-        </> : <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Client Activity</AppText><AppText style={styles.copy}>{ownProjects.length} project request{ownProjects.length === 1 ? '' : 's'} created in this local demonstration.</AppText></View>}
+        <ProfileRoleContent account={currentAccount} readiness={readiness} ownPortfolio={ownPortfolio} ownCertifications={ownCertifications} ownServices={ownServices} earnings={earnings} completedNotAdded={completedNotAdded} ownReviews={ownReviews} ownProjects={ownProjects} onAddProject={addProject} />
       </ScrollView>
-      <BottomNav active="profile" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={currentAccount.role === 'student' ? () => router.push('/portfolio/index') : undefined} onMessages={() => router.push('/messages/index')} onSaved={currentAccount.role === 'client' ? () => router.push({ pathname: '/marketplace', params: { saved: 'true' } }) : undefined} onProfile={() => undefined} messageUnread={hasUnreadMessages} variant={currentAccount.role === 'client' ? 'client' : 'student'} />
+      <ProfileBottomNav account={currentAccount} homeRoute={homeRoute} messageUnread={hasUnreadMessages} />
     </MobilePage>
   );
+}
+
+function ProfileIdentity({ account, verification }: { account: DemoAccount; verification?: StudentVerification }) {
+  const isStudent = account.role === 'student';
+  return <View style={styles.identity}><View style={styles.avatar}><Ionicons name={isStudent ? 'school' : 'person'} size={43} color={colors.red} /></View><AppText weight="bold" style={styles.name}>{account.name}</AppText><AppText style={styles.role}>{isStudent ? 'Student Designer' : 'Client'}</AppText><ProfileVerificationBadge isStudent={isStudent} verification={verification} /></View>;
+}
+
+function ProfileAbout({ profile }: { profile?: UserProfile }) {
+  return <View style={styles.card}><AppText weight="semibold" style={styles.heading}>About</AppText><AppText style={styles.copy}>{profile?.bio || 'No biography added yet.'}</AppText><ProfileDetails profile={profile} /><PrimaryButton title="Edit Profile" onPress={() => router.push('/profile/edit')} style={{ marginTop: 18 }} /></View>;
+}
+
+function ProfileVerificationBadge({ isStudent, verification }: { isStudent: boolean; verification?: StudentVerification }) {
+  if (!isStudent) return null;
+  const isVerified = verification?.status === 'verified';
+  return <Pressable onPress={() => router.push('/verification')} style={[styles.verification, isVerified && styles.verified]}><Ionicons name={isVerified ? 'checkmark-circle' : 'shield-outline'} size={17} color={isVerified ? colors.green : colors.burgundy} /><AppText weight="medium" style={styles.verificationText}>{isVerified ? 'Verified Student' : `Verification: ${(verification?.status ?? 'not submitted').replace('_', ' ')}`}</AppText></Pressable>;
+}
+
+function ProfileDetails({ profile }: { profile?: UserProfile }) {
+  return <><ProfileInfoRow condition={profile?.location} icon="location-outline" /><ProfileInfoRow condition={profile?.organization} icon="business-outline" /><ProfileInfoRow condition={profile?.school} icon="school-outline" /><ProfileInfoRow condition={profile?.program} icon="book-outline" suffix={profile?.gradeLevel} /><ProfileSkills skills={profile?.skills} /></>;
+}
+
+function ProfileInfoRow({ condition, icon, suffix }: { condition?: string; icon: 'location-outline' | 'business-outline' | 'school-outline' | 'book-outline'; suffix?: string }) {
+  if (!condition) return null;
+  return <Info icon={icon} text={suffix ? `${condition} · ${suffix}` : condition} />;
+}
+
+function ProfileSkills({ skills }: { skills?: string[] }) {
+  if (!skills?.length) return null;
+  return <View style={styles.skills}>{skills.map((skill) => <View key={skill} style={styles.skill}><AppText style={styles.skillText}>{skill}</AppText></View>)}</View>;
+}
+
+type ProfileRoleContentProps = {
+  account: DemoAccount;
+  readiness: CareerReadinessBreakdown | null;
+  ownPortfolio: PortfolioItem[];
+  ownCertifications: Certification[];
+  ownServices: Service[];
+  earnings: number;
+  completedNotAdded: ProjectBooking[];
+  ownReviews: ProjectReview[];
+  ownProjects: ProjectBooking[];
+  onAddProject: (projectId: string) => void;
+};
+
+function ProfileRoleContent(props: ProfileRoleContentProps) {
+  return props.account.role === 'student' ? <StudentProfileContent {...props} /> : <ClientProfileContent projects={props.ownProjects} />;
+}
+
+function StudentProfileContent({ readiness, ownPortfolio, ownCertifications, ownServices, earnings, completedNotAdded, ownReviews, onAddProject }: ProfileRoleContentProps) {
+  return <>
+    <StudentReadinessCard readiness={readiness} />
+    <View style={styles.stats}><Stat value={String(ownPortfolio.length)} label="Portfolio" /><Stat value={String(ownServices.filter((item) => item.status === 'published').length)} label="Services" /><Stat value={formatPeso(earnings)} label="Earned" /></View>
+    <PortfolioSummary portfolioCount={ownPortfolio.length} certificationCount={ownCertifications.length} />
+    {completedNotAdded.length ? <CompletedWork projects={completedNotAdded} onAddProject={onAddProject} /> : null}
+    <ServicesCard services={ownServices} />
+    {ownReviews.length ? <ReviewsCard reviews={ownReviews} /> : null}
+  </>;
+}
+
+function StudentReadinessCard({ readiness }: { readiness: CareerReadinessBreakdown | null }) {
+  if (!readiness) return null;
+  return <Pressable onPress={() => router.push('/career-readiness')} style={styles.readiness}><View><AppText weight="semibold" style={styles.heading}>Career Readiness</AppText><AppText style={styles.copy}>{readiness.level} · View the transparent breakdown</AppText></View><View style={styles.readinessScore}><AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText><AppText style={styles.readinessMax}>/100</AppText></View><Ionicons name="chevron-forward" size={22} color={colors.burgundy} /></Pressable>;
+}
+
+function PortfolioSummary({ portfolioCount, certificationCount }: { portfolioCount: number; certificationCount: number }) {
+  return <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>Portfolio & Certifications</AppText><Pressable onPress={() => router.push('/portfolio')}><AppText weight="medium" style={styles.link}>Manage</AppText></Pressable></View><AppText style={styles.copy}>{portfolioCount} portfolio item{portfolioCount === 1 ? '' : 's'} · {certificationCount} certification{certificationCount === 1 ? '' : 's'}</AppText></View>;
+}
+
+function CompletedWork({ projects, onAddProject }: { projects: ProjectBooking[]; onAddProject: (projectId: string) => void }) {
+  return <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Completed Work</AppText><AppText style={styles.copy}>Add finished client projects as portfolio evidence.</AppText>{projects.map((project) => <Pressable key={project.id} onPress={() => onAddProject(project.id)} style={styles.actionRow}><AppText weight="medium" style={{ flex: 1 }}>{project.title}</AppText><AppText weight="semibold" style={styles.link}>Add</AppText></Pressable>)}</View>;
+}
+
+function ServicesCard({ services }: { services: Service[] }) {
+  return <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>My Services</AppText><Pressable onPress={() => router.push('/services/new')}><AppText weight="medium" style={styles.link}>Create</AppText></Pressable></View>{services.length ? services.map((service) => <Pressable key={service.id} onPress={() => router.push({ pathname: '/services/[serviceId]/edit', params: { serviceId: service.id } })} style={styles.actionRow}><View style={{ flex: 1 }}><AppText weight="medium">{service.title}</AppText><AppText style={styles.small}>{service.status}</AppText></View><Ionicons name="create-outline" size={21} color={colors.burgundy} /></Pressable>) : <AppText style={styles.copy}>No services created yet.</AppText>}</View>;
+}
+
+function ReviewsCard({ reviews }: { reviews: ProjectReview[] }) {
+  return <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Client Reviews</AppText>{reviews.map((review) => <View key={review.id} style={styles.review}><AppText weight="semibold">{review.rating}/5</AppText><AppText style={styles.copy}>{review.comment}</AppText></View>)}</View>;
+}
+
+function ClientProfileContent({ projects }: { projects: ProjectBooking[] }) {
+  return <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Client Activity</AppText><AppText style={styles.copy}>{projects.length} project request{projects.length === 1 ? '' : 's'} created in this local demonstration.</AppText></View>;
+}
+
+function ProfileBottomNav({ account, homeRoute, messageUnread }: { account: DemoAccount; homeRoute: '/student-home' | '/client-home'; messageUnread: boolean }) {
+  const isStudent = account.role === 'student';
+  const isClient = account.role === 'client';
+  return <BottomNav active="profile" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={isStudent ? () => router.push('/portfolio') : undefined} onMessages={() => router.push('/messages')} onSaved={isClient ? () => router.push({ pathname: '/marketplace', params: { saved: 'true' } }) : undefined} onProfile={() => undefined} messageUnread={messageUnread} variant={isClient ? 'client' : 'student'} />;
 }
 
 function Info({ icon, text }: { icon: 'location-outline' | 'business-outline' | 'school-outline' | 'book-outline'; text: string }) { return <View style={styles.info}><Ionicons name={icon} size={18} color={colors.burgundy} /><AppText style={styles.infoText}>{text}</AppText></View>; }

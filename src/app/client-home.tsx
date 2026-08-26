@@ -41,7 +41,7 @@ export default function ClientHomeScreen() {
           <View style={styles.quickRow}>
             <QuickAction icon="checkbox-outline" label={'Post a\nProject'} onPress={() => router.push('/project-posts/new')} />
             <QuickAction icon="briefcase-outline" label={'My\nProjects'} onPress={() => router.push('/projects')} />
-            <QuickAction icon="mail-outline" label="Messages" onPress={() => router.push('/messages/index')} />
+            <QuickAction icon="mail-outline" label="Messages" onPress={() => router.push('/messages')} />
             <QuickAction icon="search-circle-outline" label={'Find\nDesigners'} onPress={() => router.push('/marketplace')} />
           </View>
           <View style={styles.titleRow}><AppText weight="semibold" style={styles.sectionText}>Recent Projects</AppText><Pressable onPress={() => router.push('/projects')}><AppText weight="medium" style={styles.viewAll}>View All</AppText></Pressable></View>
@@ -50,7 +50,7 @@ export default function ClientHomeScreen() {
           </View>
         </View>
       </ScrollView>
-      <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages/index')} onSaved={() => router.push({ pathname: '/marketplace', params: { saved: 'true' } })} onProfile={() => router.push('/profile/index')} messageUnread={hasUnreadMessages} variant="client" />
+      <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages')} onSaved={() => router.push({ pathname: '/marketplace', params: { saved: 'true' } })} onProfile={() => router.push('/profile')} messageUnread={hasUnreadMessages} variant="client" />
     </MobilePage>
   );
 }
