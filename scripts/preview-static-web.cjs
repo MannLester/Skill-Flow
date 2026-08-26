@@ -48,6 +48,14 @@ function parseConfiguration(environment = process.env, options = {}) {
   return { host, port, root, rootLabel: rootValue };
 }
 
+function isLoopbackHost(host) {
+  return host === '127.0.0.1' || host === '::1' || host === 'localhost';
+}
+
+function networkWarning(host) {
+  return isLoopbackHost(host) ? null : 'Warning: the development preview is exposed beyond this machine.\n';
+}
+
 function validateRoot(root) {
   let rootReal;
   try {
@@ -266,9 +274,8 @@ async function startPreview(options) {
 
 async function runCli() {
   const configuration = parseConfiguration();
-  if (configuration.host !== '127.0.0.1' && configuration.host !== '::1' && configuration.host !== 'localhost') {
-    process.stderr.write('Warning: the development preview is exposed beyond this machine.\n');
-  }
+  const warning = networkWarning(configuration.host);
+  if (warning) process.stderr.write(warning);
   const preview = await startPreview({ ...configuration, logger: ({ method, pathname, status, durationMs }) => {
     process.stdout.write(`${method} ${pathname} ${status} ${durationMs}ms\n`);
   } });
@@ -297,6 +304,7 @@ module.exports = {
   createManifest,
   createRequestHandler,
   decodePathname,
+  networkWarning,
   parseConfiguration,
   parsePort,
   resolveRequest,
