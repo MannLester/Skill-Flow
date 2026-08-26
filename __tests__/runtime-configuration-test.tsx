@@ -2,7 +2,7 @@ import { render } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { RuntimeConfigurationState } from '@/components/runtime-configuration-state';
-import { parseRuntimeConfiguration } from '@/config/runtime';
+import { parseRuntimeConfiguration, readRuntimeConfiguration } from '@/config/runtime';
 
 const clerkKey = 'pk_test_c2tpbGxmbG93';
 const liveClerkKey = 'pk_live_c2tpbGxmbG93';
@@ -65,12 +65,41 @@ describe('runtime configuration', () => {
     expect(result).toEqual({
       ready: false,
       issues: [
+        'Remove unknown EXPO_PUBLIC_* variables; only the documented public runtime values are supported.',
         'EXPO_PUBLIC_CONVEX_URL must be a complete http:// or https:// URL.',
         'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a Clerk pk_test_ or pk_live_ publishable key.',
         'web development requires a test Clerk pk_test_ publishable key.',
-        'Remove EXPO_PUBLIC_API_KEY; privileged credentials must never use an EXPO_PUBLIC_* variable.',
       ],
     });
+  });
+
+  it('fails closed when the real reader sees an undocumented public variable', () => {
+    const previousValues = {
+      target: process.env.EXPO_PUBLIC_RUNTIME_TARGET,
+      convexUrl: process.env.EXPO_PUBLIC_CONVEX_URL,
+      clerkKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+      undocumented: process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE,
+    };
+    process.env.EXPO_PUBLIC_RUNTIME_TARGET = 'web';
+    process.env.EXPO_PUBLIC_CONVEX_URL = 'http://127.0.0.1:3210';
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = clerkKey;
+    process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE = 'SkillFlowVerifierSecretSentinel';
+
+    try {
+      expect(readRuntimeConfiguration()).toEqual({
+        ready: false,
+        issues: ['Remove unknown EXPO_PUBLIC_* variables; only the documented public runtime values are supported.'],
+      });
+    } finally {
+      if (previousValues.target === undefined) delete process.env.EXPO_PUBLIC_RUNTIME_TARGET;
+      else process.env.EXPO_PUBLIC_RUNTIME_TARGET = previousValues.target;
+      if (previousValues.convexUrl === undefined) delete process.env.EXPO_PUBLIC_CONVEX_URL;
+      else process.env.EXPO_PUBLIC_CONVEX_URL = previousValues.convexUrl;
+      if (previousValues.clerkKey === undefined) delete process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+      else process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = previousValues.clerkKey;
+      if (previousValues.undocumented === undefined) delete process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE;
+      else process.env.EXPO_PUBLIC_UNDOCUMENTED_VALUE = previousValues.undocumented;
+    }
   });
 
   test.each([
@@ -127,7 +156,7 @@ describe('runtime configuration', () => {
     expect(result.ready).toBe(false);
   });
 
-  test.each(['EXPO_PUBLIC_CONVEX_ADMIN_KEY', 'EXPO_PUBLIC_CONVEX_DEPLOY_KEY', 'EXPO_PUBLIC_CLERK_SECRET_KEY', 'EXPO_PUBLIC_API_KEY'])('rejects %s', (key) => {
+  test.each(['EXPO_PUBLIC_CONVEX_ADMIN_KEY', 'EXPO_PUBLIC_CONVEX_DEPLOY_KEY', 'EXPO_PUBLIC_CLERK_SECRET_KEY', 'EXPO_PUBLIC_API_KEY'])('rejects undocumented public variable %s', (key) => {
     const result = parseRuntimeConfiguration({
       EXPO_PUBLIC_RUNTIME_TARGET: 'web',
       EXPO_PUBLIC_CONVEX_URL: 'http://localhost:3210',
@@ -135,7 +164,7 @@ describe('runtime configuration', () => {
       [key]: 'privileged-value',
     });
     expect(result.ready).toBe(false);
-    if (!result.ready) expect(result.issues.join(' ')).toContain('privileged credentials');
+    if (!result.ready) expect(result.issues.join(' ')).toContain('only the documented public runtime values');
   });
 
   it('renders actionable setup guidance without rendering connected children', () => {

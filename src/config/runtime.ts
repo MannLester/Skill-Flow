@@ -10,14 +10,7 @@ export type RuntimeConfigurationResult =
   | { ready: true; configuration: RuntimeConfiguration }
   | { ready: false; issues: string[] };
 
-type PublicRuntimeEnvironment = Record<string, string | undefined> & {
-  EXPO_PUBLIC_RUNTIME_TARGET?: string;
-  EXPO_PUBLIC_CONVEX_URL?: string;
-  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?: string;
-  EXPO_PUBLIC_CONVEX_ADMIN_KEY?: string;
-  EXPO_PUBLIC_CONVEX_DEPLOY_KEY?: string;
-  EXPO_PUBLIC_CLERK_SECRET_KEY?: string;
-};
+type PublicRuntimeEnvironment = Record<string, string | undefined>;
 
 type RuntimeValues = {
   target: string | undefined;
@@ -32,6 +25,11 @@ type CompleteRuntimeValues = {
 };
 
 const runtimeTargets: RuntimeTarget[] = ['web', 'android-emulator', 'android-device', 'cloud'];
+const documentedPublicRuntimeKeys = new Set([
+  'EXPO_PUBLIC_RUNTIME_TARGET',
+  'EXPO_PUBLIC_CONVEX_URL',
+  'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+]);
 
 export function parseRuntimeConfiguration(environment: PublicRuntimeEnvironment): RuntimeConfigurationResult {
   const values = readRuntimeValues(environment);
@@ -42,12 +40,10 @@ export function parseRuntimeConfiguration(environment: PublicRuntimeEnvironment)
 
 export function readRuntimeConfiguration(): RuntimeConfigurationResult {
   return parseRuntimeConfiguration({
+    ...process.env,
     EXPO_PUBLIC_RUNTIME_TARGET: process.env.EXPO_PUBLIC_RUNTIME_TARGET,
     EXPO_PUBLIC_CONVEX_URL: process.env.EXPO_PUBLIC_CONVEX_URL,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-    EXPO_PUBLIC_CONVEX_ADMIN_KEY: process.env.EXPO_PUBLIC_CONVEX_ADMIN_KEY,
-    EXPO_PUBLIC_CONVEX_DEPLOY_KEY: process.env.EXPO_PUBLIC_CONVEX_DEPLOY_KEY,
-    EXPO_PUBLIC_CLERK_SECRET_KEY: process.env.EXPO_PUBLIC_CLERK_SECRET_KEY,
   });
 }
 
@@ -65,11 +61,20 @@ function readRuntimeValues(environment: PublicRuntimeEnvironment): RuntimeValues
 
 function collectRuntimeIssues(environment: PublicRuntimeEnvironment, values: RuntimeValues): string[] {
   return [
+    findUnknownPublicValue(environment),
     ...missingRuntimeIssues(values),
     ...convexRuntimeIssues(values.target, values.convexUrl),
     ...clerkRuntimeIssues(values.target, values.clerkPublishableKey),
-    findPrivilegedPublicValue(environment),
   ].filter((issue): issue is string => Boolean(issue));
+}
+
+function findUnknownPublicValue(environment: PublicRuntimeEnvironment): string | undefined {
+  const hasUnknownPublicValue = Object.keys(environment).some((key) => (
+    key.startsWith('EXPO_PUBLIC_') && !documentedPublicRuntimeKeys.has(key)
+  ));
+  return hasUnknownPublicValue
+    ? 'Remove unknown EXPO_PUBLIC_* variables; only the documented public runtime values are supported.'
+    : undefined;
 }
 
 function missingRuntimeIssues(values: RuntimeValues): string[] {
@@ -165,13 +170,6 @@ function validateClerkKey(target: RuntimeTarget, value: string): string | undefi
     : target === 'cloud'
       ? 'Cloud configuration requires a live Clerk pk_live_ publishable key.'
       : `${target} development requires a test Clerk pk_test_ publishable key.`;
-}
-
-function findPrivilegedPublicValue(environment: PublicRuntimeEnvironment): string | undefined {
-  const privilegedKey = Object.entries(environment).find(([key, value]) => (
-    key.startsWith('EXPO_PUBLIC_') && /ADMIN|SECRET|DEPLOY|PRIVATE|TOKEN|PASSWORD|CREDENTIAL|API_KEY/i.test(key) && Boolean(value?.trim())
-  ))?.[0];
-  return privilegedKey ? `Remove ${privilegedKey}; privileged credentials must never use an EXPO_PUBLIC_* variable.` : undefined;
 }
 
 function isConvexCloudHostname(hostname: string): boolean {
