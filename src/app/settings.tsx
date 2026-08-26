@@ -26,6 +26,7 @@ export default function SettingsScreen() {
       { label: 'Dark Mode', icon: 'contrast-outline', toggle: true, enabled: dark, onPress: () => updatePreferences({ darkMode: !dark }) },
     ] },
     { title: 'Support', rows: [
+      { label: 'Connected Services', icon: 'server-outline', onPress: () => router.push('/runtime-configuration') },
       { label: 'Help Center', icon: 'help-circle-outline', onPress: () => router.push('/help') },
       { label: 'Terms & Conditions', icon: 'document-text-outline', onPress: () => router.push('/terms') },
       { label: 'Privacy Policy', icon: 'information-circle-outline', onPress: () => router.push('/privacy-policy') },

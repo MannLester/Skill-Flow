@@ -55,6 +55,7 @@
     "convex:dev": "node -- scripts/setup-convex-local.mjs dev",
     "lint": "node -- scripts/check-eslint-suppressions.cjs && node -- scripts/check-eslint-complexity-debt.cjs && eslint . --max-warnings 0 --suppressions-location eslint-suppressions.json",
     "lint:prune": "node -- scripts/prune-eslint-baselines.cjs",
+    "runtime-bundle": "node -- scripts/check-runtime-bundle.cjs",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
     "verify": "npm run typecheck && npm run lint && npm test -- --watch=false && npx expo export --platform android",
