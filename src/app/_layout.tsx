@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SessionProvider } from '@/context/session';
+import { blurActiveWebElement } from '@/utils/web-focus';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,7 +29,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
-        <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack
+          screenListeners={{ transitionStart: blurActiveWebElement }}
+          screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+        />
       </SessionProvider>
     </SafeAreaProvider>
   );
