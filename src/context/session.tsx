@@ -286,6 +286,11 @@ const createSeedState = (): PersistedDemoState => ({
   preferences: { notificationsEnabled: true, darkMode: false, language: 'English' },
 });
 
+const arrayOr = <T,>(value: unknown, fallback: T[]): T[] => Array.isArray(value) ? value as T[] : fallback;
+const migratedProfiles = (candidate: Partial<PersistedDemoState>, seed: PersistedDemoState) => arrayOr(candidate.profiles, candidate.accounts!.map((account) => seed.profiles.find((profile) => profile.accountId === account.id) ?? { accountId: account.id, bio: '', location: '', skills: [] }));
+const migratedVerifications = (candidate: Partial<PersistedDemoState>, seed: PersistedDemoState): StudentVerification[] => arrayOr<StudentVerification>(candidate.verifications, candidate.accounts!.filter((account) => account.role === 'student').map((account): StudentVerification => seed.verifications.find((verification) => verification.studentId === account.id) ?? { studentId: account.id, status: account.verified ? 'verified' : 'not_submitted', school: '', studentNumberMasked: '', program: '', gradeLevel: '' }));
+const migratedPreferences = (value: unknown, seed: DemoPreferences): DemoPreferences => value && typeof value === 'object' ? { ...seed, ...value } : seed;
+
 const migrateState = (value: unknown): PersistedDemoState | null => {
   if (!value || typeof value !== 'object') return null;
   const candidate = value as Partial<PersistedDemoState> & { version?: number };
@@ -298,19 +303,19 @@ const migrateState = (value: unknown): PersistedDemoState | null => {
     accounts: candidate.accounts,
     services: candidate.services.map((service) => ({ ...service, status: service.status ?? 'published' })),
     bookings: candidate.bookings.map((booking) => ({ ...booking, updatedAt: booking.updatedAt ?? booking.createdAt ?? now })),
-    projectPosts: Array.isArray(candidate.projectPosts) ? candidate.projectPosts : seed.projectPosts,
-    proposals: Array.isArray(candidate.proposals) ? candidate.proposals : [],
-    messages: Array.isArray(candidate.messages) ? candidate.messages : [],
-    notifications: Array.isArray(candidate.notifications) ? candidate.notifications : [],
-    ledger: Array.isArray(candidate.ledger) ? candidate.ledger : [],
-    reviews: Array.isArray(candidate.reviews) ? candidate.reviews : [],
-    profiles: Array.isArray(candidate.profiles) ? candidate.profiles : candidate.accounts.map((account) => seed.profiles.find((profile) => profile.accountId === account.id) ?? { accountId: account.id, bio: '', location: '', skills: [] }),
-    verifications: Array.isArray(candidate.verifications) ? candidate.verifications : candidate.accounts.filter((account) => account.role === 'student').map((account) => seed.verifications.find((verification) => verification.studentId === account.id) ?? { studentId: account.id, status: account.verified ? 'verified' : 'not_submitted', school: '', studentNumberMasked: '', program: '', gradeLevel: '' }),
-    portfolioItems: Array.isArray(candidate.portfolioItems) ? candidate.portfolioItems : seed.portfolioItems,
-    certifications: Array.isArray(candidate.certifications) ? candidate.certifications : seed.certifications,
+    projectPosts: arrayOr(candidate.projectPosts, seed.projectPosts),
+    proposals: arrayOr(candidate.proposals, []),
+    messages: arrayOr(candidate.messages, []),
+    notifications: arrayOr(candidate.notifications, []),
+    ledger: arrayOr(candidate.ledger, []),
+    reviews: arrayOr(candidate.reviews, []),
+    profiles: migratedProfiles(candidate, seed),
+    verifications: migratedVerifications(candidate, seed),
+    portfolioItems: arrayOr(candidate.portfolioItems, seed.portfolioItems),
+    certifications: arrayOr(candidate.certifications, seed.certifications),
     savedServiceIds: candidate.savedServiceIds,
-    mentorMessages: Array.isArray(candidate.mentorMessages) ? candidate.mentorMessages : [],
-    preferences: candidate.preferences && typeof candidate.preferences === 'object' ? { ...seed.preferences, ...candidate.preferences } : seed.preferences,
+    mentorMessages: arrayOr(candidate.mentorMessages, []),
+    preferences: migratedPreferences(candidate.preferences, seed.preferences),
   };
 };
 
@@ -396,6 +401,126 @@ const markProjectMessagesReadState = (current: PersistedDemoState, projectId: st
     notifications: hasUnreadNotification ? current.notifications.map((notification) => notification.userId === accountId && notification.projectId === projectId && notification.kind === 'message' && !notification.read ? { ...notification, read: true } : notification) : current.notifications,
   };
 };
+
+const failure = (message: string): { ok: false; message: string } => ({ ok: false, message });
+
+function verificationReviewIssue(account: DemoAccount | null, verification: StudentVerification | undefined, approved: boolean, rejectionReason?: string) {
+  if (account?.role !== 'student') return 'Only a Student Designer verification can be reviewed in this demo.';
+  if (verification?.status !== 'pending') return 'Submit verification before running the simulated review.';
+  if (!approved && !rejectionReason?.trim()) return 'Select a simulated rejection reason.';
+  return null;
+}
+
+function reviewedVerification(verification: StudentVerification, approved: boolean, rejectionReason?: string): StudentVerification {
+  return { ...verification, status: approved ? 'verified' : 'rejected', reviewedAt: new Date().toISOString(), rejectionReason: approved ? undefined : rejectionReason?.trim() };
+}
+
+function validServiceInput(input: ServiceInput) {
+  const missing = [input.title, input.subtitle, input.category, input.description, input.revisions].some((value) => !value.trim());
+  return !missing && input.price > 0 && input.deliveryDays > 0;
+}
+
+function serviceIssue(account: DemoAccount | null, input: ServiceInput, publish: boolean, verification: StudentVerification | undefined, serviceId: string | undefined, existing: Service | undefined) {
+  if (account?.role !== 'student') return 'Only Student Designers can manage services.';
+  if (!validServiceInput(input)) return 'Complete all service fields with valid values.';
+  if (publish && verification?.status !== 'verified') return 'Student verification is required before publishing a service.';
+  if (serviceId && !existing) return 'You can only edit your own services.';
+  return null;
+}
+
+function buildService(input: ServiceInput, publish: boolean, account: DemoAccount, existing?: Service): Service {
+  const status = publish ? 'published' : 'draft';
+  if (existing) return { ...existing, ...input, provider: account.name, status };
+  return { ...input, id: makeId('service'), provider: account.name, providerId: account.id, rating: 0, reviews: 0, status, crop: seededServices[0].crop };
+}
+
+function validProjectPostInput(input: ProjectPostInput) {
+  const missing = [input.title, input.description, input.category, input.deadline].some((value) => !value.trim());
+  return !missing && input.budget > 0 && input.skills.some((skill) => skill.trim());
+}
+
+function projectPostIssue(account: DemoAccount | null, input: ProjectPostInput, projectPostId: string | undefined, existing: ProjectPost | undefined) {
+  if (account?.role !== 'client') return 'Only Clients can manage project posts.';
+  if (!validProjectPostInput(input)) return 'Complete every project field with valid values.';
+  if (Number.isNaN(new Date(input.deadline).getTime())) return 'Use a valid deadline such as 2026-09-30.';
+  if (projectPostId && !existing) return 'You can only edit your own project posts.';
+  if (existing && ['closed', 'archived'].includes(existing.status)) return 'Closed or archived projects cannot be edited.';
+  return null;
+}
+
+function buildProjectPost(input: ProjectPostInput, publish: boolean, account: DemoAccount, existing?: ProjectPost): ProjectPost {
+  const now = new Date().toISOString();
+  return { ...input, title: input.title.trim(), description: input.description.trim(), category: input.category.trim(), deadline: input.deadline.trim(), skills: input.skills.map((skill) => skill.trim()).filter(Boolean), id: existing?.id ?? makeId('post'), clientId: account.id, status: publish ? 'open' : 'draft', createdAt: existing?.createdAt ?? now, updatedAt: now, acceptedProposalId: existing?.acceptedProposalId };
+}
+
+function validProposalInput(input: ProposalInput) {
+  return Boolean(input.coverLetter.trim()) && input.amount > 0 && input.deliveryDays > 0;
+}
+
+function proposalIssue(account: DemoAccount | null, verification: StudentVerification | undefined, post: ProjectPost | undefined, input: ProposalInput, hasActiveProposal: boolean) {
+  if (account?.role !== 'student') return 'Only Student Designers can submit proposals.';
+  if (verification?.status !== 'verified') return 'Complete simulated student verification before submitting a proposal.';
+  if (post?.status !== 'open') return 'This project is not accepting proposals.';
+  if (!validProposalInput(input)) return 'Add a cover letter, valid amount, and delivery time.';
+  if (hasActiveProposal) return 'You already have an active proposal for this project.';
+  return null;
+}
+
+type ProjectActionContext = { booking: ProjectBooking; account: DemoAccount; payload: ProjectActionPayload; now: string };
+type ProjectActionUpdate = { status: ProjectStatus; notification: DemoNotification; deliveryNote?: string; revisionNote?: string; completedAt?: string; ledgerEntry?: DemoLedgerEntry; review?: ProjectReview };
+type ProjectActionHandler = (context: ProjectActionContext) => ProjectActionUpdate | StoreResult;
+
+function actionAllowed(context: ProjectActionContext, role: UserRole, statuses: ProjectStatus[]) {
+  const actorId = role === 'client' ? context.booking.clientId : context.booking.studentId;
+  return context.account.id === actorId && statuses.includes(context.booking.status);
+}
+
+function basicAction(context: ProjectActionContext, role: UserRole, statuses: ProjectStatus[], status: ProjectStatus, recipientId: string, title: string): ProjectActionUpdate | StoreResult {
+  if (!actionAllowed(context, role, statuses)) return failure('This action is not available for the current account or project status.');
+  return { status, notification: makeNotification(recipientId, title, context.booking.title, 'project', context.booking.id, context.now), deliveryNote: context.booking.deliveryNote, revisionNote: context.booking.revisionNote, completedAt: context.booking.completedAt };
+}
+
+const acceptProject: ProjectActionHandler = (context) => basicAction(context, 'student', ['requested'], 'accepted', context.booking.clientId, 'Request accepted');
+const declineProject: ProjectActionHandler = (context) => basicAction(context, 'student', ['requested'], 'declined', context.booking.clientId, 'Request declined');
+const cancelProject: ProjectActionHandler = (context) => basicAction(context, 'client', ['requested', 'accepted'], 'cancelled', context.booking.studentId, 'Request cancelled');
+const startProject: ProjectActionHandler = (context) => basicAction(context, 'student', ['demo_funded'], 'in_progress', context.booking.clientId, 'Work started');
+
+const fundProject: ProjectActionHandler = (context) => {
+  if (!actionAllowed(context, 'client', ['accepted'])) return failure('This action is not available for the current account or project status.');
+  const booking = context.booking;
+  return { status: 'demo_funded', notification: makeNotification(booking.studentId, 'Demo funds reserved', booking.title, 'payment', booking.id, context.now), deliveryNote: booking.deliveryNote, revisionNote: booking.revisionNote, completedAt: booking.completedAt, ledgerEntry: { id: makeId('ledger'), userId: booking.clientId, projectId: booking.id, type: 'hold', amount: booking.budget, createdAt: context.now } };
+};
+
+const submitProject: ProjectActionHandler = (context) => {
+  if (!actionAllowed(context, 'student', ['in_progress', 'revision_requested'])) return failure('This action is not available for the current account or project status.');
+  const note = context.payload.note?.trim();
+  if (!note) return failure('Add a delivery note before submitting.');
+  return { status: 'submitted', notification: makeNotification(context.booking.clientId, 'Delivery submitted', context.booking.title, 'project', context.booking.id, context.now), deliveryNote: note, completedAt: context.booking.completedAt };
+};
+
+const requestProjectRevision: ProjectActionHandler = (context) => {
+  if (!actionAllowed(context, 'client', ['submitted'])) return failure('This action is not available for the current account or project status.');
+  const note = context.payload.note?.trim();
+  if (!note) return failure('Explain the requested revision.');
+  return { status: 'revision_requested', notification: makeNotification(context.booking.studentId, 'Revision requested', context.booking.title, 'project', context.booking.id, context.now), deliveryNote: context.booking.deliveryNote, revisionNote: note, completedAt: context.booking.completedAt };
+};
+
+const approveProject: ProjectActionHandler = (context) => {
+  if (!actionAllowed(context, 'client', ['submitted'])) return failure('This action is not available for the current account or project status.');
+  const booking = context.booking;
+  return { status: 'completed', notification: makeNotification(booking.studentId, 'Project approved', `${booking.title} — simulated earnings released`, 'payment', booking.id, context.now), deliveryNote: booking.deliveryNote, revisionNote: booking.revisionNote, completedAt: context.now, ledgerEntry: { id: makeId('ledger'), userId: booking.studentId, projectId: booking.id, type: 'release', amount: booking.budget, createdAt: context.now } };
+};
+
+const reviewProject: ProjectActionHandler = (context) => {
+  if (!actionAllowed(context, 'client', ['completed'])) return failure('This action is not available for the current account or project status.');
+  const { rating, comment } = context.payload;
+  if (!rating || rating < 1 || rating > 5 || !comment?.trim()) return failure('Choose a rating and add a review.');
+  const booking = context.booking;
+  const review = { id: makeId('review'), projectId: booking.id, clientId: booking.clientId, studentId: booking.studentId, rating, comment: comment.trim(), createdAt: context.now };
+  return { status: 'reviewed', notification: makeNotification(booking.studentId, 'New client review', `${rating}/5 for ${booking.title}`, 'complete', booking.id, context.now), deliveryNote: booking.deliveryNote, revisionNote: booking.revisionNote, completedAt: booking.completedAt, review };
+};
+
+const projectActionHandlers: Record<ProjectAction, ProjectActionHandler> = { accept: acceptProject, decline: declineProject, cancel: cancelProject, fund: fundProject, start: startProject, submit: submitProject, request_revision: requestProjectRevision, approve: approveProject, review: reviewProject };
 
 const SESSION_PERSIST_DEBOUNCE_MS = 100;
 
@@ -529,11 +654,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [currentAccount, setState]);
 
   const simulateVerificationReview = useCallback((approved: boolean, rejectionReason?: string): StoreResult => {
-    if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only a Student Designer verification can be reviewed in this demo.' };
-    const verification = state.verifications.find((item) => item.studentId === currentAccount.id);
-    if (!verification || verification.status !== 'pending') return { ok: false, message: 'Submit verification before running the simulated review.' };
-    if (!approved && !rejectionReason?.trim()) return { ok: false, message: 'Select a simulated rejection reason.' };
-    const updated: StudentVerification = { ...verification, status: approved ? 'verified' : 'rejected', reviewedAt: new Date().toISOString(), rejectionReason: approved ? undefined : rejectionReason?.trim() };
+    const verification = state.verifications.find((item) => item.studentId === currentAccount?.id);
+    const issue = verificationReviewIssue(currentAccount, verification, approved, rejectionReason);
+    if (issue || !verification || !currentAccount) return failure(issue ?? 'A current account is required.');
+    const updated = reviewedVerification(verification, approved, rejectionReason);
     setState((current) => ({ ...current, accounts: current.accounts.map((account) => account.id === currentAccount.id ? { ...account, verified: approved } : account), verifications: current.verifications.map((item) => item.studentId === currentAccount.id ? updated : item) }));
     return { ok: true };
   }, [currentAccount, setState, state.verifications]);
@@ -565,13 +689,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [currentAccount, setState, state.bookings, state.portfolioItems]);
 
   const saveService = useCallback((input: ServiceInput, publish: boolean, serviceId?: string): ServiceResult => {
-    if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can manage services.' };
-    if (!input.title.trim() || !input.subtitle.trim() || !input.category.trim() || !input.description.trim() || input.price <= 0 || input.deliveryDays <= 0 || !input.revisions.trim()) return { ok: false, message: 'Complete all service fields with valid values.' };
-    const verification = state.verifications.find((item) => item.studentId === currentAccount.id);
-    if (publish && verification?.status !== 'verified') return { ok: false, message: 'Student verification is required before publishing a service.' };
-    const existing = serviceId ? state.services.find((service) => service.id === serviceId && service.providerId === currentAccount.id) : undefined;
-    if (serviceId && !existing) return { ok: false, message: 'You can only edit your own services.' };
-    const service: Service = existing ? { ...existing, ...input, provider: currentAccount.name, status: publish ? 'published' : 'draft' } : { ...input, id: makeId('service'), provider: currentAccount.name, providerId: currentAccount.id, rating: 0, reviews: 0, status: publish ? 'published' : 'draft', crop: seededServices[0].crop };
+    const verification = state.verifications.find((item) => item.studentId === currentAccount?.id);
+    const existing = serviceId ? state.services.find((service) => service.id === serviceId && service.providerId === currentAccount?.id) : undefined;
+    const issue = serviceIssue(currentAccount, input, publish, verification, serviceId, existing);
+    if (issue || !currentAccount) return failure(issue ?? 'A current account is required.');
+    const service = buildService(input, publish, currentAccount, existing);
     setState((current) => ({ ...current, services: existing ? current.services.map((item) => item.id === existing.id ? service : item) : [service, ...current.services] }));
     return { ok: true, service };
   }, [currentAccount, setState, state.services, state.verifications]);
@@ -586,22 +708,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [currentAccount, setState, state.services, state.verifications]);
 
   const saveProjectPost = useCallback((input: ProjectPostInput, publish: boolean, projectPostId?: string): ProjectPostResult => {
-    if (!currentAccount || currentAccount.role !== 'client') return { ok: false, message: 'Only Clients can manage project posts.' };
-    if (!input.title.trim() || !input.description.trim() || !input.category.trim() || input.budget <= 0 || !input.deadline.trim() || !input.skills.some((skill) => skill.trim())) return { ok: false, message: 'Complete every project field with valid values.' };
-    const deadline = new Date(input.deadline);
-    if (Number.isNaN(deadline.getTime())) return { ok: false, message: 'Use a valid deadline such as 2026-09-30.' };
-    const existing = projectPostId ? state.projectPosts.find((item) => item.id === projectPostId && item.clientId === currentAccount.id) : undefined;
-    if (projectPostId && !existing) return { ok: false, message: 'You can only edit your own project posts.' };
-    if (existing && ['closed', 'archived'].includes(existing.status)) return { ok: false, message: 'Closed or archived projects cannot be edited.' };
-    const now = new Date().toISOString();
-    const projectPost: ProjectPost = {
-      ...input,
-      title: input.title.trim(), description: input.description.trim(), category: input.category.trim(), deadline: input.deadline.trim(),
-      skills: input.skills.map((skill) => skill.trim()).filter(Boolean),
-      id: existing?.id ?? makeId('post'), clientId: currentAccount.id,
-      status: publish ? 'open' : 'draft', createdAt: existing?.createdAt ?? now, updatedAt: now,
-      acceptedProposalId: existing?.acceptedProposalId,
-    };
+    const existing = projectPostId ? state.projectPosts.find((item) => item.id === projectPostId && item.clientId === currentAccount?.id) : undefined;
+    const issue = projectPostIssue(currentAccount, input, projectPostId, existing);
+    if (issue || !currentAccount) return failure(issue ?? 'A current account is required.');
+    const projectPost = buildProjectPost(input, publish, currentAccount, existing);
     setState((current) => ({ ...current, projectPosts: existing ? current.projectPosts.map((item) => item.id === existing.id ? projectPost : item) : [projectPost, ...current.projectPosts] }));
     return { ok: true, projectPost };
   }, [currentAccount, setState, state.projectPosts]);
@@ -617,13 +727,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [currentAccount, setState, state.projectPosts]);
 
   const submitProposal = useCallback((projectPostId: string, input: ProposalInput): StoreResult => {
-    if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'Only Student Designers can submit proposals.' };
-    const verification = state.verifications.find((item) => item.studentId === currentAccount.id);
-    if (verification?.status !== 'verified') return { ok: false, message: 'Complete simulated student verification before submitting a proposal.' };
+    const verification = state.verifications.find((item) => item.studentId === currentAccount?.id);
     const post = state.projectPosts.find((item) => item.id === projectPostId);
-    if (!post || post.status !== 'open') return { ok: false, message: 'This project is not accepting proposals.' };
-    if (!input.coverLetter.trim() || input.amount <= 0 || input.deliveryDays <= 0) return { ok: false, message: 'Add a cover letter, valid amount, and delivery time.' };
-    if (state.proposals.some((item) => item.projectPostId === projectPostId && item.studentId === currentAccount.id && item.status === 'submitted')) return { ok: false, message: 'You already have an active proposal for this project.' };
+    const hasActiveProposal = state.proposals.some((item) => item.projectPostId === projectPostId && item.studentId === currentAccount?.id && item.status === 'submitted');
+    const issue = proposalIssue(currentAccount, verification, post, input, hasActiveProposal);
+    if (issue || !currentAccount || !post) return failure(issue ?? 'A current account and open project are required.');
     const now = new Date().toISOString();
     const proposal: Proposal = { id: makeId('proposal'), projectPostId, studentId: currentAccount.id, coverLetter: input.coverLetter.trim(), amount: input.amount, deliveryDays: input.deliveryDays, status: 'submitted', createdAt: now };
     const notification = makeProjectPostNotification(post.clientId, 'New project proposal', `${currentAccount.name} proposed for ${post.title}`, post.id, now);
@@ -662,46 +770,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const actOnProject = useCallback((projectId: string, action: ProjectAction, payload: ProjectActionPayload = {}): StoreResult => {
     const booking = state.bookings.find((item) => item.id === projectId);
-    if (!booking || !currentAccount) return { ok: false, message: 'Project or active account not found.' };
-    const isClient = currentAccount.id === booking.clientId;
-    const isStudent = currentAccount.id === booking.studentId;
-    const allowed = (requiredRole: 'client' | 'student', statuses: ProjectStatus[]) => (requiredRole === 'client' ? isClient : isStudent) && statuses.includes(booking.status);
+    if (!booking || !currentAccount) return failure('Project or active account not found.');
     const now = new Date().toISOString();
-    let nextStatus: ProjectStatus = booking.status;
-    let notification: DemoNotification | null = null;
-    let deliveryNote = booking.deliveryNote;
-    let revisionNote = booking.revisionNote;
-    let completedAt = booking.completedAt;
-    let ledgerEntry: DemoLedgerEntry | null = null;
-    let review: ProjectReview | null = null;
-
-    if (action === 'accept' && allowed('student', ['requested'])) { nextStatus = 'accepted'; notification = makeNotification(booking.clientId, 'Request accepted', booking.title, 'project', projectId, now); }
-    else if (action === 'decline' && allowed('student', ['requested'])) { nextStatus = 'declined'; notification = makeNotification(booking.clientId, 'Request declined', booking.title, 'project', projectId, now); }
-    else if (action === 'cancel' && allowed('client', ['requested', 'accepted'])) { nextStatus = 'cancelled'; notification = makeNotification(booking.studentId, 'Request cancelled', booking.title, 'project', projectId, now); }
-    else if (action === 'fund' && allowed('client', ['accepted'])) { nextStatus = 'demo_funded'; notification = makeNotification(booking.studentId, 'Demo funds reserved', booking.title, 'payment', projectId, now); ledgerEntry = { id: makeId('ledger'), userId: booking.clientId, projectId, type: 'hold', amount: booking.budget, createdAt: now }; }
-    else if (action === 'start' && allowed('student', ['demo_funded'])) { nextStatus = 'in_progress'; notification = makeNotification(booking.clientId, 'Work started', booking.title, 'project', projectId, now); }
-    else if (action === 'submit' && allowed('student', ['in_progress', 'revision_requested'])) {
-      if (!payload.note?.trim()) return { ok: false, message: 'Add a delivery note before submitting.' };
-      nextStatus = 'submitted'; deliveryNote = payload.note.trim(); revisionNote = undefined; notification = makeNotification(booking.clientId, 'Delivery submitted', booking.title, 'project', projectId, now);
-    }
-    else if (action === 'request_revision' && allowed('client', ['submitted'])) {
-      if (!payload.note?.trim()) return { ok: false, message: 'Explain the requested revision.' };
-      nextStatus = 'revision_requested'; revisionNote = payload.note.trim(); notification = makeNotification(booking.studentId, 'Revision requested', booking.title, 'project', projectId, now);
-    }
-    else if (action === 'approve' && allowed('client', ['submitted'])) { nextStatus = 'completed'; completedAt = now; notification = makeNotification(booking.studentId, 'Project approved', `${booking.title} — simulated earnings released`, 'payment', projectId, now); ledgerEntry = { id: makeId('ledger'), userId: booking.studentId, projectId, type: 'release', amount: booking.budget, createdAt: now }; }
-    else if (action === 'review' && allowed('client', ['completed'])) {
-      if (!payload.rating || payload.rating < 1 || payload.rating > 5 || !payload.comment?.trim()) return { ok: false, message: 'Choose a rating and add a review.' };
-      nextStatus = 'reviewed'; review = { id: makeId('review'), projectId, clientId: booking.clientId, studentId: booking.studentId, rating: payload.rating, comment: payload.comment.trim(), createdAt: now }; notification = makeNotification(booking.studentId, 'New client review', `${payload.rating}/5 for ${booking.title}`, 'complete', projectId, now);
-    }
-    else return { ok: false, message: 'This action is not available for the current account or project status.' };
-
-    const updated: ProjectBooking = { ...booking, status: nextStatus, updatedAt: now, deliveryNote, revisionNote, completedAt };
+    const transition = projectActionHandlers[action]({ booking, account: currentAccount, payload, now });
+    if ('ok' in transition) return transition;
+    const updated: ProjectBooking = { ...booking, status: transition.status, updatedAt: now, deliveryNote: transition.deliveryNote, revisionNote: transition.revisionNote, completedAt: transition.completedAt };
     setState((current) => ({
       ...current,
       bookings: current.bookings.map((item) => item.id === projectId ? updated : item),
-      notifications: notification ? [notification, ...current.notifications] : current.notifications,
-      ledger: ledgerEntry ? [ledgerEntry, ...current.ledger] : current.ledger,
-      reviews: review ? [review, ...current.reviews] : current.reviews,
+      notifications: [transition.notification, ...current.notifications],
+      ledger: transition.ledgerEntry ? [transition.ledgerEntry, ...current.ledger] : current.ledger,
+      reviews: transition.review ? [transition.review, ...current.reviews] : current.reviews,
     }));
     return { ok: true };
   }, [currentAccount, setState, state.bookings]);

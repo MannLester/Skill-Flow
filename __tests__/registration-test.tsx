@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import RegisterScreen from '@/app/register';
@@ -21,22 +21,25 @@ describe('registration', () => {
 
     fireEvent.changeText(screen.getByPlaceholderText('Full Name'), 'Demo Student');
     fireEvent.changeText(screen.getByPlaceholderText('Email Address'), 'student@example.test');
-    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret1');
-    fireEvent.changeText(screen.getByPlaceholderText('Confirm Password'), 'secret1');
+    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret123');
+    fireEvent.changeText(screen.getByPlaceholderText('Confirm Password'), 'secret123');
     fireEvent.press(screen.getByText('Sign Up'));
     expect(screen.getByText('Accept the Terms and Privacy Policy to continue.')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('creates a valid local student account', () => {
+  it('creates a Clerk account and verifies its email', async () => {
     const screen = render(<SafeAreaProvider><SessionProvider><RegisterScreen /></SessionProvider></SafeAreaProvider>);
     fireEvent.changeText(screen.getByPlaceholderText('Full Name'), 'Demo Student');
     fireEvent.changeText(screen.getByPlaceholderText('Email Address'), 'student@example.test');
-    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret1');
-    fireEvent.changeText(screen.getByPlaceholderText('Confirm Password'), 'secret1');
+    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret123');
+    fireEvent.changeText(screen.getByPlaceholderText('Confirm Password'), 'secret123');
     fireEvent.press(screen.getByLabelText('Accept Terms and Privacy Policy'));
     fireEvent.press(screen.getByText('Sign Up'));
-    expect(mockReplace).toHaveBeenCalledWith('/student-home');
+    await waitFor(() => expect(screen.getByPlaceholderText('Verification Code')).toBeTruthy());
+    fireEvent.changeText(screen.getByPlaceholderText('Verification Code'), '123456');
+    fireEvent.press(screen.getByText('Verify and Continue'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
   it('opens the legal documents without toggling submission', () => {

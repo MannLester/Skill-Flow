@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import LoginScreen from '@/app/index';
@@ -14,13 +14,12 @@ jest.mock('expo-router', () => ({
 describe('login navigation', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('routes a selected client to the client dashboard', () => {
+  it('submits credentials to Clerk and lets the auth gate choose the role route', async () => {
     const screen = render(<SafeAreaProvider><SessionProvider><LoginScreen /></SessionProvider></SafeAreaProvider>);
-    fireEvent.press(screen.getByText('Client'));
-    fireEvent.changeText(screen.getByPlaceholderText('Email'), 'mark@skillflow.demo');
-    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'demo123');
+    fireEvent.changeText(screen.getByPlaceholderText('Email'), 'client@example.test');
+    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'password123');
     fireEvent.press(screen.getByText('Log In'));
-    expect(mockReplace).toHaveBeenCalledWith('/client-home');
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
   it('rejects missing credentials', () => {
@@ -30,10 +29,10 @@ describe('login navigation', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('provides one-tap access to the Mark demo account', () => {
+  it('does not expose demo-account shortcuts or a login role switcher', () => {
     const screen = render(<SafeAreaProvider><SessionProvider><LoginScreen /></SessionProvider></SafeAreaProvider>);
-    fireEvent.press(screen.getByText('Continue as Mark'));
-    expect(mockReplace).toHaveBeenCalledWith('/client-home');
+    expect(screen.queryByText('Continue as Mark')).toBeNull();
+    expect(screen.queryByText('Client')).toBeNull();
   });
 
   it('opens registration from the sign-up link', () => {

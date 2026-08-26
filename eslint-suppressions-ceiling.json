@@ -1,27 +1,7 @@
 {
-  "src/app/profile/edit.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/app/profiles/[userId].tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/app/register.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/app/settings.tsx": {
     "complexity": {
       "count": 1
-    }
-  },
-  "src/context/session.tsx": {
-    "complexity": {
-      "count": 6
     }
   },
   "src/domain/career-readiness.ts": {

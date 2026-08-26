@@ -1,9 +1,8 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { Modal } from 'react-native';
 
 import StudentHomeScreen from '@/app/student-home';
-import { NavigationDrawer, navigationDrawerItems } from '@/components/navigation-drawer';
-import { SessionProvider } from '@/context/session';
+import { navigationDrawerItems } from '@/components/navigation-drawer';
 import { primaryNavActiveForPath, primaryTabDirection, primaryTabOrder, primaryTabRoute, replacePrimaryTab } from '@/navigation/primary-navigation';
 
 const mockPush = jest.fn();
@@ -15,6 +14,17 @@ jest.mock('expo-router', () => ({
     replace: (...args: unknown[]) => mockReplace(...args),
     back: jest.fn(),
   },
+}));
+
+jest.mock('@/context/session.remote', () => ({
+  useSession: () => ({
+    bookings: [],
+    currentAccount: { id: 'student-alex', role: 'student', name: 'Alex Rivera' },
+    getCareerReadiness: () => ({ score: 100, level: 'Career Ready' }),
+    ledger: [],
+    projectPosts: [],
+    unreadCount: 0,
+  }),
 }));
 
 describe('primary navigation shell', () => {
@@ -48,45 +58,38 @@ describe('primary navigation shell', () => {
     expect(navigationDrawerItems('client').map((item) => item.key)).toEqual(['home', 'projects', 'messages', 'saved', 'profile', 'settings']);
   });
 
-  it('preserves the redesigned Student Home header controls', () => {
-    const screen = render(<SessionProvider><StudentHomeScreen /></SessionProvider>);
-    expect(screen.getByLabelText('Open notifications')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Open navigation menu' })).toBeNull();
-  });
-
-  it('routes Settings from the standalone navigation drawer', () => {
-    const onClose = jest.fn();
-    const screen = render(<NavigationDrawer visible role="student" onClose={onClose} />);
+  it('opens a left navigation menu and routes Settings as a detail screen', () => {
+    const screen = render(<StudentHomeScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Open navigation menu' }));
+    expect(screen.getByText('Student Designer workspace')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('menuitem', { name: 'Settings' }));
 
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Student Designer workspace')).toBeNull();
     expect(mockPush).toHaveBeenCalledWith('/settings');
   });
 
-  it('dismisses the standalone navigation drawer from its scrim', () => {
-    const onClose = jest.fn();
-    const screen = render(<NavigationDrawer visible role="student" onClose={onClose} />);
+  it('dismisses the drawer from its scrim without navigation', () => {
+    const screen = render(<StudentHomeScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Open navigation menu' }));
+    expect(screen.getByText('Student Designer workspace')).toBeTruthy();
 
     fireEvent.press(screen.getAllByRole('button', { name: 'Close navigation menu' })[0]);
 
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Student Designer workspace')).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('handles Android Back and can reopen with the selected state intact', async () => {
-    const onClose = jest.fn();
-    const screen = render(<NavigationDrawer visible role="student" onClose={onClose} />);
+  it('dismisses with Android Back and can reopen with accessible selected state', () => {
+    const screen = render(<StudentHomeScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Open navigation menu' }));
     expect(screen.getByRole('menuitem', { name: 'Home' }).props.accessibilityState).toMatchObject({ selected: true, disabled: true });
 
     act(() => screen.UNSAFE_getByType(Modal).props.onRequestClose());
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Student Designer workspace')).toBeNull();
 
-    screen.rerender(<NavigationDrawer visible={false} role="student" onClose={onClose} />);
-    await waitFor(() => expect(screen.queryByText('Student Designer workspace')).toBeNull());
-    screen.rerender(<NavigationDrawer visible role="student" onClose={onClose} />);
-    await waitFor(() => expect(screen.getByText('Student Designer workspace')).toBeTruthy());
-    expect(screen.getByRole('menuitem', { name: 'Home' }).props.accessibilityState).toMatchObject({ selected: true, disabled: true });
+    fireEvent.press(screen.getByRole('button', { name: 'Open navigation menu' }));
+    expect(screen.getByText('Student Designer workspace')).toBeTruthy();
   });
 });

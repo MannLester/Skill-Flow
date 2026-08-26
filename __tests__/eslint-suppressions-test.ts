@@ -7,6 +7,7 @@ type BaseContext = {
 };
 
 const committedSuppressions = jest.requireActual('../eslint-suppressions.json') as SuppressionMap;
+const suppressionPath = 'src/app/settings.tsx';
 const {
   parseBaseState,
   requireExpectedBaseSha,
@@ -44,13 +45,13 @@ describe('ESLint suppression trust anchor', () => {
     const ceiling = cloneBaseline();
     suppressions['src/new-screen.tsx'] = { complexity: { count: 1 } };
     ceiling['src/new-screen.tsx'] = { complexity: { count: 1 } };
-    suppressions['src/context/session.tsx'].complexity.count = 7;
-    ceiling['src/context/session.tsx'].complexity.count = 7;
+    suppressions[suppressionPath].complexity.count = 2;
+    ceiling[suppressionPath].complexity.count = 2;
 
     expect(validateSuppressionState(suppressions, ceiling, baseContext())).toEqual(
       expect.arrayContaining([
         'against base origin/main: src/new-screen.tsx: new suppression file is not allowed.',
-        'against base origin/main: src/context/session.tsx (complexity): suppression count increased from 6 to 7.',
+        `against base origin/main: ${suppressionPath} (complexity): suppression count increased from 1 to 2.`,
       ]),
     );
   });
@@ -63,9 +64,9 @@ describe('ESLint suppression trust anchor', () => {
       'Base origin/main has an incomplete suppression baseline.',
     );
     const context = baseContext();
-    context.state!.suppressions['src/context/session.tsx'].complexity.count = 5;
+    context.state!.ceiling[suppressionPath].complexity.count = 2;
     expect(validateAgainstBase(cloneBaseline(), context)).toContain(
-      'base origin/main: src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5.',
+      `base origin/main: ${suppressionPath} (complexity): committed ceiling 2 is stale; current count is 1.`,
     );
   });
 
@@ -85,26 +86,24 @@ describe('ESLint suppression trust anchor', () => {
   it('permits pruning and rejects ratcheting back above the base', () => {
     const suppressions = cloneBaseline();
     const ceiling = cloneBaseline();
-    suppressions['src/context/session.tsx'].complexity.count = 5;
-    ceiling['src/context/session.tsx'].complexity.count = 5;
     delete suppressions['src/app/settings.tsx'];
     delete ceiling['src/app/settings.tsx'];
     expect(validateSuppressionState(suppressions, ceiling, baseContext())).toEqual([]);
 
     const context = baseContext();
-    context.state!.suppressions['src/context/session.tsx'].complexity.count = 5;
-    context.state!.ceiling['src/context/session.tsx'].complexity.count = 5;
-    expect(validateAgainstBase(cloneBaseline(), context)).toContain(
-      'against base origin/main: src/context/session.tsx (complexity): suppression count increased from 5 to 6.',
+    const increased = cloneBaseline();
+    increased[suppressionPath].complexity.count = 2;
+    expect(validateAgainstBase(increased, context)).toContain(
+      `against base origin/main: ${suppressionPath} (complexity): suppression count increased from 1 to 2.`,
     );
   });
 
   it('rejects unsynchronized current files before checking the base', () => {
     const suppressions = cloneBaseline();
     const ceiling = cloneBaseline();
-    suppressions['src/context/session.tsx'].complexity.count = 5;
+    ceiling[suppressionPath].complexity.count = 2;
     expect(validateSynchronizedCeiling(suppressions, ceiling)).toEqual([
-      'src/context/session.tsx (complexity): committed ceiling 6 is stale; current count is 5.',
+      `${suppressionPath} (complexity): committed ceiling 2 is stale; current count is 1.`,
     ]);
     expect(validateSuppressions(suppressions, ceiling)).toEqual([]);
   });

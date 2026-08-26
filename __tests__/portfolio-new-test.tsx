@@ -73,7 +73,7 @@ describe('add portfolio item validation', () => {
     expect(screen.queryByText('Enter a category.')).toBeNull();
     expect(screen.queryByText('Describe the work, skills, and outcome.')).toBeNull();
     expect(screen.getByTestId('portfolio-count').props.children).toBe(2);
-    expect(alertSpy).toHaveBeenCalledWith('Portfolio updated', 'The work sample was added locally.');
+    expect(alertSpy).toHaveBeenCalledWith('Portfolio updated', 'The work sample was added to your SkillFlow profile.');
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });

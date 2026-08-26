@@ -39,6 +39,7 @@ describe('runtime configuration', () => {
     ['web', 'http://127.0.0.1:3210', clerkKey],
     ['android-emulator', 'http://10.0.2.2:3210', clerkKey],
     ['android-device', 'http://192.168.1.25:3210', clerkKey],
+    ['cloud-development', 'https://development.convex.cloud', clerkKey],
     ['cloud', 'https://example.convex.cloud', liveClerkKey],
   ])('accepts the %s target', (target, convexUrl, targetClerkKey) => {
     expect(parseRuntimeConfiguration({
@@ -138,6 +139,7 @@ describe('runtime configuration', () => {
     ['android-emulator', 'http://127.0.0.1:3210', '10.0.2.2'],
     ['android-device', 'http://localhost:3210', 'LAN-reachable'],
     ['android-device', 'https://example.convex.cloud', 'cloud deployment'],
+    ['cloud-development', 'http://127.0.0.1:3210', 'https://*.convex.cloud'],
     ['cloud', 'http://example.convex.cloud', 'https://*.convex.cloud'],
   ])('rejects a Convex URL mismatched with %s', (target, convexUrl, guidance) => {
     const result = parseRuntimeConfiguration({
@@ -151,13 +153,16 @@ describe('runtime configuration', () => {
 
   test.each([
     ['cloud', 'pk_test_c2tpbGxmbG93', 'live'],
+    ['cloud-development', 'pk_live_c2tpbGxmbG93', 'test'],
     ['web', 'pk_live_c2tpbGxmbG93', 'test'],
     ['android-emulator', 'pk_live_c2tpbGxmbG93', 'test'],
     ['android-device', 'pk_live_c2tpbGxmbG93', 'test'],
   ])('rejects a Clerk key from the wrong environment for %s', (target, wrongKey, expectedEnvironment) => {
     const result = parseRuntimeConfiguration({
       EXPO_PUBLIC_RUNTIME_TARGET: target,
-      EXPO_PUBLIC_CONVEX_URL: target === 'cloud' ? 'https://example.convex.cloud' : 'http://127.0.0.1:3210',
+      EXPO_PUBLIC_CONVEX_URL: target === 'cloud' || target === 'cloud-development'
+        ? 'https://example.convex.cloud'
+        : 'http://127.0.0.1:3210',
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: wrongKey,
     });
     expect(result.ready).toBe(false);
