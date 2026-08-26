@@ -6,7 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NavigationDrawer } from '@/components/navigation-drawer';
-import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 import { AppText, MobilePage, QuickAction } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { ProjectBooking, useSession } from '@/context/session';
@@ -31,13 +30,19 @@ export default function ClientHomeScreen() {
           </View>
           <View style={styles.greetingRow}>
             <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.greeting}>Hi, Mark! 👋</AppText><AppText style={styles.heroSubtitle}>Find the best student{`\n`}talent for your project.</AppText></View>
-            <OptimizedArtwork source={optimizedArtwork.clientAvatar} style={styles.avatar} />
+            <View style={styles.avatarCircle}><Ionicons name="person" size={32} color={colors.red} /></View>
           </View>
         </View>
         <View style={styles.body}>
           <Pressable onPress={() => router.push('/projects')} style={styles.activeCard}>
-            <View><AppText weight="semibold" style={styles.activeTitle}>Active Projects</AppText><AppText weight="bold" style={styles.activeCount}>{activeCount}</AppText><AppText style={styles.activeStatus}>From local demo activity</AppText></View>
-            <Ionicons name="briefcase" size={65} color={colors.red} />
+            <View style={styles.activeCardBody}>
+              <AppText weight="semibold" style={styles.activeTitle}>Active Projects</AppText>
+              <AppText weight="bold" style={styles.activeCount}>{activeCount}</AppText>
+              <AppText style={styles.activeStatus}>From local demo activity</AppText>
+            </View>
+            <View style={styles.activeCardIcon}>
+              <Ionicons name="briefcase" size={32} color={colors.red} />
+            </View>
           </Pressable>
           <View style={styles.sectionTitle}><AppText weight="semibold" style={styles.sectionText}>Quick Actions</AppText></View>
           <View style={styles.quickRow}>
@@ -62,9 +67,9 @@ function BookingRow({ booking, last }: { booking: ProjectBooking; last: boolean 
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: 30 }, hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 28 }, topRow: { flexDirection: 'row', justifyContent: 'space-between' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#e56a6a', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
-  greetingRow: { marginTop: 18, flexDirection: 'row', alignItems: 'center' }, greeting: { color: colors.white, fontSize: 29 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25 }, avatar: { width: 112, aspectRatio: 141 / 128, borderRadius: 60 },
-  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, paddingTop: 20 }, activeCard: { minHeight: 145, backgroundColor: colors.white, borderRadius: 17, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', ...shadow }, activeTitle: { fontSize: 20 }, activeCount: { fontSize: 30, marginTop: 3 }, activeStatus: { color: colors.muted, fontSize: 14 },
+  scroll: { paddingBottom: 30 }, hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 82 }, topRow: { flexDirection: 'row', justifyContent: 'space-between' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#e56a6a', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
+  greetingRow: { marginTop: 18, flexDirection: 'row', alignItems: 'center' }, greeting: { color: colors.white, fontSize: 29 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25 }, avatarCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20 }, activeCard: { minHeight: 150, backgroundColor: colors.white, borderRadius: 17, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, ...shadow }, activeCardBody: { flex: 1, gap: 2 }, activeTitle: { fontSize: 22 }, activeCount: { fontSize: 30, marginTop: 3 }, activeStatus: { color: colors.muted, fontSize: 14 }, activeCardIcon: { width: 72, height: 72, borderRadius: 14, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { marginTop: 24, marginBottom: 14 }, sectionText: { fontSize: 18 }, quickRow: { flexDirection: 'row', gap: 4 }, titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 27, marginBottom: 12 }, viewAll: { color: colors.burgundy, fontSize: 14 },
   projectList: { borderRadius: 14, paddingHorizontal: 10, backgroundColor: colors.white, ...shadow }, projectRow: { minHeight: 91, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border }, bookingIcon: { width: 66, height: 66, borderRadius: 10, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }, proposals: { backgroundColor: colors.blush, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 6 }, emptyProjects: { minHeight: 110, alignItems: 'center', justifyContent: 'center' }, emptyProjectText: { color: colors.muted, fontSize: 10, marginTop: 4 },
 });
