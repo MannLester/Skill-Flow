@@ -44,11 +44,6 @@
       "count": 1
     }
   },
-  "src/app/student-home.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/app/verification.tsx": {
     "complexity": {
       "count": 1

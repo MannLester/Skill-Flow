@@ -101,15 +101,6 @@
       "sourceHash": "5e2e47adeea748ae0361bb12c97a12f27ff024bc78750c6c6a6b116bfb6e408f"
     },
     {
-      "file": "src/app/student-home.tsx",
-      "line": 14,
-      "column": 16,
-      "nodeType": "FunctionDeclaration",
-      "name": "StudentHomeScreen",
-      "complexity": 14,
-      "sourceHash": "36a2867d703de99d3219e8ece8343abc902406cc00aff613693004854d3c0bb5"
-    },
-    {
       "file": "src/app/verification.tsx",
       "line": 11,
       "column": 16,

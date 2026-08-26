@@ -6,19 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, BottomNav, MobilePage, QuickAction, ReferenceCrop } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
-import { useSession } from '@/context/session';
+import { ProjectBooking, ProjectPost, useSession } from '@/context/session';
 import { formatPeso } from '@/data/fixtures';
 
 const studentReference = require('../../references/student_profile_page.jpg');
 
 export default function StudentHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { bookings, getCareerReadiness, homeRoute, ledger, messages, currentAccount, projectPosts, unreadCount } = useSession();
-  const hasUnreadMessages = currentAccount ? messages.some((message) => message.senderId !== currentAccount.id && !message.readBy.includes(currentAccount.id)) : false;
-  const myBookings = currentAccount ? bookings.filter((booking) => booking.studentId === currentAccount.id) : [];
-  const latestBooking = myBookings[0];
-  const earnings = currentAccount ? ledger.filter((entry) => entry.userId === currentAccount.id && entry.type === 'release').reduce((total, entry) => total + entry.amount, 0) : 0;
-  const readiness = currentAccount ? getCareerReadiness(currentAccount.id) : null;
+  const { earnings, hasUnreadMessages, homeRoute, latestBooking, projectPosts, readiness, unreadCount } = useStudentHomeData();
   return (
     <MobilePage>
       <StatusBar style="light" />
@@ -41,7 +36,7 @@ export default function StudentHomeScreen() {
               <Sparkline />
             </View>
           </View>
-          {readiness ? <Pressable onPress={() => router.push('/career-readiness')} style={styles.readinessCard}><View style={styles.readinessCircle}><AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText><AppText style={styles.readinessMax}>/100</AppText></View><View style={{ flex: 1 }}><AppText weight="semibold" style={styles.readinessTitle}>Career Readiness</AppText><AppText style={styles.readinessDetail}>{readiness.level} · See what to improve next</AppText></View><Ionicons name="chevron-forward" size={22} color={colors.burgundy} /></Pressable> : null}
+          {readiness ? <CareerReadinessCard score={readiness.score} level={readiness.level} /> : null}
           <SectionTitle title="Quick Actions" />
           <View style={styles.quickRow}>
             <QuickAction icon="person-outline" label={'Browse\nProjects'} onPress={() => router.push('/projects/discover')} />
@@ -50,18 +45,70 @@ export default function StudentHomeScreen() {
             <QuickAction icon="chatbubble-outline" label="Messages" onPress={() => router.push('/messages/index')} />
           </View>
           <SectionTitle title="Recent Projects" action="View All" onAction={() => router.push('/projects')} />
-          <Pressable disabled={!latestBooking} onPress={() => latestBooking && router.push({ pathname: '/projects/[projectId]', params: { projectId: latestBooking.id } })} style={styles.projectCard}>
-            <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 96, y: 995, width: 122, height: 117 }} style={styles.projectImage} />
-            <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.projectTitle}>{latestBooking?.title ?? 'No project requests yet'}</AppText><AppText weight="semibold" style={styles.projectPrice}>{latestBooking ? formatPeso(latestBooking.budget) : 'Browse projects to get started'}</AppText></View>
-            {latestBooking ? <View style={styles.statusPill}><AppText style={styles.statusText}>{latestBooking.status.replaceAll('_', ' ')}</AppText></View> : null}
-          </Pressable>
+          <RecentProjectCard booking={latestBooking} />
           <SectionTitle title="Recommended for You" action="View All" onAction={() => router.push('/projects/discover')} />
-          <Pressable onPress={() => { const post = projectPosts.find((item) => item.status === 'open'); if (post) router.push({ pathname: '/project-posts/[postId]', params: { postId: post.id } }); else router.push('/projects/discover'); }} style={styles.recommendCard}><View style={styles.recommendImage}><Ionicons name="phone-portrait-outline" size={31} color={colors.red} /></View><View><AppText weight="semibold">{projectPosts.find((item) => item.status === 'open')?.title ?? 'Discover Open Projects'}</AppText><AppText style={styles.muted}>Recommended project</AppText></View></Pressable>
+          <RecommendedProjectCard projectPosts={projectPosts} />
         </View>
       </ScrollView>
       <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={() => router.push('/portfolio/index')} onMessages={() => router.push('/messages/index')} onProfile={() => router.push('/profile/index')} messageUnread={hasUnreadMessages} variant="student" />
     </MobilePage>
   );
+}
+
+function useStudentHomeData() {
+  const { bookings, getCareerReadiness, homeRoute, ledger, messages, currentAccount, projectPosts, unreadCount } = useSession();
+  const accountId = currentAccount?.id;
+  const hasUnreadMessages = Boolean(accountId && messages.some((message) => message.senderId !== accountId && !message.readBy.includes(accountId)));
+  const latestBooking = bookings.find((booking) => booking.studentId === accountId);
+  const earnings = ledger.filter((entry) => entry.userId === accountId && entry.type === 'release').reduce((total, entry) => total + entry.amount, 0);
+  const readiness = accountId ? getCareerReadiness(accountId) : null;
+  return { earnings, hasUnreadMessages, homeRoute, latestBooking, projectPosts, readiness, unreadCount };
+}
+
+function CareerReadinessCard({ score, level }: { score: number; level: string }) {
+  const detail = `${level} · See what to improve next`;
+  return (
+    <Pressable
+      testID="career-readiness-card"
+      accessibilityRole="button"
+      accessibilityLabel={`Career Readiness. ${detail}. ${score} out of 100.`}
+      accessibilityHint="Opens the career readiness breakdown"
+      onPress={() => router.push('/career-readiness')}
+      style={styles.readinessCard}
+    >
+      <View testID="career-readiness-copy" style={styles.readinessCopy}>
+        <AppText weight="semibold" style={styles.readinessTitle}>Career Readiness</AppText>
+        <AppText style={styles.readinessDetail}>{detail}</AppText>
+      </View>
+      <View testID="career-readiness-score" style={styles.readinessScore}>
+        <AppText weight="bold" style={styles.readinessValue}>{score}</AppText>
+        <AppText style={styles.readinessMax}>/100</AppText>
+      </View>
+      <Ionicons name="chevron-forward" size={22} color={colors.burgundy} />
+    </Pressable>
+  );
+}
+
+function RecentProjectCard({ booking }: { booking?: ProjectBooking }) {
+  const openProject = () => {
+    if (booking) router.push({ pathname: '/projects/[projectId]', params: { projectId: booking.id } });
+  };
+  return (
+    <Pressable disabled={!booking} onPress={openProject} style={styles.projectCard}>
+      <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 96, y: 995, width: 122, height: 117 }} style={styles.projectImage} />
+      <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.projectTitle}>{booking?.title ?? 'No project requests yet'}</AppText><AppText weight="semibold" style={styles.projectPrice}>{booking ? formatPeso(booking.budget) : 'Browse projects to get started'}</AppText></View>
+      {booking ? <View style={styles.statusPill}><AppText style={styles.statusText}>{booking.status.replaceAll('_', ' ')}</AppText></View> : null}
+    </Pressable>
+  );
+}
+
+function RecommendedProjectCard({ projectPosts }: { projectPosts: ProjectPost[] }) {
+  const post = projectPosts.find((item) => item.status === 'open');
+  const openProject = () => {
+    if (post) router.push({ pathname: '/project-posts/[postId]', params: { postId: post.id } });
+    else router.push('/projects/discover');
+  };
+  return <Pressable onPress={openProject} style={styles.recommendCard}><View style={styles.recommendImage}><Ionicons name="phone-portrait-outline" size={31} color={colors.red} /></View><View><AppText weight="semibold">{post?.title ?? 'Discover Open Projects'}</AppText><AppText style={styles.muted}>Recommended project</AppText></View></Pressable>;
 }
 
 function SectionTitle({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
@@ -84,7 +131,7 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 30 }, hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 82 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ef8585', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
   greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 }, greeting: { color: colors.white, fontSize: 31 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25, marginTop: 5 }, avatar: { width: 112, borderRadius: 60 },
-  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20, minHeight: 170, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCircle: { width: 57, height: 57, borderRadius: 29, borderWidth: 4, borderColor: colors.red, alignItems: 'center', justifyContent: 'center' }, readinessValue: { color: colors.red, fontSize: 19, lineHeight: 21 }, readinessMax: { color: colors.burgundy, fontSize: 7 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20, minHeight: 170, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
   spark: { width: 120, height: 70, position: 'relative' }, line: { position: 'absolute', height: 2, backgroundColor: colors.burgundy, borderRadius: 2 }, sparkDot: { position: 'absolute', right: 3, top: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.red },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 29, marginBottom: 16 }, quickRow: { flexDirection: 'row', gap: 4 },
   projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
