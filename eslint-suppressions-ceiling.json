@@ -14,11 +14,6 @@
       "count": 1
     }
   },
-  "src/app/projects/[projectId].tsx": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/app/register.tsx": {
     "complexity": {
       "count": 1

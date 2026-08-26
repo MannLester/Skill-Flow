@@ -29,24 +29,6 @@
       "sourceHash": "a4616ce576e498b1d909a23a0d298f2946e685fcc1a2d13538fc6d8228c47efa"
     },
     {
-      "file": "src/app/projects/[projectId].tsx",
-      "line": 67,
-      "column": 1,
-      "nodeType": "FunctionDeclaration",
-      "name": "ProjectActions",
-      "complexity": 22,
-      "sourceHash": "d92cd72cf050d911f14119ff7c237cef7890802d831ab2fb85440d8737af0a90"
-    },
-    {
-      "file": "src/app/projects/[projectId].tsx",
-      "line": 16,
-      "column": 16,
-      "nodeType": "FunctionDeclaration",
-      "name": "ProjectDetailsScreen",
-      "complexity": 19,
-      "sourceHash": "e3fa950e89d9fc7bb7feb0994d86f9455130c78288cf0eaae595221f0dc17833"
-    },
-    {
       "file": "src/app/register.tsx",
       "line": 20,
       "column": 21,
