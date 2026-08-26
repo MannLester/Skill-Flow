@@ -93,28 +93,28 @@ export function BottomNav({ active, onHome, onProjects, onPortfolio, onMessages,
   const items: { key: typeof active; label: string; icon: IconName; action?: () => void; dot?: boolean }[] = variant === 'client'
     ? [
         { key: 'home', label: 'Home', icon: 'home', action: onHome },
-        { key: 'projects', label: 'Projects', icon: 'briefcase-outline', action: onProjects },
-        { key: 'messages', label: 'Messages', icon: 'chatbubble-outline', action: onMessages },
-        { key: 'saved', label: 'Saved', icon: 'heart-outline', action: onSaved },
-        { key: 'profile', label: 'Profile', icon: 'person-circle-outline', action: onProfile },
+        { key: 'projects', label: 'Projects', icon: 'briefcase', action: onProjects },
+        { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages },
+        { key: 'saved', label: 'Saved', icon: 'heart', action: onSaved },
+        { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile },
       ]
     : variant === 'compact'
       ? [
-          { key: 'home', label: 'Home', icon: 'home-outline', action: onHome },
-          { key: 'projects', label: 'Projects', icon: 'briefcase-outline', action: onProjects },
-          { key: 'messages', label: 'Messages', icon: 'chatbubble-outline', action: onMessages },
+          { key: 'home', label: 'Home', icon: 'home', action: onHome },
+          { key: 'projects', label: 'Projects', icon: 'briefcase', action: onProjects },
+          { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages },
           { key: 'profile', label: 'Profile', icon: 'person', action: onProfile },
         ]
       : [
           { key: 'home', label: 'Home', icon: 'home', action: onHome },
-          { key: 'projects', label: 'Projects', icon: 'briefcase-outline', action: onProjects },
-          ...(variant === 'marketplace' ? [{ key: 'none' as const, label: '', icon: 'add' as IconName, action: onCreate }] : [{ key: 'portfolio' as const, label: 'Portfolio', icon: 'folder-outline' as IconName, action: onPortfolio }]),
-          { key: 'messages', label: 'Messages', icon: 'chatbubble-outline', action: onMessages, dot: messageUnread },
-          { key: 'profile', label: 'Profile', icon: 'person-circle-outline', action: onProfile },
+          { key: 'projects', label: 'Projects', icon: 'briefcase', action: onProjects },
+          ...(variant === 'marketplace' ? [{ key: 'none' as const, label: '', icon: 'add' as IconName, action: onCreate }] : [{ key: 'portfolio' as const, label: 'Portfolio', icon: 'folder' as IconName, action: onPortfolio }]),
+          { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages, dot: messageUnread },
+          { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile },
         ];
 
   return (
-    <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8), height: 62 + Math.max(insets.bottom, 8) }]}> 
+    <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8), height: 76 + Math.max(insets.bottom, 8) }]}> 
       {items.map((item, index) => {
         const selected = item.key === active;
         const plus = variant === 'marketplace' && item.key === 'none';
@@ -128,9 +128,9 @@ export function BottomNav({ active, onHome, onProjects, onPortfolio, onMessages,
             onPress={item.action}
             style={styles.navItem}
           >
-            <View>
+            <View style={styles.navIconWrap}>
               <View style={plus ? styles.plusButton : undefined}>
-                <Ionicons name={item.icon} size={plus ? 32 : 25} color={plus ? colors.white : selected ? colors.red : '#555'} />
+                <Ionicons name={item.icon} size={plus ? 32 : 27} color={plus ? colors.white : selected ? colors.red : '#555'} />
               </View>
               {item.dot ? <View style={styles.messageDot} /> : null}
             </View>
@@ -176,8 +176,9 @@ const styles = StyleSheet.create({
   roleSelector: { flexDirection: 'row', borderWidth: 1, borderColor: '#e3a9ae', borderRadius: 20, overflow: 'hidden', minHeight: 39 },
   roleButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   roleButtonActive: { backgroundColor: colors.red },
-  bottomNav: { backgroundColor: colors.white, flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, ...shadow },
-  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  bottomNav: { backgroundColor: colors.white, flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: 20, borderTopRightRadius: 20, ...shadow },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  navIconWrap: { height: 30, alignItems: 'center', justifyContent: 'center' },
   navLabel: { color: '#555', fontSize: 10 },
   plusButton: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.red, alignItems: 'center', justifyContent: 'center', marginTop: -19, ...shadow },
   messageDot: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: colors.red, right: -1, top: 0 },
