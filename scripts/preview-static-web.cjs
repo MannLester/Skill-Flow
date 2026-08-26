@@ -45,7 +45,7 @@ function parseConfiguration(environment = process.env, options = {}) {
   const host = environment.SKILLFLOW_WEB_PREVIEW_HOST ?? DEFAULT_HOST;
   const port = parsePort(environment.SKILLFLOW_WEB_PREVIEW_PORT ?? DEFAULT_PORT, options.allowZero);
   if (!host || /[\s\0]/u.test(host)) throw safeError('Preview host is invalid.');
-  return { host, port, root, rootLabel: rootValue };
+  return { host, port, root };
 }
 
 function isLoopbackHost(host) {
