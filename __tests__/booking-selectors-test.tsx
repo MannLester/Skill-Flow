@@ -78,7 +78,7 @@ describe('Book Service selectors', () => {
     expect(screen.getByTestId('budget-selector').props.accessibilityLabel).toBe('Budget: ₱1,500');
 
     fireEvent.press(screen.getByTestId('budget-selector'));
-    fireEvent(screen.getByTestId('booking-scroll'), 'pointerDown');
+    fireEvent(screen.getByTestId('booking-scroll'), 'touchStart');
     expect(screen.queryByTestId('budget-selector-option-1500')).toBeNull();
   });
 

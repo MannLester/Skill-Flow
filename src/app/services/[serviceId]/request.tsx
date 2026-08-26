@@ -56,7 +56,7 @@ export default function BookServiceScreen() {
       <StatusBar style="light" />
       <AppHeader title="Book Service" onBack={() => router.back()} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView testID="booking-scroll" onPointerDown={() => setOpenSelector(null)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 28 }]}>
+        <ScrollView testID="booking-scroll" onPointerDown={() => setOpenSelector(null)} onTouchStart={() => setOpenSelector(null)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 28 }]}>
           <View style={styles.summary}>
             <ReferenceCrop source={marketReference} sourceSize={{ width: 1920, height: 1080 }} crop={service.crop} style={styles.thumb} />
             <View><AppText weight="semibold" style={styles.title}>{service.title}</AppText><AppText style={styles.byline}>by {service.provider}</AppText><AppText weight="bold" style={styles.price}>{formatPeso(service.price)}</AppText></View>
@@ -135,7 +135,7 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
   };
 
   return (
-    <View onPointerDown={(event) => event.stopPropagation()} style={styles.selectorGroup}>
+    <View onPointerDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()} style={styles.selectorGroup}>
       <Pressable
         ref={triggerRef}
         testID={testID}
