@@ -29,15 +29,6 @@
       "sourceHash": "a4616ce576e498b1d909a23a0d298f2946e685fcc1a2d13538fc6d8228c47efa"
     },
     {
-      "file": "src/app/project-posts/[postId].tsx",
-      "line": 12,
-      "column": 16,
-      "nodeType": "FunctionDeclaration",
-      "name": "ProjectPostDetailsScreen",
-      "complexity": 22,
-      "sourceHash": "08b3dbab5543d087fde505d2709b36ae7f24ac2cd6b68b84e05057da26bd6b43"
-    },
-    {
       "file": "src/app/projects/[projectId].tsx",
       "line": 67,
       "column": 1,
