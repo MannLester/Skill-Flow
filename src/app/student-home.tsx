@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Svg, Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -119,13 +120,17 @@ function SectionTitle({ title, action, onAction }: { title: string; action?: str
 
 function Sparkline() {
   return (
-    <View style={styles.spark}>
-      <View style={[styles.line, { left: 3, top: 42, width: 32, transform: [{ rotate: '-18deg' }] }]} />
-      <View style={[styles.line, { left: 31, top: 34, width: 27, transform: [{ rotate: '16deg' }] }]} />
-      <View style={[styles.line, { left: 54, top: 29, width: 30, transform: [{ rotate: '-34deg' }] }]} />
-      <View style={[styles.line, { left: 79, top: 20, width: 34, transform: [{ rotate: '-49deg' }] }]} />
-      <View style={styles.sparkDot} />
-    </View>
+    <Svg width={120} height={70} viewBox="0 0 120 70">
+      <Defs>
+        <LinearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colors.red} stopOpacity="0.3" />
+          <Stop offset="1" stopColor={colors.red} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Path d="M0,58 C10,55 18,35 30,32 S48,50 55,42 C62,34 70,18 85,22 S105,8 112,5 L112,70 L0,70 Z" fill="url(#sparkGrad)" />
+      <Path d="M0,58 C10,55 18,35 30,32 S48,50 55,42 C62,34 70,18 85,22 S105,8 112,5" stroke={colors.burgundy} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx={112} cy={5} r={4} fill={colors.red} />
+    </Svg>
   );
 }
 
@@ -134,7 +139,6 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ef8585', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
   greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 }, greeting: { color: colors.white, fontSize: 31 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25, marginTop: 5 }, avatarCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20,   minHeight: 150, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
-  spark: { width: 120, height: 70, position: 'relative' }, line: { position: 'absolute', height: 2, backgroundColor: colors.burgundy, borderRadius: 2 }, sparkDot: { position: 'absolute', right: 3, top: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.red },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 29, marginBottom: 16 }, quickRow: { flexDirection: 'row', gap: 4 },
   projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, aspectRatio: 122 / 117, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
   recommendCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 14, backgroundColor: colors.white, padding: 12, ...shadow }, recommendImage: { width: 72, height: 62, borderRadius: 10, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
