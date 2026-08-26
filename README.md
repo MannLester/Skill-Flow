@@ -169,6 +169,56 @@ user-visible change still needs a manual Android emulator/device walkthrough
 and screenshots of the affected states when Android is available. Web is
 additional coverage or a disclosed fallback when Android is unavailable.
 
+### Exact-commit physical Android evidence
+
+Use the repository runner when a PR needs proof from one specifically
+authorized physical Android device. It requires Node 22.x, JDK 17, a configured
+`ANDROID_HOME` or `ANDROID_SDK_ROOT`, and that SDK's `adb` and
+`apkanalyzer`. Start from a clean checkout whose generated `android/`
+directory is absent:
+
+```sh
+export SKILLFLOW_ANDROID_SERIAL='<exact-adb-serial>'
+export SKILLFLOW_ANDROID_EXPECTED_SHA="$(git rev-parse HEAD)"
+export SKILLFLOW_ANDROID_METRO_PORT='8099'
+npm run verify:android-device
+```
+
+The serial is an authorization boundary, so use the exact value from
+`adb devices -l`; a model name is never accepted. Do not paste a real serial
+into GitHub. The runner fails closed for a dirty/wrong checkout, an occupied
+host port, an existing reverse mapping, a pre-existing native tree, an
+ambiguous APK, or a package/version/runtime mismatch. It never uninstalls or
+clears app data.
+
+Child Expo, Gradle, and Metro processes receive only a fixed toolchain/OS
+environment allowlist; account/production variables are not forwarded, and
+Expo dotenv/client-variable loading is disabled for this verification run.
+
+The command generates a fresh native project, marks the debug APK with the full
+Git SHA, analyzes and hashes that exact APK, installs it with `adb -s`, starts
+one owned Metro process, requires both its directly captured readiness
+announcement and Metro's exact project-root-bound `/status` response, atomically claims the
+reverse with `--no-rebind`, launches the resolved SkillFlow activity, checks
+foreground/runtime logs, and saves a screenshot. The final redacted manifest,
+APK, bounded logs, and PNG remain in the unique
+`skillflow-android-<sha>-*` directory printed under the system temporary
+directory. The generated `android/`, owned reverse, and owned Metro process
+group are removed on completion or failure. A stale listener or reverse from a
+hard-killed prior run is reported for manual ownership review; `SIGKILL`
+cannot execute cleanup handlers.
+
+An Android `pm path` readback does not prove an installed-file hash because the
+platform may transform stored artifacts. Provenance instead comes from the
+clean exact-SHA checkout, analyzed full-SHA version marker, SHA-256 of the
+preserved built APK, successful install from that exact path, and matching
+post-install package/version/update-time readback.
+
+After the automated runner reaches PASS, manually exercise the issue's required
+Alex and Mark journeys on that still-installed exact-SHA build and capture any
+additional route/state screenshots. Android export remains a build check and
+does not replace this device interaction.
+
 ## Implemented screens
 
 - Login and registration
