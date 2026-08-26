@@ -5,19 +5,114 @@ import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 
 import { AppText, FormField, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
-import { ServiceInput, useSession } from '@/context/session';
+import { ServiceInput, StoreResult, useSession } from '@/context/session';
+import { Service } from '@/data/fixtures';
 
 export function ServiceForm({ serviceId }: { serviceId?: string }) {
   const { currentAccount, saveService, services, setServiceStatus, verifications } = useSession();
   const existing = serviceId ? services.find((item) => item.id === serviceId) : undefined;
   const verification = verifications.find((item) => item.studentId === currentAccount?.id);
-  const [title, setTitle] = useState(existing?.title ?? ''); const [subtitle, setSubtitle] = useState(existing?.subtitle ?? ''); const [category, setCategory] = useState(existing?.category ?? 'Graphics & Design'); const [description, setDescription] = useState(existing?.description ?? ''); const [price, setPrice] = useState(existing ? String(existing.price) : '1500'); const [deliveryDays, setDeliveryDays] = useState(existing ? String(existing.deliveryDays) : '3'); const [revisions, setRevisions] = useState(existing?.revisions ?? '2 revisions');
+  const { title, setTitle, subtitle, setSubtitle, category, setCategory, description, setDescription, price, setPrice, deliveryDays, setDeliveryDays, revisions, setRevisions } = useServiceFormState(existing);
   if (!currentAccount || currentAccount.role !== 'student') return <View style={styles.blocked}><AppText>Only Student Designers can manage services.</AppText></View>;
   if (existing && existing.providerId !== currentAccount.id) return <View style={styles.blocked}><AppText>You can only edit your own services.</AppText></View>;
   const input: ServiceInput = { title, subtitle, category, description, price: Number(price), deliveryDays: Number(deliveryDays), revisions };
-  const save = (publish: boolean) => { const result = saveService(input, publish, existing?.id); if (!result.ok) { Alert.alert(publish && verification?.status !== 'verified' ? 'Verification required' : 'Unable to save service', result.message, publish && verification?.status !== 'verified' ? [{ text: 'Cancel', style: 'cancel' }, { text: 'Verify Student Status', onPress: () => router.push('/verification') }] : undefined); } else { Alert.alert(publish ? 'Service published' : 'Draft saved', `${result.service.title} was saved locally.`); router.replace('/profile'); } };
-  const archive = () => { if (!existing) return; const result = setServiceStatus(existing.id, 'archived'); Alert.alert(result.ok ? 'Service archived' : 'Unable to archive', result.ok ? 'The service is no longer visible in the marketplace.' : result.message); if (result.ok) router.replace('/profile'); };
-  return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>{verification?.status !== 'verified' ? <Pressable onPress={() => router.push('/verification')} style={styles.warning}><Ionicons name="shield-outline" size={23} color={colors.burgundy} /><View style={{ flex: 1 }}><AppText weight="semibold" style={{ fontSize: 12 }}>Verification required to publish</AppText><AppText style={styles.warningText}>You may save a draft now or complete the simulated verification.</AppText></View><Ionicons name="chevron-forward" size={20} color={colors.burgundy} /></Pressable> : <View style={styles.verified}><Ionicons name="checkmark-circle" size={20} color={colors.green} /><AppText weight="medium" style={styles.verifiedText}>Verified Student — publishing enabled</AppText></View>}<Label text="Service Title" /><FormField icon="briefcase-outline" value={title} onChangeText={setTitle} placeholder="Service Title" /><Label text="Short Description" /><FormField icon="text-outline" value={subtitle} onChangeText={setSubtitle} placeholder="Short Description" /><Label text="Category" /><FormField icon="grid-outline" value={category} onChangeText={setCategory} placeholder="Category" /><Label text="Full Description" /><TextInput value={description} onChangeText={setDescription} placeholder="Describe what the client will receive…" placeholderTextColor={colors.muted} multiline style={styles.textArea} /><Label text="Starting Price" /><FormField icon="cash-outline" value={price} onChangeText={setPrice} placeholder="Starting Price" keyboardType="number-pad" /><Label text="Delivery Days" /><FormField icon="alarm-outline" value={deliveryDays} onChangeText={setDeliveryDays} placeholder="Delivery Days" keyboardType="number-pad" /><Label text="Revisions" /><FormField icon="refresh-outline" value={revisions} onChangeText={setRevisions} placeholder="e.g. 2 revisions" /><PrimaryButton title="Publish Service" onPress={() => save(true)} style={{ marginTop: 24 }} /><Pressable onPress={() => save(false)} style={styles.secondary}><AppText weight="semibold" style={{ color: colors.burgundy }}>Save Draft</AppText></Pressable>{existing ? <Pressable onPress={archive} style={styles.archive}><AppText weight="semibold" style={{ color: colors.red }}>Archive Service</AppText></Pressable> : null}</ScrollView>;
+  const save = (publish: boolean) => saveServiceWithFeedback(saveService, input, publish, existing?.id, verification?.status === 'verified');
+  const archive = () => archiveService(existing, setServiceStatus);
+  return <ServiceFormContent state={{ title, setTitle, subtitle, setSubtitle, category, setCategory, description, setDescription, price, setPrice, deliveryDays, setDeliveryDays, revisions, setRevisions }} isVerified={verification?.status === 'verified'} hasExisting={Boolean(existing)} onSave={save} onArchive={archive} />;
 }
+
+type ServiceFormState = {
+  title: string; setTitle: (value: string) => void;
+  subtitle: string; setSubtitle: (value: string) => void;
+  category: string; setCategory: (value: string) => void;
+  description: string; setDescription: (value: string) => void;
+  price: string; setPrice: (value: string) => void;
+  deliveryDays: string; setDeliveryDays: (value: string) => void;
+  revisions: string; setRevisions: (value: string) => void;
+};
+
+function useServiceFormState(existing?: Service): ServiceFormState {
+  const [title, setTitle] = useState(defaultServiceText(existing?.title, ''));
+  const [subtitle, setSubtitle] = useState(defaultServiceText(existing?.subtitle, ''));
+  const [category, setCategory] = useState(defaultServiceText(existing?.category, 'Graphics & Design'));
+  const [description, setDescription] = useState(defaultServiceText(existing?.description, ''));
+  const [price, setPrice] = useState(defaultServiceNumber(existing?.price, '1500'));
+  const [deliveryDays, setDeliveryDays] = useState(defaultServiceNumber(existing?.deliveryDays, '3'));
+  const [revisions, setRevisions] = useState(defaultServiceText(existing?.revisions, '2 revisions'));
+  return { title, setTitle, subtitle, setSubtitle, category, setCategory, description, setDescription, price, setPrice, deliveryDays, setDeliveryDays, revisions, setRevisions };
+}
+
+function defaultServiceText(value: string | undefined, fallback: string) { return value ?? fallback; }
+function defaultServiceNumber(value: number | undefined, fallback: string) { return value === undefined ? fallback : String(value); }
+
+type ServiceFormContentProps = {
+  state: ServiceFormState;
+  isVerified: boolean;
+  hasExisting: boolean;
+  onSave: (publish: boolean) => void;
+  onArchive: () => void;
+};
+
+function ServiceFormContent({ state, isVerified, hasExisting, onSave, onArchive }: ServiceFormContentProps) {
+  return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+    <ServiceVerificationBanner isVerified={isVerified} />
+    <ServiceFields state={state} />
+    <ServiceActions hasExisting={hasExisting} onSave={onSave} onArchive={onArchive} />
+  </ScrollView>;
+}
+
+function ServiceVerificationBanner({ isVerified }: { isVerified: boolean }) {
+  if (isVerified) return <View style={styles.verified}><Ionicons name="checkmark-circle" size={20} color={colors.green} /><AppText weight="medium" style={styles.verifiedText}>Verified Student — publishing enabled</AppText></View>;
+  return <Pressable onPress={() => router.push('/verification')} style={styles.warning}><Ionicons name="shield-outline" size={23} color={colors.burgundy} /><View style={{ flex: 1 }}><AppText weight="semibold" style={{ fontSize: 12 }}>Verification required to publish</AppText><AppText style={styles.warningText}>You may save a draft now or complete the simulated verification.</AppText></View><Ionicons name="chevron-forward" size={20} color={colors.burgundy} /></Pressable>;
+}
+
+function ServiceFields({ state }: { state: ServiceFormState }) {
+  return <>
+    <Label text="Service Title" /><FormField icon="briefcase-outline" value={state.title} onChangeText={state.setTitle} placeholder="Service Title" />
+    <Label text="Short Description" /><FormField icon="text-outline" value={state.subtitle} onChangeText={state.setSubtitle} placeholder="Short Description" />
+    <Label text="Category" /><FormField icon="grid-outline" value={state.category} onChangeText={state.setCategory} placeholder="Category" />
+    <Label text="Full Description" /><TextInput value={state.description} onChangeText={state.setDescription} placeholder="Describe what the client will receive…" placeholderTextColor={colors.muted} multiline style={styles.textArea} />
+    <Label text="Starting Price" /><FormField icon="cash-outline" value={state.price} onChangeText={state.setPrice} placeholder="Starting Price" keyboardType="number-pad" />
+    <Label text="Delivery Days" /><FormField icon="alarm-outline" value={state.deliveryDays} onChangeText={state.setDeliveryDays} placeholder="Delivery Days" keyboardType="number-pad" />
+    <Label text="Revisions" /><FormField icon="refresh-outline" value={state.revisions} onChangeText={state.setRevisions} placeholder="e.g. 2 revisions" />
+  </>;
+}
+
+function ServiceActions({ hasExisting, onSave, onArchive }: Omit<ServiceFormContentProps, 'state' | 'isVerified'>) {
+  return <>
+    <PrimaryButton title="Publish Service" onPress={() => onSave(true)} style={{ marginTop: 24 }} />
+    <Pressable onPress={() => onSave(false)} style={styles.secondary}><AppText weight="semibold" style={{ color: colors.burgundy }}>Save Draft</AppText></Pressable>
+    {hasExisting ? <Pressable onPress={onArchive} style={styles.archive}><AppText weight="semibold" style={{ color: colors.red }}>Archive Service</AppText></Pressable> : null}
+  </>;
+}
+
+function saveServiceWithFeedback(
+  saveService: (input: ServiceInput, publish: boolean, serviceId?: string) => { ok: true; service: Service } | { ok: false; message: string },
+  input: ServiceInput,
+  publish: boolean,
+  serviceId: string | undefined,
+  isVerified: boolean,
+) {
+  const result = saveService(input, publish, serviceId);
+  if (!result.ok) {
+    const needsVerification = publish && !isVerified;
+    Alert.alert(
+      needsVerification ? 'Verification required' : 'Unable to save service',
+      result.message,
+      needsVerification ? [{ text: 'Cancel', style: 'cancel' as const }, { text: 'Verify Student Status', onPress: () => router.push('/verification') }] : undefined,
+    );
+    return;
+  }
+  Alert.alert(publish ? 'Service published' : 'Draft saved', `${result.service.title} was saved locally.`);
+  router.replace('/profile');
+}
+
+function archiveService(existing: Service | undefined, setServiceStatus: (serviceId: string, status: Service['status']) => StoreResult) {
+  if (!existing) return;
+  const result = setServiceStatus(existing.id, 'archived');
+  Alert.alert(result.ok ? 'Service archived' : 'Unable to archive', result.ok ? 'The service is no longer visible in the marketplace.' : result.message);
+  if (result.ok) router.replace('/profile');
+}
+
 function Label({ text }: { text: string }) { return <AppText weight="semibold" style={styles.label}>{text}</AppText>; }
 const styles = StyleSheet.create({ content: { padding: contentPadding, paddingBottom: 38 }, blocked: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: contentPadding }, warning: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.blush, borderRadius: 12, padding: 13 }, warningText: { color: colors.muted, fontSize: 10, lineHeight: 16, marginTop: 2 }, verified: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.greenSoft, borderRadius: 11, padding: 12 }, verifiedText: { color: colors.green, fontSize: 11 }, label: { fontSize: 13, marginTop: 16, marginBottom: 7 }, textArea: { minHeight: 130, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 13, fontFamily: font.regular, fontSize: 13, color: colors.ink, textAlignVertical: 'top' }, secondary: { minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 10 }, archive: { minHeight: 45, alignItems: 'center', justifyContent: 'center', marginTop: 8 } });

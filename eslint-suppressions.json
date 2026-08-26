@@ -1,15 +1,10 @@
 {
   "src/app/marketplace.tsx": {
     "complexity": {
-      "count": 2
-    }
-  },
-  "src/app/profile/edit.tsx": {
-    "complexity": {
       "count": 1
     }
   },
-  "src/app/profile/index.tsx": {
+  "src/app/profile/edit.tsx": {
     "complexity": {
       "count": 1
     }
@@ -29,11 +24,6 @@
       "count": 2
     }
   },
-  "src/app/projects/index.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/app/register.tsx": {
     "complexity": {
       "count": 1
@@ -44,22 +34,7 @@
       "count": 1
     }
   },
-  "src/app/student-home.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/app/verification.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/project-post-form.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/service-form.tsx": {
     "complexity": {
       "count": 1
     }

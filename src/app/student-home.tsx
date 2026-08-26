@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, BottomNav, MobilePage, QuickAction, ReferenceCrop } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
-import { useSession } from '@/context/session';
+import { ProjectBooking, ProjectPost, useSession } from '@/context/session';
+import { CareerReadinessBreakdown } from '@/domain/career-readiness';
 import { formatPeso } from '@/data/fixtures';
 
 const studentReference = require('../../references/student_profile_page.jpg');
@@ -23,25 +24,10 @@ export default function StudentHomeScreen() {
     <MobilePage>
       <StatusBar style="light" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View style={[styles.hero, { paddingTop: insets.top + 11 }]}>
-          <View style={styles.topRow}>
-            <Pressable accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="menu" size={32} color={colors.white} /></Pressable>
-            <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={styles.bellWrap}><Ionicons name="notifications-outline" size={29} color={colors.white} />{unreadCount ? <View style={styles.badge}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}</Pressable>
-          </View>
-          <View style={styles.greetingRow}>
-            <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.greeting}>Hi, Alex! 👋</AppText><AppText style={styles.heroSubtitle}>Ready to work on{`\n`}amazing projects?</AppText></View>
-            <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 493, y: 229, width: 127, height: 146 }} style={styles.avatar} />
-          </View>
-        </View>
+        <StudentHero insetsTop={insets.top} unreadCount={unreadCount} />
         <View style={styles.body}>
-          <View style={styles.earningsCard}>
-            <AppText weight="semibold" style={styles.cardTitle}>Earnings Overview</AppText>
-            <View style={styles.earningsRow}>
-              <View><AppText weight="bold" style={styles.earnings}>{formatPeso(earnings)}</AppText><View style={{ flexDirection: 'row', gap: 8 }}><AppText style={styles.muted}>Simulated Earnings</AppText>{earnings ? <AppText weight="medium" style={styles.growth}>Released</AppText> : null}</View></View>
-              <Sparkline />
-            </View>
-          </View>
-          {readiness ? <Pressable onPress={() => router.push('/career-readiness')} style={styles.readinessCard}><View style={styles.readinessCircle}><AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText><AppText style={styles.readinessMax}>/100</AppText></View><View style={{ flex: 1 }}><AppText weight="semibold" style={styles.readinessTitle}>Career Readiness</AppText><AppText style={styles.readinessDetail}>{readiness.level} · See what to improve next</AppText></View><Ionicons name="chevron-forward" size={22} color={colors.burgundy} /></Pressable> : null}
+          <StudentEarnings earnings={earnings} />
+          <StudentReadiness readiness={readiness} />
           <SectionTitle title="Quick Actions" />
           <View style={styles.quickRow}>
             <QuickAction icon="person-outline" label={'Browse\nProjects'} onPress={() => router.push('/projects/discover')} />
@@ -50,18 +36,63 @@ export default function StudentHomeScreen() {
             <QuickAction icon="chatbubble-outline" label="Messages" onPress={() => router.push('/messages')} />
           </View>
           <SectionTitle title="Recent Projects" action="View All" onAction={() => router.push('/projects')} />
-          <Pressable disabled={!latestBooking} onPress={() => latestBooking && router.push({ pathname: '/projects/[projectId]', params: { projectId: latestBooking.id } })} style={styles.projectCard}>
-            <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 96, y: 995, width: 122, height: 117 }} style={styles.projectImage} />
-            <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.projectTitle}>{latestBooking?.title ?? 'No project requests yet'}</AppText><AppText weight="semibold" style={styles.projectPrice}>{latestBooking ? formatPeso(latestBooking.budget) : 'Browse projects to get started'}</AppText></View>
-            {latestBooking ? <View style={styles.statusPill}><AppText style={styles.statusText}>{latestBooking.status.replaceAll('_', ' ')}</AppText></View> : null}
-          </Pressable>
+          <RecentProjectCard booking={latestBooking} />
           <SectionTitle title="Recommended for You" action="View All" onAction={() => router.push('/projects/discover')} />
-          <Pressable onPress={() => { const post = projectPosts.find((item) => item.status === 'open'); if (post) router.push({ pathname: '/project-posts/[postId]', params: { postId: post.id } }); else router.push('/projects/discover'); }} style={styles.recommendCard}><View style={styles.recommendImage}><Ionicons name="phone-portrait-outline" size={31} color={colors.red} /></View><View><AppText weight="semibold">{projectPosts.find((item) => item.status === 'open')?.title ?? 'Discover Open Projects'}</AppText><AppText style={styles.muted}>Recommended project</AppText></View></Pressable>
+          <RecommendedProjectCard projectPosts={projectPosts} />
         </View>
       </ScrollView>
-      <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={() => router.push('/portfolio')} onMessages={() => router.push('/messages')} onProfile={() => router.push('/profile')} messageUnread={hasUnreadMessages} variant="student" />
+      <StudentBottomNav homeRoute={homeRoute} messageUnread={hasUnreadMessages} />
     </MobilePage>
   );
+}
+
+function StudentHero({ insetsTop, unreadCount }: { insetsTop: number; unreadCount: number }) {
+  return <View style={[styles.hero, { paddingTop: insetsTop + 11 }]}>
+    <View style={styles.topRow}>
+      <Pressable accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="menu" size={32} color={colors.white} /></Pressable>
+      <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={styles.bellWrap}><Ionicons name="notifications-outline" size={29} color={colors.white} />{unreadCount ? <View style={styles.badge}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}</Pressable>
+    </View>
+    <View style={styles.greetingRow}>
+      <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.greeting}>Hi, Alex! 👋</AppText><AppText style={styles.heroSubtitle}>Ready to work on{`\n`}amazing projects?</AppText></View>
+      <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 493, y: 229, width: 127, height: 146 }} style={styles.avatar} />
+    </View>
+  </View>;
+}
+
+function StudentEarnings({ earnings }: { earnings: number }) {
+  return <View style={styles.earningsCard}>
+    <AppText weight="semibold" style={styles.cardTitle}>Earnings Overview</AppText>
+    <View style={styles.earningsRow}>
+      <View><AppText weight="bold" style={styles.earnings}>{formatPeso(earnings)}</AppText><View style={{ flexDirection: 'row', gap: 8 }}><AppText style={styles.muted}>Simulated Earnings</AppText>{earnings ? <AppText weight="medium" style={styles.growth}>Released</AppText> : null}</View></View>
+      <Sparkline />
+    </View>
+  </View>;
+}
+
+function StudentReadiness({ readiness }: { readiness: CareerReadinessBreakdown | null }) {
+  if (!readiness) return null;
+  return <Pressable onPress={() => router.push('/career-readiness')} style={styles.readinessCard}><View style={styles.readinessCircle}><AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText><AppText style={styles.readinessMax}>/100</AppText></View><View style={{ flex: 1 }}><AppText weight="semibold" style={styles.readinessTitle}>Career Readiness</AppText><AppText style={styles.readinessDetail}>{readiness.level} · See what to improve next</AppText></View><Ionicons name="chevron-forward" size={22} color={colors.burgundy} /></Pressable>;
+}
+
+function RecentProjectCard({ booking }: { booking?: ProjectBooking }) {
+  return <Pressable disabled={!booking} onPress={() => booking && router.push({ pathname: '/projects/[projectId]', params: { projectId: booking.id } })} style={styles.projectCard}>
+    <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 96, y: 995, width: 122, height: 117 }} style={styles.projectImage} />
+    <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.projectTitle}>{booking?.title ?? 'No project requests yet'}</AppText><AppText weight="semibold" style={styles.projectPrice}>{booking ? formatPeso(booking.budget) : 'Browse projects to get started'}</AppText></View>
+    {booking ? <View style={styles.statusPill}><AppText style={styles.statusText}>{booking.status.replaceAll('_', ' ')}</AppText></View> : null}
+  </Pressable>;
+}
+
+function RecommendedProjectCard({ projectPosts }: { projectPosts: ProjectPost[] }) {
+  const openPost = projectPosts.find((item) => item.status === 'open');
+  const openProject = () => {
+    if (openPost) router.push({ pathname: '/project-posts/[postId]', params: { postId: openPost.id } });
+    else router.push('/projects/discover');
+  };
+  return <Pressable onPress={openProject} style={styles.recommendCard}><View style={styles.recommendImage}><Ionicons name="phone-portrait-outline" size={31} color={colors.red} /></View><View><AppText weight="semibold">{openPost?.title ?? 'Discover Open Projects'}</AppText><AppText style={styles.muted}>Recommended project</AppText></View></Pressable>;
+}
+
+function StudentBottomNav({ homeRoute, messageUnread }: { homeRoute: '/student-home' | '/client-home'; messageUnread: boolean }) {
+  return <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={() => router.push('/portfolio')} onMessages={() => router.push('/messages')} onProfile={() => router.push('/profile')} messageUnread={messageUnread} variant="student" />;
 }
 
 function SectionTitle({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
