@@ -1,30 +1,32 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, BottomNav, MobilePage, QuickAction, ReferenceCrop } from '@/components/ui';
+import { NavigationDrawer } from '@/components/navigation-drawer';
+import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
+import { AppText, MobilePage, QuickAction } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { ProjectBooking, ProjectPost, useSession } from '@/context/session';
 import { CareerReadinessBreakdown } from '@/domain/career-readiness';
 import { formatPeso } from '@/data/fixtures';
-
-const studentReference = require('../../references/student_profile_page.jpg');
+import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export default function StudentHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { bookings, getCareerReadiness, homeRoute, ledger, messages, currentAccount, projectPosts, unreadCount } = useSession();
-  const hasUnreadMessages = currentAccount ? messages.some((message) => message.senderId !== currentAccount.id && !message.readBy.includes(currentAccount.id)) : false;
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { bookings, getCareerReadiness, ledger, currentAccount, projectPosts, unreadCount } = useSession();
   const myBookings = currentAccount ? bookings.filter((booking) => booking.studentId === currentAccount.id) : [];
   const latestBooking = myBookings[0];
   const earnings = currentAccount ? ledger.filter((entry) => entry.userId === currentAccount.id && entry.type === 'release').reduce((total, entry) => total + entry.amount, 0) : 0;
   const readiness = currentAccount ? getCareerReadiness(currentAccount.id) : null;
   return (
-    <MobilePage>
+    <PrimaryTabScene active="home"><MobilePage>
       <StatusBar style="light" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <StudentHero insetsTop={insets.top} unreadCount={unreadCount} />
+        <StudentHero insetsTop={insets.top} unreadCount={unreadCount} onMenu={() => setDrawerOpen(true)} />
         <View style={styles.body}>
           <StudentEarnings earnings={earnings} />
           <StudentReadiness readiness={readiness} />
@@ -41,20 +43,20 @@ export default function StudentHomeScreen() {
           <RecommendedProjectCard projectPosts={projectPosts} />
         </View>
       </ScrollView>
-      <StudentBottomNav homeRoute={homeRoute} messageUnread={hasUnreadMessages} />
-    </MobilePage>
+      <NavigationDrawer visible={drawerOpen} role="student" onClose={() => setDrawerOpen(false)} />
+    </MobilePage></PrimaryTabScene>
   );
 }
 
-function StudentHero({ insetsTop, unreadCount }: { insetsTop: number; unreadCount: number }) {
+function StudentHero({ insetsTop, unreadCount, onMenu }: { insetsTop: number; unreadCount: number; onMenu: () => void }) {
   return <View style={[styles.hero, { paddingTop: insetsTop + 11 }]}>
     <View style={styles.topRow}>
-      <Pressable accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="menu" size={32} color={colors.white} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={onMenu}><Ionicons name="menu" size={32} color={colors.white} /></Pressable>
       <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={styles.bellWrap}><Ionicons name="notifications-outline" size={29} color={colors.white} />{unreadCount ? <View style={styles.badge}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}</Pressable>
     </View>
     <View style={styles.greetingRow}>
       <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.greeting}>Hi, Alex! 👋</AppText><AppText style={styles.heroSubtitle}>Ready to work on{`\n`}amazing projects?</AppText></View>
-      <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 493, y: 229, width: 127, height: 146 }} style={styles.avatar} />
+      <OptimizedArtwork source={optimizedArtwork.studentAvatar} style={styles.avatar} />
     </View>
   </View>;
 }
@@ -96,7 +98,7 @@ function StudentReadiness({ readiness }: { readiness: CareerReadinessBreakdown |
 
 function RecentProjectCard({ booking }: { booking?: ProjectBooking }) {
   return <Pressable disabled={!booking} onPress={() => booking && router.push({ pathname: '/projects/[projectId]', params: { projectId: booking.id } })} style={styles.projectCard}>
-    <ReferenceCrop source={studentReference} sourceSize={{ width: 704, height: 1486 }} crop={{ x: 96, y: 995, width: 122, height: 117 }} style={styles.projectImage} />
+    <OptimizedArtwork source={optimizedArtwork.studentProject} style={styles.projectImage} />
     <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.projectTitle}>{booking?.title ?? 'No project requests yet'}</AppText><AppText weight="semibold" style={styles.projectPrice}>{booking ? formatPeso(booking.budget) : 'Browse projects to get started'}</AppText></View>
     {booking ? <View style={styles.statusPill}><AppText style={styles.statusText}>{booking.status.replaceAll('_', ' ')}</AppText></View> : null}
   </Pressable>;
@@ -109,10 +111,6 @@ function RecommendedProjectCard({ projectPosts }: { projectPosts: ProjectPost[] 
     else router.push('/projects/discover');
   };
   return <Pressable onPress={openProject} style={styles.recommendCard}><View style={styles.recommendImage}><Ionicons name="phone-portrait-outline" size={31} color={colors.red} /></View><View><AppText weight="semibold">{openPost?.title ?? 'Discover Open Projects'}</AppText><AppText style={styles.muted}>Recommended project</AppText></View></Pressable>;
-}
-
-function StudentBottomNav({ homeRoute, messageUnread }: { homeRoute: '/student-home' | '/client-home'; messageUnread: boolean }) {
-  return <BottomNav active="home" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={() => router.push('/portfolio')} onMessages={() => router.push('/messages')} onProfile={() => router.push('/profile')} messageUnread={messageUnread} variant="student" />;
 }
 
 function SectionTitle({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
@@ -134,10 +132,10 @@ function Sparkline() {
 const styles = StyleSheet.create({
   scroll: { paddingBottom: 30 }, hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 82 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ef8585', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
-  greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 }, greeting: { color: colors.white, fontSize: 31 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25, marginTop: 5 }, avatar: { width: 112, borderRadius: 60 },
+  greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 }, greeting: { color: colors.white, fontSize: 31 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25, marginTop: 5 }, avatar: { width: 112, aspectRatio: 127 / 146, borderRadius: 60 },
   body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20, minHeight: 170, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
   spark: { width: 120, height: 70, position: 'relative' }, line: { position: 'absolute', height: 2, backgroundColor: colors.burgundy, borderRadius: 2 }, sparkDot: { position: 'absolute', right: 3, top: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.red },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 29, marginBottom: 16 }, quickRow: { flexDirection: 'row', gap: 4 },
-  projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
+  projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, aspectRatio: 122 / 117, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
   recommendCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 14, backgroundColor: colors.white, padding: 12, ...shadow }, recommendImage: { width: 72, height: 62, borderRadius: 10, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
 });

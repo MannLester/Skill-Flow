@@ -1,17 +1,17 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { AppHeader, AppText, BottomNav, MobilePage } from '@/components/ui';
+import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';
 import { DemoNotification, useSession } from '@/context/session';
 
 type Filter = 'All' | 'Unread' | 'Mentions';
 
 export default function NotificationsScreen() {
-  const { currentAccount, homeRoute, markNotificationRead, notifications } = useSession();
+  const { currentAccount, markNotificationRead, notifications } = useSession();
   const [filter, setFilter] = useState<Filter>('All');
   const accountNotifications = useMemo(() => notifications.filter((item) => item.userId === currentAccount?.id), [currentAccount?.id, notifications]);
   const data = useMemo(() => accountNotifications.filter((item) => filter === 'All' || (filter === 'Unread' ? !item.read : item.kind === 'message')), [accountNotifications, filter]);
@@ -28,7 +28,6 @@ export default function NotificationsScreen() {
       <AppHeader title="Notifications" onBack={() => router.back()} />
       <View style={styles.tabs}>{(['All', 'Unread', 'Mentions'] as Filter[]).map((item) => <Pressable key={item} onPress={() => setFilter(item)} style={[styles.tab, filter === item && styles.tabActive]}><AppText weight="medium" style={[styles.tabText, filter === item && { color: colors.white }]}>{item}</AppText></Pressable>)}</View>
       <FlatList data={data} keyExtractor={(item) => item.id} renderItem={({ item }) => <NotificationRow item={item} onPress={() => openNotification(item)} />} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} ListEmptyComponent={<View style={styles.empty}><Ionicons name="notifications-off-outline" size={48} color={colors.muted} /><AppText style={styles.emptyText}>No notifications here.</AppText></View>} />
-      <BottomNav active="none" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onMessages={() => router.push('/messages')} onProfile={() => router.push('/profile')} variant="compact" />
     </MobilePage>
   );
 }

@@ -17,3 +17,12 @@ jest.mock('@expo/vector-icons', () => {
   Icon.glyphMap = {};
   return { Ionicons: Icon };
 });
+
+jest.mock('@expo/vector-icons/Ionicons', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  const Icon = (props) => React.createElement(Text, props, props.name);
+  Icon.font = {};
+  Icon.glyphMap = {};
+  return { __esModule: true, default: Icon };
+});

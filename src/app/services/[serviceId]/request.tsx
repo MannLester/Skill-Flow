@@ -1,16 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppHeader, AppText, MobilePage, PrimaryButton, ReferenceCrop } from '@/components/ui';
+import { ServiceArtwork } from '@/components/optimized-artwork';
+import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
 import { useSession } from '@/context/session';
 
-const marketReference = require('../../../../references/student_marketplace_page.jpg');
 
 type SelectorKey = 'delivery' | 'budget';
 type SelectorOption = { label: string; value: number };
@@ -58,7 +58,7 @@ export default function BookServiceScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView testID="booking-scroll" onPointerDown={() => setOpenSelector(null)} onTouchStart={() => setOpenSelector(null)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 28 }]}>
           <View style={styles.summary}>
-            <ReferenceCrop source={marketReference} sourceSize={{ width: 1920, height: 1080 }} crop={service.crop} style={styles.thumb} />
+            <ServiceArtwork serviceId={service.id} style={styles.thumb} />
             <View><AppText weight="semibold" style={styles.title}>{service.title}</AppText><AppText style={styles.byline}>by {service.provider}</AppText><AppText weight="bold" style={styles.price}>{formatPeso(service.price)}</AppText></View>
           </View>
           <AppText weight="semibold" style={styles.label}>Project Details</AppText>
@@ -178,6 +178,6 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: contentPadding }, summary: { flexDirection: 'row', alignItems: 'center', gap: 17, marginBottom: 22 }, thumb: { width: 112, borderRadius: 12 }, title: { fontSize: 21 }, byline: { color: colors.muted, fontSize: 14, marginTop: 3 }, price: { fontSize: 21, marginTop: 7 }, label: { fontSize: 17, marginTop: 19, marginBottom: 10 },
+  scroll: { padding: contentPadding }, summary: { flexDirection: 'row', alignItems: 'center', gap: 17, marginBottom: 22 }, thumb: { width: 112, aspectRatio: 90 / 91, borderRadius: 12 }, title: { fontSize: 21 }, byline: { color: colors.muted, fontSize: 14, marginTop: 3 }, price: { fontSize: 21, marginTop: 7 }, label: { fontSize: 17, marginTop: 19, marginBottom: 10 },
   textArea: { minHeight: 160, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14 }, textAreaError: { borderColor: colors.red, backgroundColor: colors.blush }, multiline: { flex: 1, textAlignVertical: 'top', fontFamily: font.regular, color: colors.ink, fontSize: 14 }, counter: { alignSelf: 'flex-end', color: colors.muted, fontSize: 12 }, fieldError: { color: colors.red, fontSize: 11, lineHeight: 17, marginTop: 6 }, selectorGroup: { gap: 8 }, select: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, selectOpen: { borderColor: colors.red, backgroundColor: colors.blush }, optionList: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, padding: 6, gap: 4, backgroundColor: colors.white }, option: { minHeight: 48, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, optionSelected: { backgroundColor: colors.blush }, demoNote: { color: colors.muted, fontSize: 11, marginTop: 14 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center' },
 });

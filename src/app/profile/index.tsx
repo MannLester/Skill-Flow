@@ -1,16 +1,17 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { AppHeader, AppText, BottomNav, MobilePage, PrimaryButton } from '@/components/ui';
+import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
 import { CareerReadinessBreakdown } from '@/domain/career-readiness';
 import { Certification, DemoAccount, PortfolioItem, ProjectBooking, ProjectReview, StudentVerification, UserProfile, useSession } from '@/context/session';
+import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export default function ProfileScreen() {
-  const { addCompletedProjectToPortfolio, bookings, certifications, currentAccount, getCareerReadiness, homeRoute, messages, portfolioItems, profiles, reviews, services, verifications } = useSession();
+  const { addCompletedProjectToPortfolio, bookings, certifications, currentAccount, getCareerReadiness, portfolioItems, profiles, reviews, services, verifications } = useSession();
   if (!currentAccount) return <MobilePage><AppHeader title="Profile" onBack={() => router.back()} /><View style={styles.center}><AppText>Please log in to view a profile.</AppText></View></MobilePage>;
   const profile = profiles.find((item) => item.accountId === currentAccount.id);
   const verification = verifications.find((item) => item.studentId === currentAccount.id);
@@ -21,22 +22,20 @@ export default function ProfileScreen() {
   const ownReviews = reviews.filter((item) => item.studentId === currentAccount.id);
   const earnings = currentAccount.role === 'student' ? bookings.filter((item) => item.studentId === currentAccount.id && ['completed', 'reviewed'].includes(item.status)).reduce((total, item) => total + item.budget, 0) : 0;
   const completedNotAdded = ownProjects.filter((item) => item.studentId === currentAccount.id && ['completed', 'reviewed'].includes(item.status) && !ownPortfolio.some((portfolio) => portfolio.sourceProjectId === item.id));
-  const hasUnreadMessages = messages.some((message) => message.senderId !== currentAccount.id && !message.readBy.includes(currentAccount.id));
   const addProject = (projectId: string) => { const result = addCompletedProjectToPortfolio(projectId); Alert.alert(result.ok ? 'Added to portfolio' : 'Unable to add project', result.ok ? 'The completed work is now part of your portfolio.' : result.message); };
   const readiness = currentAccount.role === 'student' ? getCareerReadiness(currentAccount.id) : null;
 
   return (
-    <MobilePage>
+    <PrimaryTabScene active="profile"><MobilePage>
       <StatusBar style="light" />
-      <AppHeader title="Profile" onBack={() => router.back()} right={<Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="settings-outline" size={25} color={colors.white} /></Pressable>} />
+      <AppHeader title="Profile" right={<Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="settings-outline" size={25} color={colors.white} /></Pressable>} />
       <ScrollView contentContainerStyle={styles.content}>
         <ProfileIdentity account={currentAccount} verification={verification} />
         <ProfileAbout profile={profile} />
 
         <ProfileRoleContent account={currentAccount} readiness={readiness} ownPortfolio={ownPortfolio} ownCertifications={ownCertifications} ownServices={ownServices} earnings={earnings} completedNotAdded={completedNotAdded} ownReviews={ownReviews} ownProjects={ownProjects} onAddProject={addProject} />
       </ScrollView>
-      <ProfileBottomNav account={currentAccount} homeRoute={homeRoute} messageUnread={hasUnreadMessages} />
-    </MobilePage>
+    </MobilePage></PrimaryTabScene>
   );
 }
 
@@ -120,12 +119,6 @@ function ReviewsCard({ reviews }: { reviews: ProjectReview[] }) {
 
 function ClientProfileContent({ projects }: { projects: ProjectBooking[] }) {
   return <View style={styles.card}><AppText weight="semibold" style={styles.heading}>Client Activity</AppText><AppText style={styles.copy}>{projects.length} project request{projects.length === 1 ? '' : 's'} created in this local demonstration.</AppText></View>;
-}
-
-function ProfileBottomNav({ account, homeRoute, messageUnread }: { account: DemoAccount; homeRoute: '/student-home' | '/client-home'; messageUnread: boolean }) {
-  const isStudent = account.role === 'student';
-  const isClient = account.role === 'client';
-  return <BottomNav active="profile" onHome={() => router.replace(homeRoute)} onProjects={() => router.push('/projects')} onPortfolio={isStudent ? () => router.push('/portfolio') : undefined} onMessages={() => router.push('/messages')} onSaved={isClient ? () => router.push({ pathname: '/marketplace', params: { saved: 'true' } }) : undefined} onProfile={() => undefined} messageUnread={messageUnread} variant={isClient ? 'client' : 'student'} />;
 }
 
 function Info({ icon, text }: { icon: 'location-outline' | 'business-outline' | 'school-outline' | 'book-outline'; text: string }) { return <View style={styles.info}><Ionicons name={icon} size={18} color={colors.burgundy} /><AppText style={styles.infoText}>{text}</AppText></View>; }
