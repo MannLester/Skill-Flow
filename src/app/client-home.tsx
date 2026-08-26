@@ -1,11 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NavigationDrawer } from '@/components/navigation-drawer';
 import { AppText, MobilePage, QuickAction } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { ProjectBooking, useSession } from '@/context/session';
@@ -14,7 +12,6 @@ import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export default function ClientHomeScreen() {
   const insets = useSafeAreaInsets();
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const { bookings, currentAccount, projectPosts, unreadCount } = useSession();
   const myBookings = currentAccount ? bookings.filter((booking) => booking.clientId === currentAccount.id) : [];
   const activeCount = myBookings.filter((booking) => !['declined', 'cancelled', 'completed', 'reviewed'].includes(booking.status)).length;
@@ -23,14 +20,13 @@ export default function ClientHomeScreen() {
     <PrimaryTabScene active="home"><MobilePage>
       <StatusBar style="light" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View style={[styles.hero, { paddingTop: insets.top + 11 }]}>
+        <View style={[styles.hero, { paddingTop: insets.top + 28 }]}>
           <View style={styles.topRow}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={() => setDrawerOpen(true)}><Ionicons name="menu" size={31} color={colors.white} /></Pressable>
             <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={styles.bellWrap}><Ionicons name="notifications-outline" size={28} color={colors.white} />{unreadCount ? <View style={styles.badge}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}</Pressable>
           </View>
           <View style={styles.greetingRow}>
-            <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.greeting}>Hi, Mark! 👋</AppText><AppText style={styles.heroSubtitle}>Find the best student{`\n`}talent for your project.</AppText></View>
-            <View style={styles.avatarCircle}><Ionicons name="person" size={32} color={colors.red} /></View>
+            <View style={{ flex: 1, paddingRight: 16 }}><AppText weight="bold" style={styles.greeting}>Hi, Mark!</AppText><AppText style={styles.heroSubtitle}>{activeCount > 0 ? `You have ${activeCount} active project${activeCount === 1 ? '' : 's'} in progress.` : 'Find the best student talent for your project.'}</AppText></View>
+            <View style={styles.avatarCircle}><Ionicons name="person" size={28} color={colors.red} /></View>
           </View>
         </View>
         <View style={styles.body}>
@@ -57,7 +53,6 @@ export default function ClientHomeScreen() {
           </View>
         </View>
       </ScrollView>
-      <NavigationDrawer visible={drawerOpen} role="client" onClose={() => setDrawerOpen(false)} />
     </MobilePage></PrimaryTabScene>
   );
 }
@@ -67,9 +62,9 @@ function BookingRow({ booking, last }: { booking: ProjectBooking; last: boolean 
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: 30 }, hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 82 }, topRow: { flexDirection: 'row', justifyContent: 'space-between' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#e56a6a', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
-  greetingRow: { marginTop: 18, flexDirection: 'row', alignItems: 'center' }, greeting: { color: colors.white, fontSize: 29 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25 }, avatarCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
-  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20 }, activeCard: { minHeight: 150, backgroundColor: colors.white, borderRadius: 17, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, ...shadow }, activeCardBody: { flex: 1, gap: 2 }, activeTitle: { fontSize: 22 }, activeCount: { fontSize: 30, marginTop: 3 }, activeStatus: { color: colors.muted, fontSize: 14 }, activeCardIcon: { width: 72, height: 72, borderRadius: 14, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  scroll: { paddingBottom: 30 },   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87 }, topRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#e56a6a', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
+  greetingRow: { marginTop: 24, flexDirection: 'row', alignItems: 'center' }, greeting: { color: colors.white, fontSize: 28 }, heroSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 15, lineHeight: 22 }, avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', elevation: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20 }, activeCard: { minHeight: 150, backgroundColor: colors.white, borderRadius: 17, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, ...shadow }, activeCardBody: { flex: 1, gap: 2 }, activeTitle: { fontSize: 20 }, activeCount: { fontSize: 30, marginTop: 3 }, activeStatus: { color: colors.muted, fontSize: 13 }, activeCardIcon: { width: 72, height: 72, borderRadius: 14, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { marginTop: 24, marginBottom: 14 }, sectionText: { fontSize: 18 }, quickRow: { flexDirection: 'row', gap: 4 }, titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 27, marginBottom: 12 }, viewAll: { color: colors.burgundy, fontSize: 14 },
   projectList: { borderRadius: 14, paddingHorizontal: 10, backgroundColor: colors.white, ...shadow }, projectRow: { minHeight: 91, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border }, bookingIcon: { width: 66, height: 66, borderRadius: 10, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }, proposals: { backgroundColor: colors.blush, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 6 }, emptyProjects: { minHeight: 110, alignItems: 'center', justifyContent: 'center' }, emptyProjectText: { color: colors.muted, fontSize: 10, marginTop: 4 },
 });

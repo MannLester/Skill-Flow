@@ -1,12 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Svg, Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NavigationDrawer } from '@/components/navigation-drawer';
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 import { AppText, MobilePage, QuickAction } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
@@ -17,7 +15,6 @@ import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export default function StudentHomeScreen() {
   const insets = useSafeAreaInsets();
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const { bookings, getCareerReadiness, ledger, currentAccount, projectPosts, unreadCount } = useSession();
   const myBookings = currentAccount ? bookings.filter((booking) => booking.studentId === currentAccount.id) : [];
   const latestBooking = myBookings[0];
@@ -27,7 +24,7 @@ export default function StudentHomeScreen() {
     <PrimaryTabScene active="home"><MobilePage>
       <StatusBar style="light" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <StudentHero insetsTop={insets.top} unreadCount={unreadCount} onMenu={() => setDrawerOpen(true)} />
+        <StudentHero insetsTop={insets.top} unreadCount={unreadCount} activeCount={myBookings.filter((b) => !['declined', 'cancelled', 'completed', 'reviewed'].includes(b.status)).length} />
         <View style={styles.body}>
           <StudentEarnings earnings={earnings} />
           <StudentReadiness readiness={readiness} />
@@ -44,20 +41,21 @@ export default function StudentHomeScreen() {
           <RecommendedProjectCard projectPosts={projectPosts} />
         </View>
       </ScrollView>
-      <NavigationDrawer visible={drawerOpen} role="student" onClose={() => setDrawerOpen(false)} />
     </MobilePage></PrimaryTabScene>
   );
 }
 
-function StudentHero({ insetsTop, unreadCount, onMenu }: { insetsTop: number; unreadCount: number; onMenu: () => void }) {
-  return <View style={[styles.hero, { paddingTop: insetsTop + 11 }]}>
+function StudentHero({ insetsTop, unreadCount, activeCount }: { insetsTop: number; unreadCount: number; activeCount: number }) {
+  const subtitle = activeCount > 0
+    ? `You have ${activeCount} active project${activeCount === 1 ? '' : 's'} in progress.`
+    : 'Explore new project opportunities today.';
+  return <View style={[styles.hero, { paddingTop: insetsTop + 28 }]}>
     <View style={styles.topRow}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={onMenu}><Ionicons name="menu" size={32} color={colors.white} /></Pressable>
       <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={styles.bellWrap}><Ionicons name="notifications-outline" size={29} color={colors.white} />{unreadCount ? <View style={styles.badge}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}</Pressable>
     </View>
     <View style={styles.greetingRow}>
-      <View style={{ flex: 1 }}><AppText weight="semibold" style={styles.greeting}>Hi, Alex! 👋</AppText><AppText style={styles.heroSubtitle}>Ready to work on{`\n`}amazing projects?</AppText></View>
-      <View style={styles.avatarCircle}><Ionicons name="person" size={32} color={colors.red} /></View>
+      <View style={{ flex: 1, paddingRight: 16 }}><AppText weight="bold" style={styles.greeting}>Hi, Alex!</AppText><AppText style={styles.heroSubtitle}>{subtitle}</AppText></View>
+      <View style={styles.avatarCircle}><Ionicons name="person" size={28} color={colors.red} /></View>
     </View>
   </View>;
 }
@@ -66,7 +64,7 @@ function StudentEarnings({ earnings }: { earnings: number }) {
   return <View style={styles.earningsCard}>
     <AppText weight="semibold" style={styles.cardTitle}>Earnings Overview</AppText>
     <View style={styles.earningsRow}>
-      <View><AppText weight="bold" style={styles.earnings}>{formatPeso(earnings)}</AppText><View style={{ flexDirection: 'row', gap: 8 }}><AppText style={styles.muted}>Simulated Earnings</AppText>{earnings ? <AppText weight="medium" style={styles.growth}>Released</AppText> : null}</View></View>
+      <View><View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}><AppText weight="bold" style={styles.pesoSign}>₱</AppText><AppText weight="bold" style={styles.earnings}>{earnings.toLocaleString('en-PH')}</AppText></View><View style={{ flexDirection: 'row', gap: 8 }}><AppText style={styles.muted}>Simulated Earnings</AppText>{earnings ? <AppText weight="medium" style={styles.growth}>Released</AppText> : null}</View></View>
       <Sparkline />
     </View>
   </View>;
@@ -135,10 +133,10 @@ function Sparkline() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: 30 }, hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 82 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ef8585', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
-  greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 }, greeting: { color: colors.white, fontSize: 31 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25, marginTop: 5 }, avatarCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
-  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20,   minHeight: 150, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
+  scroll: { paddingBottom: 30 },   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87 },
+  topRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ef8585', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
+  greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24 }, greeting: { color: colors.white, fontSize: 28 }, heroSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 15, lineHeight: 22, marginTop: 5 }, avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', elevation: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20,   minHeight: 150, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, pesoSign: { fontSize: 28 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 29, marginBottom: 16 }, quickRow: { flexDirection: 'row', gap: 4 },
   projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, aspectRatio: 122 / 117, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
   recommendCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 14, backgroundColor: colors.white, padding: 12, ...shadow }, recommendImage: { width: 72, height: 62, borderRadius: 10, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
