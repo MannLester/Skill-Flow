@@ -196,6 +196,8 @@ test('requires analyzed and post-install exact identity', () => {
     () => runner.parsePackageReadback(readback, runner.APP_ID, marker, '2026-08-26 10:00:02'),
     /predates/,
   );
+  assert.equal(runner.parseDeviceStartTime('2026-08-26T10:00:00\n'), '2026-08-26 10:00:00');
+  assert.throws(() => runner.parseDeviceStartTime('2026-08-26'), /comparable device-local/);
   assert.doesNotThrow(() => runner.assertInstallSuccess('Performing Streamed Install\nSuccess\n'));
   assert.throws(() => runner.assertInstallSuccess('Failure [INSTALL_FAILED]'), /Success marker/);
   assert.doesNotThrow(() => runner.assertLaunchSuccess('Status: ok\nActivity: app/.MainActivity'));

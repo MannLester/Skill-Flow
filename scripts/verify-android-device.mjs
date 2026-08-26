@@ -213,6 +213,14 @@ export function parsePackageReadback(output, expectedId, expectedMarker, deviceS
   return { versionName: version, lastUpdateTime: updated };
 }
 
+export function parseDeviceStartTime(output) {
+  const timestamp = String(output).trim();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(timestamp)) {
+    throw new Error('Could not record a comparable device-local run start time.');
+  }
+  return timestamp.replace('T', ' ');
+}
+
 export function isValidPng(bytes) {
   return Buffer.isBuffer(bytes)
     && bytes.length > 24
@@ -601,11 +609,9 @@ function installArtifact({ inputs, adapter, tools, artifact, state }) {
     adapter,
     tools.adb,
     inputs.serial,
-    ['shell', 'date', '+%Y-%m-%d %H:%M:%S'],
-  ).stdout.trim();
-  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(deviceStartText)) {
-    throw new Error('Could not record a comparable device-local run start time.');
-  }
+    ['shell', 'date', '+%Y-%m-%dT%H:%M:%S'],
+  ).stdout;
+  const comparableDeviceStart = parseDeviceStartTime(deviceStartText);
   const prior = adbRun(
     adapter,
     tools.adb,
@@ -639,7 +645,7 @@ function installArtifact({ inputs, adapter, tools, artifact, state }) {
     ['shell', 'dumpsys', 'package', APP_ID],
   ).stdout;
   state.runtime.postinstall = {
-    ...parsePackageReadback(packageText, APP_ID, artifact.marker, deviceStartText),
+    ...parsePackageReadback(packageText, APP_ID, artifact.marker, comparableDeviceStart),
     packagePath: pmPath,
   };
   recordPhase(state, 'install');
