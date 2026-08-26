@@ -26,3 +26,38 @@ jest.mock('@expo/vector-icons/Ionicons', () => {
   Icon.glyphMap = {};
   return { __esModule: true, default: Icon };
 });
+
+jest.mock('@clerk/expo', () => {
+  const React = require('react');
+  const success = async () => ({ error: null });
+  const signIn = {
+    status: 'complete',
+    password: jest.fn(success),
+    finalize: jest.fn(success),
+    create: jest.fn(success),
+    resetPasswordEmailCode: {
+      sendCode: jest.fn(success),
+      verifyCode: jest.fn(success),
+      submitPassword: jest.fn(success),
+    },
+  };
+  const signUp = {
+    status: 'complete',
+    create: jest.fn(success),
+    finalize: jest.fn(success),
+    verifications: {
+      sendEmailCode: jest.fn(success),
+      verifyEmailCode: jest.fn(success),
+    },
+  };
+  return {
+    ClerkProvider: ({ children }) => React.createElement(React.Fragment, null, children),
+    ClerkLoaded: ({ children }) => React.createElement(React.Fragment, null, children),
+    ClerkLoading: () => null,
+    useAuth: () => ({ getToken: jest.fn(), isLoaded: true, isSignedIn: false }),
+    useClerk: () => ({ signOut: jest.fn(success) }),
+    useSignIn: () => ({ signIn, fetchStatus: 'idle' }),
+    useSignUp: () => ({ signUp, fetchStatus: 'idle' }),
+    useUser: () => ({ user: null }),
+  };
+});

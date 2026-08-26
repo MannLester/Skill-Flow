@@ -164,8 +164,8 @@ describe('identity-aware complexity debt', () => {
 
   it.each(['cts', 'mts'])('uses the repository ESLint config for real .%s diagnostics', (extension) => {
     const result = spawnSync(
-      path.resolve('node_modules/.bin/eslint'),
-      ['--stdin', '--stdin-filename', `src/complexity-probe.${extension}`, '--format', 'json'],
+      process.execPath,
+      [path.resolve('node_modules/eslint/bin/eslint.js'), '--stdin', '--stdin-filename', `src/complexity-probe.${extension}`, '--format', 'json'],
       { cwd: path.resolve('.'), input: complexFunctionSource, encoding: 'utf8' },
     );
     const [lintResult] = JSON.parse(result.stdout);

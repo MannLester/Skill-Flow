@@ -17,9 +17,9 @@ These instructions apply to every agent working in this repository.
 - SkillFlow is an Android-first Expo and React Native academic demonstration.
 - Keep it dependable for demonstrations and preserve deterministic local seed/reset behavior while the approved Convex migration is incomplete.
 - Preserve the Student Designer and Client roles.
-- Convex is the approved application backend. Use the Dockerized self-hosted deployment for local development and Mann's PM-owned Convex Cloud project for production.
-- Clerk is the approved authentication provider, but integration is blocked until Mann supplies the Clerk project configuration. Never invent keys or silently retain fake authentication in a production path.
-- Keep local and production data, URLs, admin keys, and deploy keys strictly separated. Never deploy to production or use a production credential without explicit authorization.
+- Convex is the approved application backend. Use Mann's PM-owned Convex Cloud development deployment for primary development and Expo Go testing, and its separate production deployment only with explicit production authorization. Keep Dockerized self-hosting optional and isolated for automated tests, deterministic seed/reset verification, or offline backend work.
+- Clerk is the approved authentication provider. Mann has supplied the development public configuration; production configuration remains protected and pending. Never invent keys or silently retain fake authentication in a production path.
+- Keep development and production data, URLs, keys, and deployments strictly separated. Never deploy to production or use a production credential without explicit authorization.
 - Never add real payment processing or collect payment credentials. Clearly label simulated balances, payment holds and releases, verification, and deterministic AI feedback as simulations.
 
 ## Evidence-driven improvement loop
@@ -30,7 +30,7 @@ Run the continuous improvement pipeline only when the user explicitly invokes it
 - Use distinct roles: scouts dogfood both roles and file deduplicated evidence; one builder owns each issue lane; a different QA agent reviews the exact head and reruns the full gate plus real UI/screenshots; a release agent opens or updates a high-quality ready PR for humans.
 - Builders cannot QA or release their own work. QA never implements. Release never edits code or merges and must refuse stale/missing evidence, failures, conflicts, protected scope, ambiguous ownership, or human-authored PRs.
 - Treat the thesis and supplied screenshots as product references. Source inspection supports evidence but never replaces human-style interaction with the real app, screenshots, and runtime-error checks.
-- Prioritize the foundational local Dockerized Convex work. Mann owns Convex Cloud and Clerk provisioning. Until Clerk is ready, keep AsyncStorage authoritative for the live UI; backend work may add the approved domain schema, indexes, deterministic lifecycle seeds, and an isolated development-only reset. Scout the UI, but while that backend foundation is in progress implement only Critical or High journey defects.
+- Prioritize the foundational Convex migration against Mann's development deployment. Clerk development configuration is available, but keep AsyncStorage authoritative for each record type until its Convex replacement is implemented and verified. Use isolated Dockerized resources only when an automated test or deterministic reset requires them. Scout the UI, but while that backend foundation is in progress implement only Critical or High journey defects.
 - Allow agents to split an oversized issue into small, verifiable, dependency-linked child issues before building. Use all available safe isolated agent/resource capacity for independent issue lanes, with one issue and worktree each, only when dependencies, files, behavior, schemas/APIs, fixtures, and acceptance criteria do not overlap.
 - Agents continue with independent issues without waiting for merges. After a human merges, refresh `origin/main`; agents may update their own clean, independent queued lanes after base changes, but conflicts or ambiguous rebase decisions return to humans. Any changed head requires fresh QA.
 - Pause a lane only for overlap, dependencies, stale conflicts, failed verification, unsafe resources, or protected PM-owned work.
@@ -91,3 +91,17 @@ that a user can complete a flow. Every user-visible change still requires a
 manual Android emulator/device walkthrough and screenshots of affected
 states when Android is available; use web as additional coverage or a
 disclosed fallback when it is not.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->

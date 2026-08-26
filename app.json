@@ -27,6 +27,8 @@
     },
     "plugins": [
       "expo-router",
+      "@clerk/expo",
+      "expo-secure-store",
       [
         "expo-splash-screen",
         {

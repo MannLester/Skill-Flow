@@ -120,7 +120,7 @@ function requiredLintFiles(projectRoot) {
 async function assertRequiredFilesAreLinted(eslint, projectRoot) {
   const files = requiredLintFiles(projectRoot);
   const ignored = (await Promise.all(files.map(async (file) => (
-    await eslint.isPathIgnored(file) ? path.relative(projectRoot, file) : null
+    await eslint.isPathIgnored(file) ? path.relative(projectRoot, file).split(path.sep).join('/') : null
   )))).filter(Boolean);
   if (ignored.length > 0) {
     throw new Error(`ESLint ignore policy excludes required code: ${ignored.join(', ')}`);

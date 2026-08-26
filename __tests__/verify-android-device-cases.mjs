@@ -81,7 +81,7 @@ test('pins toolchain versions and SHA-qualified evidence names', () => {
   assert.throws(() => runner.assertRuntimeVersions('22.14.0', 'openjdk version "21.0.7"'), /JDK 17/);
   assert.equal(runner.evidencePrefix(sha), 'skillflow-android-aaaaaaaaaaaa-');
   const candidates = runner.sdkToolCandidates('/sdk');
-  assert.equal(candidates.adb, path.join('/sdk', 'platform-tools', 'adb'));
+  assert.equal(candidates.adb, path.join('/sdk', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb'));
   assert.equal(candidates.apkanalyzer.length, 2);
   assert.doesNotThrow(() => runner.assertAndroidAbsent('/repo', { exists: () => false }));
   assert.throws(() => runner.assertAndroidAbsent('/repo', { exists: () => true }), /must be absent/);

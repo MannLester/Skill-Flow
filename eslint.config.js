@@ -17,7 +17,7 @@ module.exports = defineConfig([
     },
   },
   {
-    ignores: ['dist/*', 'references/*', '.agent-worktrees/*', '.expo/*'],
+    ignores: ['dist/*', 'references/*', '.expo/*', '.agent-worktrees/*', '.codex-run/*', '.claude/*', '.agents/*'],
   },
   {
     files: ['**/*.cts', '**/*.mts'],

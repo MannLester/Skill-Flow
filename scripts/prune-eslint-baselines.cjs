@@ -22,9 +22,10 @@ function formatSuppressionIssues(issues) {
 }
 
 function defaultRunEslint(projectRoot, temporarySuppressions) {
-  execFileSync(path.join(projectRoot, 'node_modules', '.bin', 'eslint'), [
-    '.',
+  execFileSync(process.execPath, [
+    path.join(projectRoot, 'node_modules', 'eslint', 'bin', 'eslint.js'), '.',
     '--max-warnings', '0',
+    '--report-unused-disable-directives-severity', 'off',
     '--suppressions-location', temporarySuppressions,
     '--prune-suppressions',
   ], { cwd: projectRoot, stdio: 'inherit' });
