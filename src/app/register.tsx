@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { AppLogo, AppText, FormField, MobilePage, PrimaryButton, RoleSelector } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';

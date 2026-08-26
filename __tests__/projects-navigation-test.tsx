@@ -5,11 +5,13 @@ import ClientHomeScreen from '@/app/client-home';
 import MessagesScreen from '@/app/messages';
 import StudentHomeScreen from '@/app/student-home';
 import { SessionProvider, useSession } from '@/context/session';
+import { PrimaryBottomNav } from '@/navigation/primary-navigation';
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
-  router: { push: (...args: unknown[]) => mockPush(...args), replace: jest.fn(), back: jest.fn() },
+  router: { push: (...args: unknown[]) => mockPush(...args), replace: (...args: unknown[]) => mockReplace(...args), back: jest.fn() },
 }));
 
 function ClientSession({ children }: { children: ReactNode }) {
@@ -31,11 +33,12 @@ describe('projects list navigation', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('opens the shared projects list from the Student Designer bottom navigation', () => {
-    const screen = render(<SessionProvider><StudentHomeScreen /></SessionProvider>);
+    const screen = render(<SessionProvider><PrimaryBottomNav active="home" role="student" /></SessionProvider>);
 
     fireEvent.press(screen.getByRole('button', { name: 'Projects' }));
 
-    expect(mockPush).toHaveBeenCalledWith('/projects');
+    expect(mockReplace).toHaveBeenCalledWith('/projects');
+    expect(mockPush).not.toHaveBeenCalledWith('/projects');
   });
 
   it('opens the shared projects list from the Client bottom navigation', async () => {
@@ -45,10 +48,11 @@ describe('projects list navigation', () => {
     fireEvent.press(screen.getByText('My\nProjects'));
     expect(mockPush).toHaveBeenCalledWith('/projects');
 
-    mockPush.mockClear();
-    fireEvent.press(screen.getByRole('button', { name: 'Projects' }));
+    const nav = render(<SessionProvider><ClientSession><PrimaryBottomNav active="home" role="client" /></ClientSession></SessionProvider>);
+    await waitFor(() => expect(nav.getByRole('button', { name: 'Projects' })).toBeTruthy());
+    fireEvent.press(nav.getByRole('button', { name: 'Projects' }));
 
-    expect(mockPush).toHaveBeenCalledWith('/projects');
+    expect(mockReplace).toHaveBeenCalledWith('/projects');
   });
 
   it('uses canonical list routes for Student Designer navigation', () => {
@@ -60,8 +64,9 @@ describe('projects list navigation', () => {
     fireEvent.press(screen.getAllByText('Messages')[0]);
     expect(mockPush).toHaveBeenLastCalledWith('/messages');
 
-    fireEvent.press(screen.getByRole('button', { name: 'Profile' }));
-    expect(mockPush).toHaveBeenLastCalledWith('/profile');
+    const nav = render(<SessionProvider><PrimaryBottomNav active="home" role="student" /></SessionProvider>);
+    fireEvent.press(nav.getByRole('button', { name: 'Profile' }));
+    expect(mockReplace).toHaveBeenLastCalledWith('/profile');
   });
 
   it('uses canonical list routes for Client navigation', async () => {
@@ -71,8 +76,10 @@ describe('projects list navigation', () => {
     fireEvent.press(screen.getAllByText('Messages')[0]);
     expect(mockPush).toHaveBeenLastCalledWith('/messages');
 
-    fireEvent.press(screen.getByRole('button', { name: 'Profile' }));
-    expect(mockPush).toHaveBeenLastCalledWith('/profile');
+    const nav = render(<SessionProvider><ClientSession><PrimaryBottomNav active="home" role="client" /></ClientSession></SessionProvider>);
+    await waitFor(() => expect(nav.getByRole('button', { name: 'Profile' })).toBeTruthy());
+    fireEvent.press(nav.getByRole('button', { name: 'Profile' }));
+    expect(mockReplace).toHaveBeenLastCalledWith('/profile');
   });
 
   it('keeps message list and dynamic thread destinations distinct', async () => {

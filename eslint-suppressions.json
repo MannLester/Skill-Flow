@@ -1,9 +1,4 @@
 {
-  "src/app/marketplace.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/app/profile/edit.tsx": {
     "complexity": {
       "count": 1

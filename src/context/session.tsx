@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, PropsWithChildren, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, memo, PropsWithChildren, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { Service, services as seededServices } from '@/data/fixtures';
 import { calculateCareerReadiness, CareerReadinessBreakdown } from '@/domain/career-readiness';
@@ -367,6 +368,37 @@ const mentorResponse = (body: string) => {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
+export type NavigationSessionValue = {
+  currentAccount: DemoAccount | null;
+  role: UserRole;
+  messageUnread: boolean;
+};
+
+export const NavigationSessionContext = createContext<NavigationSessionValue | null>(null);
+
+const NavigationSessionProvider = memo(function NavigationSessionProvider({ value, children }: PropsWithChildren<{ value: NavigationSessionValue }>) {
+  return <NavigationSessionContext.Provider value={value}>{children}</NavigationSessionContext.Provider>;
+});
+
+const markNotificationReadState = (current: PersistedDemoState, notificationId: string) => {
+  const notification = current.notifications.find((item) => item.id === notificationId);
+  if (!notification || notification.read) return current;
+  return { ...current, notifications: current.notifications.map((item) => item.id === notificationId ? { ...item, read: true } : item) };
+};
+
+const markProjectMessagesReadState = (current: PersistedDemoState, projectId: string, accountId: string) => {
+  const hasUnreadMessage = current.messages.some((message) => message.projectId === projectId && !message.readBy.includes(accountId));
+  const hasUnreadNotification = current.notifications.some((notification) => notification.userId === accountId && notification.projectId === projectId && notification.kind === 'message' && !notification.read);
+  if (!hasUnreadMessage && !hasUnreadNotification) return current;
+  return {
+    ...current,
+    messages: hasUnreadMessage ? current.messages.map((message) => message.projectId === projectId && !message.readBy.includes(accountId) ? { ...message, readBy: [...message.readBy, accountId] } : message) : current.messages,
+    notifications: hasUnreadNotification ? current.notifications.map((notification) => notification.userId === accountId && notification.projectId === projectId && notification.kind === 'message' && !notification.read ? { ...notification, read: true } : notification) : current.notifications,
+  };
+};
+
+const SESSION_PERSIST_DEBOUNCE_MS = 100;
+
 export function SessionProvider({ children }: PropsWithChildren) {
   const [state, setReactState] = useState<PersistedDemoState>(createSeedState);
   const [hydrated, setHydrated] = useState(false);
@@ -376,6 +408,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     stateRef.current = next;
     setReactState(next);
   }, []);
+  const persistenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPersistenceState = useRef<PersistedDemoState | null>(null);
+  const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
+  const resetSnapshot = useRef<PersistedDemoState | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -392,9 +428,49 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return () => { active = false; };
   }, [setState]);
 
+  const queueSerializedState = useCallback((serialized: string) => {
+    const queued = persistenceQueue.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, serialized))
+      .catch(() => undefined);
+    persistenceQueue.current = queued;
+    return queued;
+  }, []);
+
+  const flushPendingPersistence = useCallback(() => {
+    if (persistenceTimer.current) clearTimeout(persistenceTimer.current);
+    persistenceTimer.current = null;
+    const next = pendingPersistenceState.current;
+    pendingPersistenceState.current = null;
+    return next ? queueSerializedState(JSON.stringify(next)) : persistenceQueue.current;
+  }, [queueSerializedState]);
+
+  const scheduleStatePersistence = useCallback((snapshot: PersistedDemoState) => {
+    pendingPersistenceState.current = snapshot;
+    if (persistenceTimer.current) clearTimeout(persistenceTimer.current);
+    persistenceTimer.current = setTimeout(() => {
+      void flushPendingPersistence();
+    }, SESSION_PERSIST_DEBOUNCE_MS);
+  }, [flushPendingPersistence]);
+
   useEffect(() => {
-    if (hydrated) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => undefined);
-  }, [hydrated, state]);
+    if (!hydrated) return;
+    if (resetSnapshot.current === state) {
+      resetSnapshot.current = null;
+      return;
+    }
+    scheduleStatePersistence(state);
+  }, [hydrated, scheduleStatePersistence, state]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') void flushPendingPersistence();
+    });
+    return () => {
+      subscription.remove();
+      void flushPendingPersistence();
+    };
+  }, [flushPendingPersistence]);
 
   const currentAccount = state.accounts.find((account) => account.id === state.currentAccountId) ?? null;
   const role = currentAccount?.role ?? 'student';
@@ -643,15 +719,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return { ok: true };
   }, [currentAccount, setState, state.bookings]);
 
-  const markNotificationRead = useCallback((notificationId: string) => setState((current) => ({ ...current, notifications: current.notifications.map((item) => item.id === notificationId ? { ...item, read: true } : item) })), [setState]);
+  const markNotificationRead = useCallback((notificationId: string) => setState((current) => markNotificationReadState(current, notificationId)), [setState]);
+  const currentAccountId = currentAccount?.id;
   const markProjectMessagesRead = useCallback((projectId: string) => {
-    if (!currentAccount) return;
-    setState((current) => ({
-      ...current,
-      messages: current.messages.map((message) => message.projectId === projectId && !message.readBy.includes(currentAccount.id) ? { ...message, readBy: [...message.readBy, currentAccount.id] } : message),
-      notifications: current.notifications.map((notification) => notification.userId === currentAccount.id && notification.projectId === projectId && notification.kind === 'message' ? { ...notification, read: true } : notification),
-    }));
-  }, [currentAccount, setState]);
+    if (currentAccountId) setState((current) => markProjectMessagesReadState(current, projectId, currentAccountId));
+  }, [currentAccountId, setState]);
   const sendMentorMessage = useCallback((body: string): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'The AI Project Mentor is available to Student Designers.' };
     const trimmed = body.trim();
@@ -672,7 +744,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return { ok: true };
   }, [currentAccount, setState]);
   const toggleSavedService = useCallback((serviceId: string) => setState((current) => ({ ...current, savedServiceIds: current.savedServiceIds.includes(serviceId) ? current.savedServiceIds.filter((id) => id !== serviceId) : [...current.savedServiceIds, serviceId] })), [setState]);
-  const resetDemoData = useCallback(async () => { const seed = createSeedState(); setState(seed); await Promise.all([AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seed)), AsyncStorage.removeItem(LEGACY_STORAGE_KEY)]); }, [setState]);
+  const resetDemoData = useCallback(async () => {
+    const seed = createSeedState();
+    if (persistenceTimer.current) clearTimeout(persistenceTimer.current);
+    persistenceTimer.current = null;
+    pendingPersistenceState.current = null;
+    resetSnapshot.current = seed;
+    setState(seed);
+    await new Promise<void>((resolve) => {
+      setTimeout(() => {
+        queueSerializedState(JSON.stringify(seed)).then(resolve);
+      }, 0);
+    });
+    await AsyncStorage.removeItem(LEGACY_STORAGE_KEY).catch(() => undefined);
+  }, [queueSerializedState, setState]);
 
   const unreadCount = currentAccount && state.preferences.notificationsEnabled ? state.notifications.filter((item) => item.userId === currentAccount.id && !item.read).length : 0;
   const getCareerReadiness = useCallback((studentId: string) => calculateCareerReadiness(studentId, state), [state]);
@@ -687,11 +772,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
     saveService, setServiceStatus, saveProjectPost, setProjectPostStatus, submitProposal, withdrawProposal, decideProposal, toggleSavedService, sendMentorMessage, clearMentorConversation, updatePreferences, changePassword, resetDemoData,
   }), [actOnProject, addCertification, addCompletedProjectToPortfolio, addPortfolioItem, changePassword, clearMentorConversation, createBooking, currentAccount, decideProposal, getCareerReadiness, hydrated, login, loginAsRole, logout, markNotificationRead, markProjectMessagesRead, registerAccount, resetDemoData, role, saveProjectPost, saveService, sendMentorMessage, sendMessage, setProjectPostStatus, setServiceStatus, simulateVerificationReview, state, submitProposal, submitVerification, toggleSavedService, unreadCount, updatePreferences, updateProfile, withdrawProposal]);
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  const messageUnread = Boolean(currentAccount && state.messages.some((message) => message.senderId !== currentAccount.id && !message.readBy.includes(currentAccount.id)));
+  const navigationValue = useMemo<NavigationSessionValue>(() => ({ currentAccount, role, messageUnread }), [currentAccount, messageUnread, role]);
+
+  return <SessionContext.Provider value={value}><NavigationSessionProvider value={navigationValue}>{children}</NavigationSessionProvider></SessionContext.Provider>;
 }
 
 export function useSession() {
   const value = useContext(SessionContext);
   if (!value) throw new Error('useSession must be used inside SessionProvider');
+  return value;
+}
+
+export function useNavigationSession() {
+  const value = useContext(NavigationSessionContext);
+  if (!value) throw new Error('useNavigationSession must be used inside SessionProvider');
   return value;
 }

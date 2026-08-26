@@ -1,15 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { AppHeader, AppText, MobilePage, PrimaryButton, ReferenceCrop } from '@/components/ui';
+import { OptimizedArtwork, optimizedArtwork, ServiceArtwork as ServiceThumbnail } from '@/components/optimized-artwork';
+import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
 import { useSession } from '@/context/session';
 
-const serviceReference = require('../../../../references/service_details_and_project_booking_page.jpg');
-const marketReference = require('../../../../references/student_marketplace_page.jpg');
 
 export default function ServiceDetailsScreen() {
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
@@ -56,8 +55,8 @@ export default function ServiceDetailsScreen() {
 }
 
 function ServiceArtwork({ service }: { service: Service }) {
-  if (service.id === 'logo') return <ReferenceCrop source={serviceReference} sourceSize={{ width: 1920, height: 1080 }} crop={{ x: 459, y: 129, width: 468, height: 294 }} style={styles.hero} />;
-  return <View style={styles.altHero}><ReferenceCrop source={marketReference} sourceSize={{ width: 1920, height: 1080 }} crop={service.crop} style={styles.altArtwork} /></View>;
+  if (service.id === 'logo') return <OptimizedArtwork source={optimizedArtwork.serviceHero} style={styles.hero} />;
+  return <View style={styles.altHero}><ServiceThumbnail serviceId={service.id} style={styles.altArtwork} /></View>;
 }
 
 function Feature({ icon, title, detail }: { icon: 'alarm-outline' | 'refresh-outline'; title: string; detail: string }) {
@@ -65,6 +64,6 @@ function Feature({ icon, title, detail }: { icon: 'alarm-outline' | 'refresh-out
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 12 }, scroll: { paddingBottom: 28 }, hero: { width: '100%' }, altHero: { height: 260, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }, altArtwork: { width: 190, borderRadius: 18 }, content: { padding: contentPadding }, titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, title: { fontSize: 25, flex: 1 }, price: { fontSize: 24 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 12 }, scroll: { paddingBottom: 28 }, hero: { width: '100%', aspectRatio: 468 / 294 }, altHero: { height: 260, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }, altArtwork: { width: 190, aspectRatio: 90 / 91, borderRadius: 18 }, content: { padding: contentPadding }, titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, title: { fontSize: 25, flex: 1 }, price: { fontSize: 24 },
   providerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 24 }, avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }, provider: { fontSize: 16 }, role: { color: colors.muted, fontSize: 13, marginTop: 2 }, description: { fontSize: 15, lineHeight: 25, marginTop: 25 }, divider: { height: 1, backgroundColor: colors.border, marginVertical: 23 }, features: { flexDirection: 'row', justifyContent: 'space-between' }, feature: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '46%' }, button: { marginTop: 38 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center', gap: 20 },
 });

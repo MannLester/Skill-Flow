@@ -1,13 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ComponentProps, ReactNode, useState } from 'react';
 import {
-  Image, ImageSourcePropType, ImageStyle, LayoutChangeEvent, Pressable, StyleProp, StyleSheet,
+  Pressable, StyleProp, StyleSheet,
   Text, TextInput, TextInputProps, View, ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { UserRole } from '@/context/session';
 import { colors, font, MAX_PHONE_WIDTH, shadow } from '@/constants/theme';
+import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -150,37 +151,10 @@ export function QuickAction({ icon, label, onPress }: { icon: IconName; label: s
   );
 }
 
-export function ReferenceCrop({ source, sourceSize, crop, style, imageStyle }: {
-  source: ImageSourcePropType;
-  sourceSize: { width: number; height: number };
-  crop: { x: number; y: number; width: number; height: number };
-  style?: StyleProp<ViewStyle>;
-  imageStyle?: StyleProp<ImageStyle>;
-}) {
-  const [width, setWidth] = useState(0);
-  const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
-  const scale = width ? width / crop.width : 1;
-  return (
-    <View onLayout={onLayout} style={[{ aspectRatio: crop.width / crop.height, overflow: 'hidden' }, style]}>
-      {width ? (
-        <Image source={source} resizeMode="stretch" style={[{
-          position: 'absolute', width: sourceSize.width * scale, height: sourceSize.height * scale,
-          left: -crop.x * scale, top: -crop.y * scale,
-        }, imageStyle]} />
-      ) : null}
-    </View>
-  );
-}
-
 export function AppLogo({ compact = false }: { compact?: boolean }) {
   return (
     <View style={[styles.logoRow, compact && { gap: 8 }]}> 
-      <ReferenceCrop
-        source={require('../../references/login_page.jpg')}
-        sourceSize={{ width: 270, height: 515 }}
-        crop={{ x: 112, y: 79, width: 47, height: 47 }}
-        style={{ width: compact ? 43 : 57, borderRadius: 9 }}
-      />
+      <OptimizedArtwork source={optimizedArtwork.loginLogo} style={{ width: compact ? 43 : 57, aspectRatio: 1, borderRadius: 9 }} />
       <View>
         <AppText weight="bold" style={{ fontSize: compact ? 20 : 27 }}>Skill Flow</AppText>
         {!compact ? <AppText style={{ fontSize: 8, color: colors.muted }}>Showcase Your Skills, Connect with Clients.</AppText> : null}
