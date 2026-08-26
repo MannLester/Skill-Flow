@@ -71,7 +71,27 @@ function StudentEarnings({ earnings }: { earnings: number }) {
 
 function StudentReadiness({ readiness }: { readiness: CareerReadinessBreakdown | null }) {
   if (!readiness) return null;
-  return <Pressable onPress={() => router.push('/career-readiness')} style={styles.readinessCard}><View style={styles.readinessCircle}><AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText><AppText style={styles.readinessMax}>/100</AppText></View><View style={{ flex: 1 }}><AppText weight="semibold" style={styles.readinessTitle}>Career Readiness</AppText><AppText style={styles.readinessDetail}>{readiness.level} · See what to improve next</AppText></View><Ionicons name="chevron-forward" size={22} color={colors.burgundy} /></Pressable>;
+  const detail = `${readiness.level} · See what to improve next`;
+  return (
+    <Pressable
+      testID="career-readiness-card"
+      accessibilityRole="button"
+      accessibilityLabel={`Career Readiness. ${detail}. ${readiness.score} out of 100.`}
+      accessibilityHint="Opens the career readiness breakdown"
+      onPress={() => router.push('/career-readiness')}
+      style={styles.readinessCard}
+    >
+      <View testID="career-readiness-copy" style={styles.readinessCopy}>
+        <AppText weight="semibold" style={styles.readinessTitle}>Career Readiness</AppText>
+        <AppText style={styles.readinessDetail}>{detail}</AppText>
+      </View>
+      <View testID="career-readiness-score" style={styles.readinessScore}>
+        <AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText>
+        <AppText style={styles.readinessMax}>/100</AppText>
+      </View>
+      <Ionicons name="chevron-forward" size={22} color={colors.burgundy} />
+    </Pressable>
+  );
 }
 
 function RecentProjectCard({ booking }: { booking?: ProjectBooking }) {
@@ -115,7 +135,7 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 30 }, hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 82 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ef8585', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
   greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 }, greeting: { color: colors.white, fontSize: 31 }, heroSubtitle: { color: colors.white, fontSize: 17, lineHeight: 25, marginTop: 5 }, avatar: { width: 112, borderRadius: 60 },
-  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20, minHeight: 170, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCircle: { width: 57, height: 57, borderRadius: 29, borderWidth: 4, borderColor: colors.red, alignItems: 'center', justifyContent: 'center' }, readinessValue: { color: colors.red, fontSize: 19, lineHeight: 21 }, readinessMax: { color: colors.burgundy, fontSize: 7 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55 }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, padding: 20, minHeight: 170, ...shadow }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
   spark: { width: 120, height: 70, position: 'relative' }, line: { position: 'absolute', height: 2, backgroundColor: colors.burgundy, borderRadius: 2 }, sparkDot: { position: 'absolute', right: 3, top: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.red },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 29, marginBottom: 16 }, quickRow: { flexDirection: 'row', gap: 4 },
   projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
