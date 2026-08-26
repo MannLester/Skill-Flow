@@ -116,23 +116,20 @@ describe('Book Service web accessibility', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('handles separated keyboard events without swallowing the next pointer Close', () => {
+  it('closes on an outside pointer action or Escape without a redundant Close row', () => {
     let trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     act(() => trigger.click());
-    dispatchSeparatedKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), 'Enter');
+    expect(container.textContent).not.toContain('Close');
 
-    trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(trigger);
-
-    act(() => trigger.click());
-    dispatchPointerClick(getAccessibleElement(container, 'button', 'Close Delivery Time options'));
+    const description = container.querySelector<HTMLTextAreaElement>('textarea');
+    if (!description) throw new Error('Missing project description input');
+    act(() => description.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })));
 
     trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
 
     act(() => trigger.click());
-    dispatchSeparatedKeyboard(getAccessibleElement(container, 'button', 'Close Delivery Time options'), ' ');
+    dispatchSeparatedKeyboard(getAccessibleElement(container, 'radio', '5 Days'), 'Escape');
 
     trigger = getAccessibleElement(container, 'button', 'Delivery Time: 3 Days');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');

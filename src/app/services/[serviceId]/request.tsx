@@ -54,7 +54,7 @@ export default function BookServiceScreen() {
       <StatusBar style="light" />
       <AppHeader title="Book Service" onBack={() => router.back()} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 28 }]}>
+        <ScrollView testID="booking-scroll" onPointerDown={() => setOpenSelector(null)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 28 }]}>
           <View style={styles.summary}>
             <ReferenceCrop source={marketReference} sourceSize={{ width: 1920, height: 1080 }} crop={service.crop} style={styles.thumb} />
             <View><AppText weight="semibold" style={styles.title}>{service.title}</AppText><AppText style={styles.byline}>by {service.provider}</AppText><AppText weight="bold" style={styles.price}>{formatPeso(service.price)}</AppText></View>
@@ -120,19 +120,19 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
     onToggle();
   };
   const handleOptionKeyDown = (event: KeyboardActivationEvent, option: SelectorOption) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSelector(true);
+      return;
+    }
     if (!activationKeys.has(event.key)) return;
     event.preventDefault();
     pendingFocus.current = true;
     onSelect(option.value);
   };
-  const handleCloseKeyDown = (event: KeyboardActivationEvent) => {
-    if (!activationKeys.has(event.key)) return;
-    event.preventDefault();
-    closeSelector(true);
-  };
 
   return (
-    <View style={styles.selectorGroup}>
+    <View onPointerDown={(event) => event.stopPropagation()} style={styles.selectorGroup}>
       <Pressable
         ref={triggerRef}
         testID={testID}
@@ -168,15 +168,6 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
               </Pressable>
             );
           })}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Close ${label} options`}
-            {...(Platform.OS === 'web' ? { onKeyDown: handleCloseKeyDown } satisfies KeyboardPressableProps : {})}
-            onPress={() => closeSelector(false)}
-            style={styles.closeOptions}
-          >
-            <AppText weight="medium" style={styles.closeOptionsText}>Close</AppText>
-          </Pressable>
         </View>
       ) : null}
     </View>
@@ -185,5 +176,5 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
 
 const styles = StyleSheet.create({
   scroll: { padding: contentPadding }, summary: { flexDirection: 'row', alignItems: 'center', gap: 17, marginBottom: 22 }, thumb: { width: 112, borderRadius: 12 }, title: { fontSize: 21 }, byline: { color: colors.muted, fontSize: 14, marginTop: 3 }, price: { fontSize: 21, marginTop: 7 }, label: { fontSize: 17, marginTop: 19, marginBottom: 10 },
-  textArea: { minHeight: 160, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14 }, multiline: { flex: 1, textAlignVertical: 'top', fontFamily: font.regular, color: colors.ink, fontSize: 14 }, counter: { alignSelf: 'flex-end', color: colors.muted, fontSize: 12 }, selectorGroup: { gap: 8 }, select: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, selectOpen: { borderColor: colors.red, backgroundColor: colors.blush }, optionList: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, padding: 6, gap: 4, backgroundColor: colors.white }, option: { minHeight: 48, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, optionSelected: { backgroundColor: colors.blush }, closeOptions: { minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 12 }, closeOptionsText: { color: colors.burgundy, fontSize: 13 }, demoNote: { color: colors.muted, fontSize: 11, marginTop: 14 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center' },
+  textArea: { minHeight: 160, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14 }, multiline: { flex: 1, textAlignVertical: 'top', fontFamily: font.regular, color: colors.ink, fontSize: 14 }, counter: { alignSelf: 'flex-end', color: colors.muted, fontSize: 12 }, selectorGroup: { gap: 8 }, select: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, selectOpen: { borderColor: colors.red, backgroundColor: colors.blush }, optionList: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, padding: 6, gap: 4, backgroundColor: colors.white }, option: { minHeight: 48, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, optionSelected: { backgroundColor: colors.blush }, demoNote: { color: colors.muted, fontSize: 11, marginTop: 14 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center' },
 });
