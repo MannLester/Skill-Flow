@@ -5,7 +5,7 @@ const { startPreview } = require('./preview-static-web.cjs');
 
 function request(address, requestPath) {
   return new Promise((resolve, reject) => {
-    const outgoing = http.get({ host: '127.0.0.1', path: requestPath, port: address.port }, (response) => {
+    const outgoing = http.get({ headers: { Connection: 'close' }, host: '127.0.0.1', path: requestPath, port: address.port }, (response) => {
       response.resume();
       response.once('end', () => resolve({ contentType: response.headers['content-type'] ?? '', status: response.statusCode }));
     });

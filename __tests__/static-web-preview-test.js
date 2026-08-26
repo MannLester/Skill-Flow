@@ -46,7 +46,7 @@ function makeExport(extraFiles = {}) {
 
 function request(address, requestPath, method = 'GET') {
   return new Promise((resolve, reject) => {
-    const requestOptions = { host: '127.0.0.1', method, path: requestPath, port: address.port };
+    const requestOptions = { headers: { Connection: 'close' }, host: '127.0.0.1', method, path: requestPath, port: address.port };
     const outgoing = http.request(requestOptions, (response) => {
       const chunks = [];
       response.on('data', (chunk) => chunks.push(chunk));
@@ -195,11 +195,16 @@ describe('static preview HTTP server', () => {
 
   it('supports HEAD and rejects unsupported methods', async () => {
     preview = await startPreview({ host: '127.0.0.1', port: 0, root: makeExport() });
+    const get = await request(preview.address, '/messages');
     const head = await request(preview.address, '/messages', 'HEAD');
     const post = await request(preview.address, '/messages', 'POST');
     expect(head.status).toBe(200);
     expect(head.body).toHaveLength(0);
     expect(head.headers['content-type']).toContain('text/html');
+    expect(head.headers['content-length']).toBe(get.headers['content-length']);
+    expect(head.headers['cache-control']).toBe(get.headers['cache-control']);
+    expect(head.headers['x-content-type-options']).toBe(get.headers['x-content-type-options']);
+    expect(head.headers['transfer-encoding']).toBe(get.headers['transfer-encoding']);
     expect(post.status).toBe(405);
     expect(post.headers.allow).toBe('GET, HEAD');
   });

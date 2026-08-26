@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const { Buffer } = require('node:buffer');
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4173;
@@ -213,8 +214,13 @@ function responseHeaders(result) {
   };
 }
 
+function contentLength(manifest, result) {
+  if (result.kind === 'text') return Buffer.byteLength(result.text);
+  return fs.statSync(path.join(manifest.rootReal, result.fileName)).size;
+}
+
 function sendResult(request, response, manifest, result) {
-  const headers = responseHeaders(result);
+  const headers = { ...responseHeaders(result), 'Content-Length': String(contentLength(manifest, result)) };
   if (request.method === 'HEAD') {
     response.writeHead(result.status, headers);
     response.end();
