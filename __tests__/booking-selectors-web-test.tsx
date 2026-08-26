@@ -157,4 +157,27 @@ describe('Book Service web accessibility', () => {
 
     expect(mockCreateBooking).toHaveBeenCalledWith(expect.objectContaining({ deliveryDays: 5, budget: 2000, description: 'A complete coffee shop logo request.' }));
   });
+
+  it('shows visible inline guidance for an empty request and recovers after editing', () => {
+    act(() => getButtonByText(container, 'Send Request').click());
+
+    const error = container.querySelector<HTMLElement>('[role="alert"]');
+    if (!error) throw new Error('Missing project details error');
+    expect(error.textContent).toBe('Enter at least 10 characters describing your project.');
+    expect(error.getAttribute('aria-live')).toBe('polite');
+    expect(mockCreateBooking).not.toHaveBeenCalled();
+
+    const description = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Project details"]');
+    if (!description) throw new Error('Missing project description input');
+    const setNativeValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    if (!setNativeValue) throw new Error('Missing textarea value setter');
+    act(() => {
+      setNativeValue.call(description, 'A complete coffee shop logo request.');
+      description.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    act(() => getButtonByText(container, 'Send Request').click());
+    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
+  });
 });

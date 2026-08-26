@@ -88,8 +88,10 @@ describe('Book Service selectors', () => {
 
     fireEvent.press(screen.getByText('Send Request'));
     expect(screen.getByTestId('booking-probe').props.children).toBe('null');
+    expect(screen.getByText('Enter at least 10 characters describing your project.').props.accessibilityRole).toBe('alert');
 
     fireEvent.changeText(screen.getByPlaceholderText('Describe your project…'), 'Create a complete coffee shop logo.');
+    expect(screen.queryByText('Enter at least 10 characters describing your project.')).toBeNull();
     fireEvent.press(screen.getByTestId('delivery-selector'));
     fireEvent.press(screen.getByTestId('delivery-selector-option-5'));
     fireEvent.press(screen.getByTestId('budget-selector'));

@@ -25,6 +25,7 @@ export default function BookServiceScreen() {
   const { createBooking, currentAccount, services } = useSession();
   const service = services.find((item) => item.id === serviceId);
   const [description, setDescription] = useState('');
+  const [descriptionError, setDescriptionError] = useState<string>();
   const [deliveryDays, setDeliveryDays] = useState(service?.deliveryDays ?? 3);
   const [budget, setBudget] = useState(service?.price ?? 1500);
   const [openSelector, setOpenSelector] = useState<SelectorKey | null>(null);
@@ -42,9 +43,10 @@ export default function BookServiceScreen() {
       return;
     }
     if (description.trim().length < 10) {
-      Alert.alert('Add project details', 'Please enter at least 10 characters so the student understands the request.');
+      setDescriptionError('Enter at least 10 characters describing your project.');
       return;
     }
+    setDescriptionError(undefined);
     const booking = createBooking({ serviceId: service.id, studentId: service.providerId, title: service.title, description: description.trim(), deliveryDays, budget });
     router.replace({ pathname: '/projects/[projectId]', params: { projectId: booking.id } });
   };
@@ -60,7 +62,8 @@ export default function BookServiceScreen() {
             <View><AppText weight="semibold" style={styles.title}>{service.title}</AppText><AppText style={styles.byline}>by {service.provider}</AppText><AppText weight="bold" style={styles.price}>{formatPeso(service.price)}</AppText></View>
           </View>
           <AppText weight="semibold" style={styles.label}>Project Details</AppText>
-          <View style={styles.textArea}><TextInput value={description} onChangeText={setDescription} placeholder="Describe your project…" placeholderTextColor={colors.muted} multiline maxLength={500} style={styles.multiline} /><AppText style={styles.counter}>{description.length}/500</AppText></View>
+          <View style={[styles.textArea, descriptionError && styles.textAreaError]}><TextInput value={description} onChangeText={(next) => { setDescription(next); setDescriptionError(undefined); }} placeholder="Describe your project…" placeholderTextColor={colors.muted} multiline maxLength={500} accessibilityLabel="Project details" accessibilityHint={descriptionError ?? 'Describe the work you want the Student Designer to complete.'} style={styles.multiline} /><AppText style={styles.counter}>{description.length}/500</AppText></View>
+          {descriptionError ? <AppText accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.fieldError}>{descriptionError}</AppText> : null}
           <AppText weight="semibold" style={styles.label}>Delivery Time</AppText>
           <SelectRow
             testID="delivery-selector"
@@ -176,5 +179,5 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
 
 const styles = StyleSheet.create({
   scroll: { padding: contentPadding }, summary: { flexDirection: 'row', alignItems: 'center', gap: 17, marginBottom: 22 }, thumb: { width: 112, borderRadius: 12 }, title: { fontSize: 21 }, byline: { color: colors.muted, fontSize: 14, marginTop: 3 }, price: { fontSize: 21, marginTop: 7 }, label: { fontSize: 17, marginTop: 19, marginBottom: 10 },
-  textArea: { minHeight: 160, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14 }, multiline: { flex: 1, textAlignVertical: 'top', fontFamily: font.regular, color: colors.ink, fontSize: 14 }, counter: { alignSelf: 'flex-end', color: colors.muted, fontSize: 12 }, selectorGroup: { gap: 8 }, select: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, selectOpen: { borderColor: colors.red, backgroundColor: colors.blush }, optionList: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, padding: 6, gap: 4, backgroundColor: colors.white }, option: { minHeight: 48, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, optionSelected: { backgroundColor: colors.blush }, demoNote: { color: colors.muted, fontSize: 11, marginTop: 14 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center' },
+  textArea: { minHeight: 160, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14 }, textAreaError: { borderColor: colors.red, backgroundColor: colors.blush }, multiline: { flex: 1, textAlignVertical: 'top', fontFamily: font.regular, color: colors.ink, fontSize: 14 }, counter: { alignSelf: 'flex-end', color: colors.muted, fontSize: 12 }, fieldError: { color: colors.red, fontSize: 11, lineHeight: 17, marginTop: 6 }, selectorGroup: { gap: 8 }, select: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, selectOpen: { borderColor: colors.red, backgroundColor: colors.blush }, optionList: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, padding: 6, gap: 4, backgroundColor: colors.white }, option: { minHeight: 48, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, optionSelected: { backgroundColor: colors.blush }, demoNote: { color: colors.muted, fontSize: 11, marginTop: 14 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center' },
 });
