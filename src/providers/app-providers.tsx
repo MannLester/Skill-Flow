@@ -32,7 +32,7 @@ function ConfiguredProviders({ children, configuration }: PropsWithChildren<{ co
       <ClerkLoading><LoadingState message="Restoring your secure session…" /></ClerkLoading>
       <ClerkLoaded>
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          <AuthProfileGate>{children}</AuthProfileGate>
+          <SessionProvider><AuthProfileGate>{children}</AuthProfileGate></SessionProvider>
         </ConvexProviderWithClerk>
       </ClerkLoaded>
     </ClerkProvider>
@@ -54,7 +54,7 @@ function AuthProfileGate({ children }: PropsWithChildren) {
   if (isLoading || (isAuthenticated && profile === undefined)) return <LoadingState message="Connecting securely to SkillFlow…" />;
   if (isAuthenticated && profile === null) return <ProfileOnboarding />;
   if (!isAuthenticated) return children;
-  return <SessionProvider><AuthenticatedNavigationShell>{children}</AuthenticatedNavigationShell></SessionProvider>;
+  return <AuthenticatedNavigationShell>{children}</AuthenticatedNavigationShell>;
 }
 
 function AuthenticatedNavigationShell({ children }: PropsWithChildren) {

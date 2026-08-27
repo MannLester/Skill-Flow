@@ -1,5 +1,5 @@
 import { useClerk } from '@clerk/expo';
-import { useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { createContext, PropsWithChildren, useCallback, useContext, useMemo } from 'react';
 
 import { api } from '../../convex/_generated/api';
@@ -51,7 +51,8 @@ const iso = (value?: number) => value ? new Date(value).toISOString() : undefine
 const errorResult = (error: unknown): { ok: false; message: string } => ({ ok: false, message: error instanceof Error ? error.message : 'The request could not be completed.' });
 
 export function SessionProvider({ children }: PropsWithChildren) {
-  const snapshot = useQuery(api.snapshot.get);
+  const { isAuthenticated } = useConvexAuth();
+  const snapshot = useQuery(api.snapshot.get, isAuthenticated ? {} : 'skip');
   const { signOut } = useClerk();
   const updateProfileMutation = useMutation(api.profiles.update);
   const saveServiceMutation = useMutation(api.services.save);
