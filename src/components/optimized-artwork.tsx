@@ -10,6 +10,8 @@ const serviceSources = {
 export const optimizedArtwork = {
   clientAvatar: require('../../assets/images/optimized/client-avatar.jpg'),
   loginLogo: require('../../assets/images/optimized/login-logo.jpg'),
+  whiteLogo: require('../../assets/images/optimized/white logo.png'),
+  redLogo: require('../../assets/images/optimized/red logo.png'),
   mentorRobot: require('../../assets/images/optimized/mentor-robot.jpg'),
   serviceHero: require('../../assets/images/optimized/service-hero.jpg'),
   studentAvatar: require('../../assets/images/optimized/student-avatar.jpg'),

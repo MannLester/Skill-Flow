@@ -135,12 +135,13 @@ export function QuickAction({ icon, label, onPress }: { icon: IconName; label: s
 }
 
 export function AppLogo({ compact = false }: { compact?: boolean }) {
+  const logoSize = compact ? 43 : 110;
   return (
-    <View style={[styles.logoRow, compact && { gap: 8 }]}> 
-      <OptimizedArtwork source={optimizedArtwork.loginLogo} style={{ width: compact ? 43 : 57, aspectRatio: 1, borderRadius: 9 }} />
-      <View>
-        <AppText weight="bold" style={{ fontSize: compact ? 20 : 27 }}>Skill Flow</AppText>
-        {!compact ? <AppText style={{ fontSize: 8, color: colors.muted }}>Showcase Your Skills, Connect with Clients.</AppText> : null}
+    <View style={[compact ? styles.logoRow : styles.logoStack, compact && { gap: 4 }]}>
+      <OptimizedArtwork source={optimizedArtwork.redLogo} style={{ width: logoSize, height: logoSize, borderRadius: compact ? 10 : 14 }} />
+      <View style={{ alignItems: 'center' }}>
+        <AppText weight="bold" style={{ fontSize: compact ? 20 : 32, color: colors.ink }}>Skill Flow</AppText>
+        {!compact ? <AppText weight="medium" style={{ fontSize: 11, color: colors.muted }}>Showcase Your Skills, Connect with Clients.</AppText> : null}
       </View>
     </View>
   );
@@ -169,4 +170,5 @@ const styles = StyleSheet.create({
   quickIcon: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   quickLabel: { fontSize: 11, textAlign: 'center', marginTop: 7, lineHeight: 15 },
   logoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  logoStack: { alignItems: 'center', gap: 10 },
 });
