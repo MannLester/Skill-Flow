@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 're
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, MobilePage } from '@/components/ui';
+import { AppText, HeroDecor, MobilePage } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { UserRole } from '@/context/session';
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
@@ -19,7 +19,7 @@ export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role
         <StatusBar style="light" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={{ minHeight: screenHeight }}>
-            <View testID="dashboard-hero" style={[styles.hero, { paddingTop: insets.top + 28 }]}>{hero}</View>
+            <View testID="dashboard-hero" style={[styles.hero, { paddingTop: insets.top + 28 }]}><HeroDecor />{hero}</View>
             <View style={styles.heroExtension} />
             <DashboardFeatured onPress={featuredOnPress} style={roleStyle.featured}>{featured}</DashboardFeatured>
             <View testID="dashboard-body" style={styles.body}>{body}</View>
@@ -57,7 +57,7 @@ function DashboardFeatured({ children, onPress, style }: { children: ReactNode; 
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1 },
-  hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87 },
+  hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87, overflow: 'hidden' },
   heroExtension: { backgroundColor: colors.red, height: 97 },
   topRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   bellWrap: { position: 'relative' },
