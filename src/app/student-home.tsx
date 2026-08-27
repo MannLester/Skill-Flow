@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
-import { AppText, MobilePage, QuickAction } from '@/components/ui';
+import { AppText, HeroDecor, MobilePage, QuickAction } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { ProjectBooking, ProjectPost, useSession } from '@/context/session';
 import { CareerReadinessBreakdown } from '@/domain/career-readiness';
@@ -54,6 +54,7 @@ function StudentHero({ insetsTop, unreadCount, activeCount }: { insetsTop: numbe
     ? `You have ${activeCount} active project${activeCount === 1 ? '' : 's'} in progress.`
     : 'Explore new project opportunities today.';
   return <View style={[styles.hero, { paddingTop: insetsTop + 28 }]}>
+    <HeroDecor />
     <View style={styles.topRow}>
       <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={styles.bellWrap}><Ionicons name="notifications-outline" size={29} color={colors.white} />{unreadCount ? <View style={styles.badge}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}</Pressable>
     </View>
@@ -143,7 +144,7 @@ function Sparkline() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: 30 },   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87 },
+  scroll: { paddingBottom: 30 },   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87, overflow: 'hidden' },
   topRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }, bellWrap: { position: 'relative' }, badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ef8585', alignItems: 'center', justifyContent: 'center' }, badgeText: { color: colors.white, fontSize: 10 },
   greetingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24 }, greeting: { color: colors.white, fontSize: 28 }, heroSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 15, lineHeight: 22, marginTop: 5 }, avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', elevation: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -164, borderTopLeftRadius: 42, borderTopRightRadius: 42, paddingTop: 112, overflow: 'hidden' }, earningsCard: { borderRadius: 18, backgroundColor: colors.white, paddingTop: 14, paddingBottom: 18, paddingHorizontal: 20, minHeight: 140, marginTop: -100, marginHorizontal: 24, zIndex: 1, transform: [{ translateY: -68 }], ...shadow }, cardTitle: { fontSize: 20, marginBottom: 8 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 28 }, pesoSign: { fontSize: 26 }, muted: { color: colors.muted, fontSize: 13, marginTop: 2 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },

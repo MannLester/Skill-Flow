@@ -4,6 +4,7 @@ import {
   Pressable, StyleProp, StyleSheet,
   Text, TextInput, TextInputProps, View, ViewStyle,
 } from 'react-native';
+import { Svg, Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { UserRole } from '@/context/session';
@@ -21,6 +22,15 @@ export function MobilePage({ children, backgroundColor = colors.white }: { child
     <View style={[styles.outer, { backgroundColor }]}> 
       <View style={styles.phone}>{children}</View>
     </View>
+  );
+}
+
+export function HeroDecor() {
+  return (
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+      <Circle cx="85%" cy="18%" r={130} fill="rgba(255,255,255,0.07)" />
+      <Circle cx="10%" cy="85%" r={70} fill="rgba(255,255,255,0.05)" />
+    </Svg>
   );
 }
 
