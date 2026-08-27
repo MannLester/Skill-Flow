@@ -19,11 +19,6 @@
       "count": 1
     }
   },
-  "src/components/ui.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/context/session.tsx": {
     "complexity": {
       "count": 6

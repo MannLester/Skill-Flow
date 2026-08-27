@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
+import ClientHomeScreen from '@/app/client-home';
 import StudentHomeScreen from '@/app/student-home';
 
 const mockPush = jest.fn();
@@ -33,5 +34,29 @@ describe('Student Home Career Readiness card', () => {
     fireEvent.press(card);
     expect(mockPush).toHaveBeenCalledTimes(1);
     expect(mockPush).toHaveBeenCalledWith('/career-readiness');
+  });
+});
+
+describe('dashboard home shell geometry', () => {
+  it('preserves each role geometry', () => {
+    const student = render(<StudentHomeScreen />);
+    const studentHero = StyleSheet.flatten(student.getByTestId('dashboard-hero').props.style);
+    const studentFeatured = StyleSheet.flatten(student.getByTestId('dashboard-featured').props.style);
+    const studentBody = StyleSheet.flatten(student.getByTestId('dashboard-body').props.style);
+    student.unmount();
+
+    const client = render(<ClientHomeScreen />);
+    const clientHero = StyleSheet.flatten(client.getByTestId('dashboard-hero').props.style);
+    const clientFeatured = StyleSheet.flatten(client.getByTestId('dashboard-featured').props.style);
+    const clientBody = StyleSheet.flatten(client.getByTestId('dashboard-body').props.style);
+
+    expect(studentHero).toEqual(clientHero);
+    expect(studentHero).toMatchObject({ paddingBottom: 87 });
+    expect(studentFeatured).toMatchObject({ marginTop: -100, minHeight: 140, paddingTop: 14, paddingBottom: 18 });
+    expect(clientFeatured).toMatchObject({ marginTop: -100, minHeight: 140, paddingTop: 14, paddingBottom: 18 });
+    expect(studentFeatured).toMatchObject({ borderRadius: 18 });
+    expect(clientFeatured).toMatchObject({ borderRadius: 17 });
+    expect(studentBody).toMatchObject({ flex: 1, marginTop: -164, paddingTop: 112 });
+    expect(clientBody).toMatchObject({ flex: 1, marginTop: -164, paddingTop: 112 });
   });
 });
