@@ -43,7 +43,7 @@ describe('projects list navigation', () => {
 
   it('opens the shared projects list from the Client bottom navigation', async () => {
     const screen = render(<SessionProvider><ClientSession><ClientHomeScreen /></ClientSession></SessionProvider>);
-    await waitFor(() => expect(screen.getByText('Hi, Mark! 👋')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Hi, Mark!')).toBeTruthy());
 
     fireEvent.press(screen.getByText('My\nProjects'));
     expect(mockPush).toHaveBeenCalledWith('/projects');
@@ -71,7 +71,7 @@ describe('projects list navigation', () => {
 
   it('uses canonical list routes for Client navigation', async () => {
     const screen = render(<SessionProvider><ClientSession><ClientHomeScreen /></ClientSession></SessionProvider>);
-    await waitFor(() => expect(screen.getByText('Hi, Mark! 👋')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Hi, Mark!')).toBeTruthy());
 
     fireEvent.press(screen.getAllByText('Messages')[0]);
     expect(mockPush).toHaveBeenLastCalledWith('/messages');

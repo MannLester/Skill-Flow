@@ -11,6 +11,9 @@ import { colors, font, MAX_PHONE_WIDTH, shadow } from '@/constants/theme';
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
+type BottomNavActive = 'home' | 'projects' | 'portfolio' | 'messages' | 'saved' | 'profile' | 'none';
+type BottomNavVariant = 'student' | 'client' | 'marketplace' | 'compact';
+type BottomNavEntry = { key: BottomNavActive; label: string; icon: IconName; action?: () => void; dot?: boolean };
 
 export function AppText({ children, weight = 'regular', style, ...props }: ComponentProps<typeof Text> & { weight?: keyof typeof font }) {
   return <Text maxFontSizeMultiplier={1.5} {...props} style={[{ color: colors.ink, fontFamily: font[weight] }, style]}>{children}</Text>;
@@ -86,11 +89,11 @@ function RoleButton({ label, icon, active, onPress }: { label: string; icon: Ico
 }
 
 export function BottomNav({ active, onHome, onProjects, onPortfolio, onMessages, onCreate, onSaved, onProfile, messageUnread = false, variant = 'student' }: {
-  active: 'home' | 'projects' | 'portfolio' | 'messages' | 'saved' | 'profile' | 'none';
-  onHome: () => void; onProjects?: () => void; onPortfolio?: () => void; onMessages?: () => void; onCreate?: () => void; onSaved?: () => void; onProfile?: () => void; messageUnread?: boolean; variant?: 'student' | 'client' | 'marketplace' | 'compact';
+  active: BottomNavActive;
+  onHome: () => void; onProjects?: () => void; onPortfolio?: () => void; onMessages?: () => void; onCreate?: () => void; onSaved?: () => void; onProfile?: () => void; messageUnread?: boolean; variant?: BottomNavVariant;
 }) {
   const insets = useSafeAreaInsets();
-  const items: { key: typeof active; label: string; icon: IconName; action?: () => void; dot?: boolean }[] = variant === 'client'
+  const items: BottomNavEntry[] = variant === 'client'
     ? [
         { key: 'home', label: 'Home', icon: 'home', action: onHome },
         { key: 'projects', label: 'Projects', icon: 'briefcase', action: onProjects },
@@ -115,30 +118,31 @@ export function BottomNav({ active, onHome, onProjects, onPortfolio, onMessages,
 
   return (
     <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8), height: 76 + Math.max(insets.bottom, 8) }]}> 
-      {items.map((item, index) => {
-        const selected = item.key === active;
-        const plus = variant === 'marketplace' && item.key === 'none';
-        return (
-          <Pressable
-            key={`${item.key}-${index}`}
-            accessibilityRole="button"
-            accessibilityLabel={plus ? 'Create' : item.label}
-            accessibilityState={{ disabled: !item.action, selected }}
-            disabled={!item.action}
-            onPress={item.action}
-            style={styles.navItem}
-          >
-            <View style={styles.navIconWrap}>
-              <View style={plus ? styles.plusButton : undefined}>
-                <Ionicons name={item.icon} size={plus ? 32 : 27} color={plus ? colors.white : selected ? colors.red : '#555'} />
-              </View>
-              {item.dot ? <View style={styles.messageDot} /> : null}
-            </View>
-            {!plus ? <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText> : null}
-          </Pressable>
-        );
-      })}
+      {items.map((item, index) => <BottomNavItem key={`${item.key}-${index}`} active={active} item={item} plus={variant === 'marketplace' && item.key === 'none'} />)}
     </View>
+  );
+}
+
+function BottomNavItem({ active, item, plus }: { active: BottomNavActive; item: BottomNavEntry; plus: boolean }) {
+  const selected = item.key === active;
+  const iconColor = plus ? colors.white : selected ? colors.red : '#555';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={plus ? 'Create' : item.label}
+      accessibilityState={{ disabled: !item.action, selected }}
+      disabled={!item.action}
+      onPress={item.action}
+      style={styles.navItem}
+    >
+      <View style={styles.navIconWrap}>
+        <View style={plus ? styles.plusButton : undefined}>
+          <Ionicons name={item.icon} size={plus ? 32 : 27} color={iconColor} />
+        </View>
+        {item.dot ? <View style={styles.messageDot} /> : null}
+      </View>
+      {!plus ? <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText> : null}
+    </Pressable>
   );
 }
 

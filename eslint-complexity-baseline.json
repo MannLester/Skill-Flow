@@ -38,17 +38,8 @@
       "sourceHash": "5e2e47adeea748ae0361bb12c97a12f27ff024bc78750c6c6a6b116bfb6e408f"
     },
     {
-      "file": "src/components/ui.tsx",
-      "line": 118,
-      "column": 32,
-      "nodeType": "ArrowFunctionExpression",
-      "name": "BottomNav",
-      "complexity": 11,
-      "sourceHash": "b9c4e0dc3e7a79289e35e6607ed18b6501b8f2cb7ccd4fb7dd70553b0af21db2"
-    },
-    {
       "file": "src/context/session.tsx",
-      "line": 619,
+      "line": 663,
       "column": 128,
       "nodeType": "ArrowFunctionExpression",
       "name": "actOnProject",
@@ -57,7 +48,7 @@
     },
     {
       "file": "src/context/session.tsx",
-      "line": 288,
+      "line": 289,
       "column": 66,
       "nodeType": "ArrowFunctionExpression",
       "name": "migrateState",
@@ -66,7 +57,7 @@
     },
     {
       "file": "src/context/session.tsx",
-      "line": 530,
+      "line": 588,
       "column": 126,
       "nodeType": "ArrowFunctionExpression",
       "name": "saveProjectPost",
@@ -75,7 +66,7 @@
     },
     {
       "file": "src/context/session.tsx",
-      "line": 509,
+      "line": 567,
       "column": 110,
       "nodeType": "ArrowFunctionExpression",
       "name": "saveService",
@@ -84,7 +75,7 @@
     },
     {
       "file": "src/context/session.tsx",
-      "line": 473,
+      "line": 531,
       "column": 109,
       "nodeType": "ArrowFunctionExpression",
       "name": "simulateVerificationReview",
@@ -93,7 +84,7 @@
     },
     {
       "file": "src/context/session.tsx",
-      "line": 561,
+      "line": 619,
       "column": 97,
       "nodeType": "ArrowFunctionExpression",
       "name": "submitProposal",
