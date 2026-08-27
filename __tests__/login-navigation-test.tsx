@@ -18,7 +18,7 @@ describe('login navigation', () => {
     const screen = render(<SafeAreaProvider><SessionProvider><LoginScreen /></SessionProvider></SafeAreaProvider>);
     fireEvent.changeText(screen.getByPlaceholderText('Email'), 'client@example.test');
     fireEvent.changeText(screen.getByPlaceholderText('Password'), 'password123');
-    fireEvent.press(screen.getByText('Log In'));
+    fireEvent.press(screen.getByRole('button', { name: 'Log In' }));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
@@ -45,5 +45,11 @@ describe('login navigation', () => {
     const screen = render(<SafeAreaProvider><SessionProvider><LoginScreen /></SessionProvider></SafeAreaProvider>);
     fireEvent.press(screen.getByText('Forgot Password?'));
     expect(mockPush).toHaveBeenCalledWith('/forgot-password');
+  });
+
+  it('starts Google OAuth sign-in and lets the auth gate choose the route', async () => {
+    const screen = render(<SafeAreaProvider><SessionProvider><LoginScreen /></SessionProvider></SafeAreaProvider>);
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 });

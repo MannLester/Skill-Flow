@@ -49,4 +49,18 @@ describe('registration', () => {
     fireEvent.press(screen.getByText('Privacy Policy'));
     expect(mockPush).toHaveBeenCalledWith('/privacy-policy');
   });
+
+  it('requires accepted terms before OAuth registration', () => {
+    const screen = render(<SafeAreaProvider><SessionProvider><RegisterScreen /></SessionProvider></SafeAreaProvider>);
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Facebook' }));
+    expect(screen.getByText('Accept the Terms and Privacy Policy to continue.')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('starts Facebook OAuth registration after terms are accepted', async () => {
+    const screen = render(<SafeAreaProvider><SessionProvider><RegisterScreen /></SessionProvider></SafeAreaProvider>);
+    fireEvent.press(screen.getByLabelText('Accept Terms and Privacy Policy'));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Facebook' }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  });
 });

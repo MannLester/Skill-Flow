@@ -9,6 +9,10 @@ jest.mock('@react-native-async-storage/async-storage', () => {
   return storage;
 });
 
+jest.mock('expo-web-browser', () => ({
+  maybeCompleteAuthSession: jest.fn(),
+}));
+
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');
   const { Text } = require('react-native');
@@ -30,6 +34,8 @@ jest.mock('@expo/vector-icons/Ionicons', () => {
 jest.mock('@clerk/expo', () => {
   const React = require('react');
   const success = async () => ({ error: null });
+  const setActive = jest.fn(success);
+  const startOAuthFlow = jest.fn(async () => ({ createdSessionId: 'sess_mock', setActive }));
   const signIn = {
     status: 'complete',
     password: jest.fn(success),
@@ -56,6 +62,7 @@ jest.mock('@clerk/expo', () => {
     ClerkLoading: () => null,
     useAuth: () => ({ getToken: jest.fn(), isLoaded: true, isSignedIn: false }),
     useClerk: () => ({ signOut: jest.fn(success) }),
+    useOAuth: () => ({ startOAuthFlow }),
     useSignIn: () => ({ signIn, fetchStatus: 'idle' }),
     useSignUp: () => ({ signUp, fetchStatus: 'idle' }),
     useUser: () => ({ user: null }),
