@@ -48,7 +48,13 @@ function StudentEarnings({ earnings }: { earnings: number }) {
   return <View style={styles.earningsCardContent}>
     <AppText weight="semibold" style={styles.cardTitle}>Earnings Overview</AppText>
     <View style={styles.earningsRow}>
-      <View><View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}><AppText weight="bold" style={styles.pesoSign}>₱</AppText><AppText weight="bold" style={styles.earnings}>{earnings.toLocaleString('en-PH')}</AppText></View><View style={{ flexDirection: 'row', gap: 8 }}><AppText style={styles.muted}>Simulated Earnings</AppText>{earnings ? <AppText weight="medium" style={styles.growth}>Released</AppText> : null}</View></View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+          <AppText weight="bold" style={styles.pesoSign}>₱</AppText>
+          <AppText weight="bold" style={styles.earnings}>{earnings.toLocaleString('en-PH')}</AppText>
+        </View>
+        <AppText style={styles.muted}>Simulated Earnings</AppText>
+      </View>
       <Sparkline />
     </View>
   </View>;
@@ -117,7 +123,7 @@ function Sparkline() {
 }
 
 const styles = StyleSheet.create({
-  earningsCardContent: { flex: 1 }, cardTitle: { fontSize: 20 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 30 }, pesoSign: { fontSize: 28 }, muted: { color: colors.muted, fontSize: 13 }, growth: { color: colors.green, fontSize: 13 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
+  earningsCardContent: { flex: 1 }, cardTitle: { fontSize: 20, marginBottom: 8 }, earningsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }, earnings: { fontSize: 28 }, pesoSign: { fontSize: 26 }, muted: { color: colors.muted, fontSize: 13, marginTop: 2 }, readinessCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 15, borderRadius: 14, padding: 13, backgroundColor: colors.blush }, readinessCopy: { flex: 1, flexShrink: 1, minWidth: 0 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', flexShrink: 0 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 29, marginBottom: 16 }, quickRow: { flexDirection: 'row', gap: 4 },
   projectCard: { backgroundColor: colors.white, borderRadius: 14, minHeight: 128, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14, ...shadow }, projectImage: { width: 92, aspectRatio: 122 / 117, borderRadius: 11 }, projectTitle: { fontSize: 16, lineHeight: 21 }, projectPrice: { marginTop: 10, fontSize: 15 }, statusPill: { backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }, statusText: { color: colors.burgundy, fontSize: 11 },
   recommendCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 14, backgroundColor: colors.white, padding: 12, ...shadow }, recommendImage: { width: 72, height: 62, borderRadius: 10, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },

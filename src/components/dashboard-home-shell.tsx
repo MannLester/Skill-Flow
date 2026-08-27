@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,15 +11,19 @@ import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role }: { body: ReactNode; featured: ReactNode; featuredOnPress?: () => void; hero: ReactNode; role: UserRole }) {
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
   const roleStyle = roleStyles[role];
   return (
     <PrimaryTabScene active="home">
-      <MobilePage backgroundColor={colors.red}>
+      <MobilePage>
         <StatusBar style="light" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          <View testID="dashboard-hero" style={[styles.hero, { paddingTop: insets.top + 28 }]}>{hero}</View>
-          <DashboardFeatured onPress={featuredOnPress} style={roleStyle.featured}>{featured}</DashboardFeatured>
-          <View testID="dashboard-body" style={[styles.body, roleStyle.body]}>{body}</View>
+          <View style={{ minHeight: screenHeight }}>
+            <View testID="dashboard-hero" style={[styles.hero, { paddingTop: insets.top + 28 }]}>{hero}</View>
+            <View style={styles.heroExtension} />
+            <DashboardFeatured onPress={featuredOnPress} style={roleStyle.featured}>{featured}</DashboardFeatured>
+            <View testID="dashboard-body" style={styles.body}>{body}</View>
+          </View>
         </ScrollView>
       </MobilePage>
     </PrimaryTabScene>
@@ -52,8 +56,9 @@ function DashboardFeatured({ children, onPress, style }: { children: ReactNode; 
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: 30 },
+  scroll: { flexGrow: 1 },
   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87 },
+  heroExtension: { backgroundColor: colors.red, height: 97 },
   topRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   bellWrap: { position: 'relative' },
   badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -64,17 +69,15 @@ const styles = StyleSheet.create({
   heroSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 15, lineHeight: 22 },
   studentSubtitle: { marginTop: 5 },
   avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', elevation: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  featured: { minHeight: 150, backgroundColor: colors.white, padding: 20, marginTop: -42, marginHorizontal: 24, zIndex: 1, ...shadow },
-  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -55, borderTopLeftRadius: 42, borderTopRightRadius: 42, overflow: 'hidden' },
+  featured: { minHeight: 140, backgroundColor: colors.white, paddingTop: 14, paddingBottom: 18, paddingHorizontal: 20, marginTop: -100, marginHorizontal: 24, zIndex: 1, transform: [{ translateY: -68 }], ...shadow },
+  body: { flex: 1, backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -164, borderTopLeftRadius: 42, borderTopRightRadius: 42, paddingTop: 112, overflow: 'hidden' },
   clientFeatured: { borderRadius: 17 },
-  clientBody: { paddingTop: 52 },
   studentFeatured: { borderRadius: 18 },
-  studentBody: { paddingTop: 58 },
 });
 
 const roleStyles = {
-  client: { featured: styles.clientFeatured, body: styles.clientBody },
-  student: { featured: styles.studentFeatured, body: styles.studentBody },
+  client: { featured: styles.clientFeatured },
+  student: { featured: styles.studentFeatured },
 };
 
 const heroVariants = {

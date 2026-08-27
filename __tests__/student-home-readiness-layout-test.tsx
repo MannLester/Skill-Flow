@@ -52,11 +52,11 @@ describe('dashboard home shell geometry', () => {
 
     expect(studentHero).toEqual(clientHero);
     expect(studentHero).toMatchObject({ paddingBottom: 87 });
-    expect(studentFeatured).toMatchObject({ marginTop: -42, minHeight: 150 });
-    expect(clientFeatured).toMatchObject({ marginTop: -42, minHeight: 150 });
+    expect(studentFeatured).toMatchObject({ marginTop: -100, minHeight: 140, paddingTop: 14, paddingBottom: 18 });
+    expect(clientFeatured).toMatchObject({ marginTop: -100, minHeight: 140, paddingTop: 14, paddingBottom: 18 });
     expect(studentFeatured).toMatchObject({ borderRadius: 18 });
     expect(clientFeatured).toMatchObject({ borderRadius: 17 });
-    expect(studentBody).toMatchObject({ marginTop: -55, paddingTop: 58 });
-    expect(clientBody).toMatchObject({ marginTop: -55, paddingTop: 52 });
+    expect(studentBody).toMatchObject({ flex: 1, marginTop: -164, paddingTop: 112 });
+    expect(clientBody).toMatchObject({ flex: 1, marginTop: -164, paddingTop: 112 });
   });
 });
