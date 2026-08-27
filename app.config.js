@@ -2,6 +2,7 @@ const { runtimeConfigurationExtra } = require('./scripts/runtime-public-environm
 
 module.exports = ({ config }) => ({
   ...config,
+  plugins: [...(config.plugins ?? []), 'expo-web-browser'],
   extra: {
     ...config.extra,
     ...runtimeConfigurationExtra(process.env),
