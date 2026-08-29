@@ -14,11 +14,11 @@ export default function TermsScreen() {
         <AppText weight="bold" style={styles.title}>SkillFlow Demonstration Terms</AppText>
         <AppText style={styles.updated}>Academic demonstration copy</AppText>
         <Section title="Purpose">SkillFlow is a functional academic demonstration for connecting student designers and clients. It is not a production marketplace.</Section>
-        <Section title="Demo accounts and data">Information entered in the application is stored locally on the device. Users should use sample information and must not enter sensitive personal, school, payment, or banking data.</Section>
+        <Section title="Demo accounts and cloud data">Authenticated application records are stored in Convex Cloud. Clerk processes registration, authentication, email verification, OAuth when chosen, session data, and password-recovery email delivery. Use sample information; do not enter real student IDs, financial credentials, confidential project files, private client information, or other sensitive personal or school data.</Section>
         <Section title="Projects and payments">Projects, balances, payment holds, releases, ratings, verification, and notifications are simulations. No real contract, payment, escrow, or transfer is created.</Section>
-        <Section title="AI Mentor">Mentor responses are deterministic simulated guidance generated locally. They are not professional, academic, or employment advice.</Section>
+        <Section title="AI Mentor">Mentor responses are deterministic simulated guidance, not responses from an external AI service. Mentor conversation history is stored in Convex Cloud. The guidance is not professional, academic, or employment advice.</Section>
         <Section title="Appropriate use">Do not upload unlawful, confidential, harmful, or copyrighted material that you do not have permission to use.</Section>
-        <Section title="Reset">The Reset Demo Data action removes locally created demonstration records and restores the seeded application state.</Section>
+        <Section title="Deletion and reset">Settings does not provide a general account-data deletion or demo-reset action. Cloud-development seed resets are operator-only and limited to the designated demonstration seed namespace.</Section>
       </ScrollView>
     </MobilePage>
   );
