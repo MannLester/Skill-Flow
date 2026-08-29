@@ -126,6 +126,7 @@ export type UserProfile = {
 export type StudentVerification = {
   studentId: string;
   status: VerificationStatus;
+  isSimulated?: true;
   school: string;
   studentNumberMasked: string;
   program: string;
