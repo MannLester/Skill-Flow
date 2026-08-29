@@ -6,6 +6,14 @@ import { assertPositive, assertText, requireProfile, requireRole } from "./lib/a
 import { notifyBooking, notifyPost } from "./lib/events";
 import { postStatus } from "./schema";
 
+type ProjectPostStatus = Doc<"projectPosts">["status"];
+
+function assertPostStatusTransition(current: ProjectPostStatus, next: ProjectPostStatus) {
+  if (current === "archived" && next !== "archived") {
+    throw new Error("Archived projects cannot change status.");
+  }
+}
+
 export const savePost = mutation({
   args: { projectPostId: v.optional(v.id("projectPosts")), title: v.string(), description: v.string(), category: v.string(), budget: v.number(), deadline: v.string(), skills: v.array(v.string()), publish: v.boolean() },
   returns: v.id("projectPosts"),
@@ -37,8 +45,8 @@ export const setPostStatus = mutation({
     const client = await requireRole(ctx, "client");
     const post = await ctx.db.get(args.projectPostId);
     if (!post || post.clientProfileId !== client._id) throw new Error("You can only update your own project posts.");
+    assertPostStatusTransition(post.status, args.status);
     if (post.acceptedProposalId && args.status !== "archived") throw new Error("A project with an accepted proposal must remain closed.");
-    if (post.status === "archived" && args.status === "open") throw new Error("Archived projects cannot be reopened.");
     const now = Date.now();
     await ctx.db.patch(post._id, { status: args.status, updatedAt: now, openedAt: args.status === "open" ? now : post.openedAt, archivedAt: args.status === "archived" ? now : post.archivedAt });
     return null;
