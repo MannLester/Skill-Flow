@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { useRef } from 'react';
+import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { SessionProvider, useNavigationSession, useSession } from '@/context/session';
@@ -18,12 +18,13 @@ function NavigationHarness() {
   </View>;
 }
 
+const navigationRenderSpy = jest.fn();
+const markerRenderSpy = jest.fn();
+
 function NavigationProbe() {
-  const renders = useRef(0);
-  renders.current += 1;
+  useEffect(() => { navigationRenderSpy(); });
   const { currentAccount, messageUnread, role } = useNavigationSession();
   return <View>
-    <Text testID="navigation-render-count">{String(renders.current)}</Text>
     <Text testID="probe-account">{currentAccount?.id ?? 'none'}</Text>
     <Text testID="probe-role">{role}</Text>
     <Text testID="probe-unread">{String(messageUnread)}</Text>
@@ -39,8 +40,7 @@ function PreferenceHarness() {
 }
 
 function MarkerHarness() {
-  const renderCount = useRef(0);
-  renderCount.current += 1;
+  useEffect(() => { markerRenderSpy(); });
   const { bookings, createBooking, hydrated, loginAsRole, markNotificationRead, markProjectMessagesRead, notifications, sendMessage } = useSession();
   const navigation = useNavigationSession();
   const booking = bookings[0];
@@ -48,7 +48,6 @@ function MarkerHarness() {
   return <View>
     <Text testID="hydrated">{String(hydrated)}</Text>
     <Text testID="navigation-unread">{String(navigation.messageUnread)}</Text>
-    <Text testID="render-count">{String(renderCount.current)}</Text>
     <Text testID="booking-id">{booking?.id ?? 'none'}</Text>
     <Text testID="message-notification-id">{messageNotification?.id ?? 'none'}</Text>
     <Pressable testID="marker-use-client" onPress={() => loginAsRole('client')}><Text>Use client</Text></Pressable>
@@ -108,11 +107,11 @@ describe('session performance boundaries', () => {
   it('does not re-render navigation consumers for unrelated session updates', async () => {
     const screen = render(<SessionProvider><><PreferenceHarness /><NavigationProbe /></></SessionProvider>);
     await settleHydration(screen);
-    const before = Number(screen.getByTestId('navigation-render-count').props.children);
+    const before = navigationRenderSpy.mock.calls.length;
 
     fireEvent.press(screen.getByTestId('toggle-preference'));
 
-    expect(Number(screen.getByTestId('navigation-render-count').props.children)).toBe(before);
+    expect(navigationRenderSpy).toHaveBeenCalledTimes(before);
   });
 
   it('returns the same state for repeated notification and project-message read marks', async () => {
@@ -126,19 +125,19 @@ describe('session performance boundaries', () => {
     expect(screen.getByTestId('message-notification-id')).not.toHaveTextContent('none');
     expect(screen.getByTestId('navigation-unread')).toHaveTextContent('true');
 
-    const beforeNotificationMark = Number(screen.getByTestId('render-count').props.children);
+    const beforeNotificationMark = markerRenderSpy.mock.calls.length;
     fireEvent.press(screen.getByTestId('mark-notification'));
-    const afterNotificationMark = Number(screen.getByTestId('render-count').props.children);
+    const afterNotificationMark = markerRenderSpy.mock.calls.length;
     expect(afterNotificationMark).toBeGreaterThan(beforeNotificationMark);
     fireEvent.press(screen.getByTestId('mark-notification'));
-    expect(Number(screen.getByTestId('render-count').props.children)).toBe(afterNotificationMark);
+    expect(markerRenderSpy).toHaveBeenCalledTimes(afterNotificationMark);
 
-    const beforeProjectMark = Number(screen.getByTestId('render-count').props.children);
+    const beforeProjectMark = markerRenderSpy.mock.calls.length;
     fireEvent.press(screen.getByTestId('mark-project-messages'));
-    const afterProjectMark = Number(screen.getByTestId('render-count').props.children);
+    const afterProjectMark = markerRenderSpy.mock.calls.length;
     expect(afterProjectMark).toBeGreaterThan(beforeProjectMark);
     expect(screen.getByTestId('navigation-unread')).toHaveTextContent('false');
     fireEvent.press(screen.getByTestId('mark-project-messages'));
-    expect(Number(screen.getByTestId('render-count').props.children)).toBe(afterProjectMark);
+    expect(markerRenderSpy).toHaveBeenCalledTimes(afterProjectMark);
   });
 });

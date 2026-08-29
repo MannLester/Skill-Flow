@@ -85,7 +85,7 @@ function useProjectPostValues(existing?: ProjectPost) {
 }
 
 function ProjectPostFields({ form, save, archive, showArchive }: { form: ReturnType<typeof useProjectPostValues>; save: (publish: boolean) => void | Promise<void>; archive: () => void | Promise<void>; showArchive: boolean }) {
-  const { values, errors, setters } = form;
+  const { values, errors, errorSummaryRef, setters } = form;
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
     <View style={styles.note}><AppText weight="semibold" style={styles.noteTitle}>Client project brief</AppText><AppText style={styles.noteText}>Publishing opens this brief for authenticated Student Designers. Payment remains simulated.</AppText></View>
     <ProjectFormField form={form} field="title" label="Project Title" icon="briefcase-outline" value={values.title} setter={setters.setTitle} placeholder="Project title" accessibilityLabel="Project title" hint="Required. Enter a project title." />
@@ -94,7 +94,7 @@ function ProjectPostFields({ form, save, archive, showArchive }: { form: ReturnT
     <ProjectFormField form={form} field="budget" label="Budget" icon="cash-outline" value={values.budget} setter={setters.setBudget} placeholder="Budget" accessibilityLabel="Project budget" hint="Required. Enter a budget greater than zero." keyboardType="number-pad" />
     <ProjectFormField form={form} field="deadline" label="Deadline (YYYY-MM-DD)" icon="calendar-outline" value={values.deadline} setter={setters.setDeadline} placeholder="2026-09-30" accessibilityLabel="Project deadline" hint="Required. Enter a deadline in YYYY-MM-DD format." />
     <ProjectFormField form={form} field="skills" label="Required Skills (comma separated)" icon="sparkles-outline" value={values.skills} setter={setters.setSkills} placeholder="UI/UX, Prototyping" accessibilityLabel="Required skills" hint="Required. Add at least one skill." />
-    <ProjectPostErrorSummary ref={form.errorSummaryRef} errors={errors} />
+    <ProjectPostErrorSummary ref={errorSummaryRef} errors={errors} />
     <PrimaryButton title="Publish Project" onPress={() => save(true)} style={{ marginTop: 24 }} />
     <Pressable accessibilityRole="button" onPress={() => save(false)} style={styles.secondary}><AppText weight="semibold" style={{ color: colors.burgundy }}>Save Draft</AppText></Pressable>
     {showArchive ? <Pressable accessibilityRole="button" onPress={archive} style={styles.archive}><AppText weight="semibold" style={{ color: colors.red }}>Archive Project</AppText></Pressable> : null}

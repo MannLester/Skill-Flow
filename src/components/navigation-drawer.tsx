@@ -61,7 +61,7 @@ export function NavigationDrawer({ visible, role, onClose }: { visible: boolean;
 
 const styles = StyleSheet.create({
   modal: { flex: 1, flexDirection: 'row' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.42)' },
   drawer: { height: '100%', backgroundColor: colors.white, paddingHorizontal: 20, shadowColor: '#000', shadowOpacity: 0.24, shadowRadius: 18, elevation: 18 },
   heading: { minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border },
   brand: { color: colors.red, fontSize: 24 }, role: { color: colors.muted, fontSize: 11, marginTop: 2 },
