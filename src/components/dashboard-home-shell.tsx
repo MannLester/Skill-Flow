@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 're
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 import { AppText, HeroDecor, MobilePage } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import type { UserRole } from '@/context/session.remote';
@@ -30,7 +31,7 @@ export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role
   );
 }
 
-export function DashboardHomeHero({ accountName, activeCount, onNotifications, onOpenMenu, role, unreadCount }: { accountName?: string; activeCount: number; onNotifications: () => void; onOpenMenu?: () => void; role: UserRole; unreadCount: number }) {
+export function DashboardHomeHero({ accountName, activeCount, onNotifications, role, unreadCount }: { accountName?: string; activeCount: number; onNotifications: () => void; role: UserRole; unreadCount: number }) {
   const variant = heroVariants[role];
   const firstName = accountName?.split(' ')[0] ?? variant.fallbackName;
   const subtitle = activeCount > 0
@@ -38,7 +39,10 @@ export function DashboardHomeHero({ accountName, activeCount, onNotifications, o
     : variant.emptySubtitle;
   return <>
     <View style={styles.topRow}>
-      {onOpenMenu ? <Pressable accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={onOpenMenu} hitSlop={12}><Ionicons name="menu" size={31} color={colors.white} /></Pressable> : null}
+      <View style={styles.logoRow}>
+        <OptimizedArtwork source={optimizedArtwork.whiteLogo} style={styles.logo} />
+        <AppText weight="bold" style={styles.logoText}>SkillFlow</AppText>
+      </View>
       <Pressable accessibilityLabel="Open notifications" onPress={onNotifications} style={styles.bellWrap}>
         <Ionicons name="notifications-outline" size={variant.notificationIconSize} color={colors.white} />
         {unreadCount ? <View style={[styles.badge, { backgroundColor: variant.badgeColor }]}><AppText weight="semibold" style={styles.badgeText}>{unreadCount}</AppText></View> : null}
@@ -62,6 +66,9 @@ const styles = StyleSheet.create({
   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87, overflow: 'hidden' },
   heroExtension: { backgroundColor: colors.red, height: 97 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  logo: { width: 36, height: 36, resizeMode: 'contain' },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  logoText: { color: colors.white, fontSize: 17 },
   bellWrap: { position: 'relative' },
   badge: { position: 'absolute', right: -6, top: -6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: colors.white, fontSize: 10 },

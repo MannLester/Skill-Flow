@@ -1,10 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DashboardHomeHero, DashboardHomeShell } from '@/components/dashboard-home-shell';
-import { NavigationDrawer } from '@/components/navigation-drawer';
 import { AppText, QuickAction } from '@/components/ui';
 import { colors, shadow } from '@/constants/theme';
 import { ProjectBooking, useSession } from '@/context/session.remote';
@@ -13,14 +11,13 @@ import { countActiveProjects } from '@/domain/project-status';
 
 export default function ClientHomeScreen() {
   const { bookings, currentAccount, projectPosts, unreadCount } = useSession();
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const myBookings = currentAccount ? bookings.filter((booking) => booking.clientId === currentAccount.id) : [];
   const activeCount = countActiveProjects(myBookings);
   const myPosts = currentAccount ? projectPosts.filter((post) => post.clientId === currentAccount.id) : [];
   return <>
     <DashboardHomeShell
       role="client"
-      hero={<DashboardHomeHero role="client" accountName={currentAccount?.name} activeCount={activeCount} unreadCount={unreadCount} onOpenMenu={() => setDrawerOpen(true)} onNotifications={() => router.push('/notifications')} />}
+      hero={<DashboardHomeHero role="client" accountName={currentAccount?.name} activeCount={activeCount} unreadCount={unreadCount} onNotifications={() => router.push('/notifications')} />}
       featured={
         <View style={styles.activeCard}>
           <View style={styles.activeCardBody}>
@@ -50,7 +47,6 @@ export default function ClientHomeScreen() {
         </>
       }
     />
-    <NavigationDrawer visible={drawerOpen} role="client" onClose={() => setDrawerOpen(false)} />
   </>;
 }
 

@@ -1,11 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Svg, Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { DashboardHomeHero, DashboardHomeShell } from '@/components/dashboard-home-shell';
-import { NavigationDrawer } from '@/components/navigation-drawer';
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 import { AppText, QuickAction } from '@/components/ui';
 import { colors, shadow } from '@/constants/theme';
@@ -16,7 +14,6 @@ import { countActiveProjects } from '@/domain/project-status';
 
 export default function StudentHomeScreen() {
   const { bookings, getCareerReadiness, ledger, currentAccount, projectPosts, unreadCount } = useSession();
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const myBookings = currentAccount ? bookings.filter((booking) => booking.studentId === currentAccount.id) : [];
   const latestBooking = myBookings[0];
   const earnings = currentAccount ? ledger.filter((entry) => entry.userId === currentAccount.id && entry.type === 'release').reduce((total, entry) => total + entry.amount, 0) : 0;
@@ -25,7 +22,7 @@ export default function StudentHomeScreen() {
   return <>
     <DashboardHomeShell
       role="student"
-      hero={<DashboardHomeHero role="student" accountName={currentAccount?.name} activeCount={activeCount} unreadCount={unreadCount} onOpenMenu={() => setDrawerOpen(true)} onNotifications={() => router.push('/notifications')} />}
+      hero={<DashboardHomeHero role="student" accountName={currentAccount?.name} activeCount={activeCount} unreadCount={unreadCount} onNotifications={() => router.push('/notifications')} />}
       featured={<StudentEarnings earnings={earnings} />}
       body={
         <>
@@ -44,7 +41,6 @@ export default function StudentHomeScreen() {
         </>
       }
     />
-    <NavigationDrawer visible={drawerOpen} role="student" onClose={() => setDrawerOpen(false)} />
   </>;
 }
 
@@ -84,7 +80,7 @@ function StudentReadiness({ readiness }: { readiness: CareerReadinessBreakdown |
         <AppText weight="bold" style={styles.readinessValue}>{readiness.score}</AppText>
         <AppText style={styles.readinessMax}>/100</AppText>
       </View>
-      <Ionicons name="chevron-forward" size={22} color={colors.burgundy} />
+      <Ionicons name="chevron-forward" size={22} color={colors.burgundy} style={{ flexShrink: 0 }} />
     </Pressable>
   );
 }
