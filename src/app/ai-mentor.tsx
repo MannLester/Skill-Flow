@@ -25,7 +25,7 @@ const MentorMessageRow = memo(function MentorMessageRow({ item }: { item: Mentor
 function MentorListHeader({ accountName, hasConversation, onSuggestion }: { accountName?: string; hasConversation: boolean; onSuggestion: (value: string) => void }) {
   return <>
     <OptimizedArtwork source={optimizedArtwork.mentorRobot} style={styles.robot} />
-    <View style={styles.simulation}><Ionicons name="flask-outline" size={19} color={colors.burgundy} /><AppText style={styles.simulationText}>Simulated AI: responses are deterministic, local, and do not contact an external AI service.</AppText></View>
+    <View style={styles.simulation}><Ionicons name="flask-outline" size={19} color={colors.burgundy} /><AppText style={styles.simulationText}>Simulated AI: responses are deterministic and do not contact an external AI service. Prompts and conversation history are stored in Convex Cloud.</AppText></View>
     <View style={styles.greeting}><AppText weight="semibold" style={styles.greetingText}>Hi {accountName ?? 'Student'}! I&apos;m your AI Mentor.{`\n`}How can I help you today?</AppText></View>
     {!hasConversation ? <View style={styles.suggestions}>{suggestions.map((item) => <Pressable key={item.label} onPress={() => onSuggestion(item.label)} style={styles.suggestion}><Ionicons name={item.icon} size={23} color={colors.burgundy} /><AppText weight="medium" style={styles.suggestionText}>{item.label}</AppText></Pressable>)}</View> : null}
   </>;

@@ -54,6 +54,9 @@ describe('AI Mentor role guard', () => {
     const screen = render(<SessionProvider><RoleHarness /></SessionProvider>);
     fireEvent.press(screen.getByText('Use Student'));
     await waitFor(() => expect(screen.getByText('Improve my project idea')).toBeTruthy());
+    expect(screen.getByText(/responses are deterministic and do not contact an external AI service/i)).toBeTruthy();
+    expect(screen.getByText(/Prompts and conversation history are stored in Convex Cloud/i)).toBeTruthy();
+    expect(screen.queryByText(/responses are deterministic, local/i)).toBeNull();
 
     fireEvent.press(screen.getByText('Suggest color combinations'));
     fireEvent.press(screen.getByRole('button', { name: 'Send mentor question' }));

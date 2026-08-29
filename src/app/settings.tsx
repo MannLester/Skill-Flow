@@ -34,7 +34,7 @@ export default function SettingsScreen() {
   ];
   const logOut = async () => { await logout(); router.replace('/'); };
   return <MobilePage backgroundColor={dark ? '#171717' : colors.white}><StatusBar style="light" /><AppHeader title="Settings" onBack={() => router.back()} /><ScrollView showsVerticalScrollIndicator={false} style={dark ? styles.darkPage : undefined} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 20, 30) }]}>
-    {dark ? <View style={styles.themeNotice}><Ionicons name="moon" size={18} color={colors.white} /><AppText style={styles.darkCopy}>Dark styling is active for Settings. This local preference is preserved when the app restarts.</AppText></View> : null}
+    {dark ? <View style={styles.themeNotice}><Ionicons name="moon" size={18} color={colors.white} /><AppText style={styles.darkCopy}>Dark styling is active for Settings. This preference is stored in Convex Cloud and restored when you sign in again.</AppText></View> : null}
     {sections.map((section) => <View key={section.title} style={[styles.section, dark && styles.darkSection]}><AppText weight="semibold" style={[styles.sectionTitle, dark && styles.darkText]}>{section.title}</AppText>{section.rows.map((row) => <SettingsRow key={row.label} {...row} dark={dark} />)}</View>)}
     <AppText style={[styles.resetText, dark && styles.darkCopy]}>Development demo resets are operator-only and never run from the mobile app.</AppText><Pressable onPress={logOut} style={[styles.logout, dark && styles.darkBorder]}><AppText weight="semibold" style={[styles.logoutText, dark && { color: '#ff9999' }]}>Log Out</AppText></Pressable>
   </ScrollView></MobilePage>;
