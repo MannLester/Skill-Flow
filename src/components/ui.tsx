@@ -4,7 +4,7 @@ import {
   Pressable, StyleProp, StyleSheet,
   Text, TextInput, TextInputProps, View, ViewStyle,
 } from 'react-native';
-import { Svg, Circle } from 'react-native-svg';
+import { Svg, Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { UserRole } from '@/context/session';
@@ -36,6 +36,26 @@ export function HeroDecor() {
       <Circle cx="85%" cy="18%" r={130} fill="rgba(255,255,255,0.07)" />
       <Circle cx="10%" cy="85%" r={70} fill="rgba(255,255,255,0.05)" />
     </Svg>
+  );
+}
+
+export function BottomWaveDecor() {
+  return (
+    <View style={styles.bottomWave} pointerEvents="none">
+      <Svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none">
+        <Path
+          d="M0,50 C60,80 140,20 220,65 C300,95 360,30 400,55"
+          fill="none"
+          stroke={colors.red}
+          strokeWidth={2.5}
+          opacity={0.35}
+        />
+        <Path
+          d="M0,75 C100,40 200,95 300,60 C360,40 390,75 400,55 L400,100 L0,100 Z"
+          fill={colors.red}
+        />
+      </Svg>
+    </View>
   );
 }
 
@@ -138,7 +158,7 @@ export function AppLogo({ compact = false }: { compact?: boolean }) {
   const logoSize = compact ? 43 : 110;
   return (
     <View style={[compact ? styles.logoRow : styles.logoStack, compact && { gap: 4 }]}>
-      <OptimizedArtwork source={optimizedArtwork.redLogo} style={{ width: logoSize, height: logoSize, borderRadius: compact ? 10 : 14 }} />
+      <OptimizedArtwork source={optimizedArtwork.skillflowLogo} style={{ width: logoSize, height: logoSize, borderRadius: compact ? 10 : 14 }} />
       <View style={{ alignItems: 'center' }}>
         <AppText weight="bold" style={{ fontSize: compact ? 20 : 32, color: colors.ink }}>Skill Flow</AppText>
         {!compact ? <AppText weight="medium" style={{ fontSize: 11, color: colors.muted }}>Showcase Your Skills, Connect with Clients.</AppText> : null}
@@ -171,4 +191,5 @@ const styles = StyleSheet.create({
   quickLabel: { fontSize: 11, textAlign: 'center', marginTop: 7, lineHeight: 15 },
   logoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   logoStack: { alignItems: 'center', gap: 10 },
+  bottomWave: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 100 },
 });

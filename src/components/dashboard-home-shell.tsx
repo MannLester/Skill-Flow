@@ -40,7 +40,7 @@ export function DashboardHomeHero({ accountName, activeCount, onNotifications, r
   return <>
     <View style={styles.topRow}>
       <View style={styles.logoRow}>
-        <OptimizedArtwork source={optimizedArtwork.whiteLogo} style={styles.logo} />
+        <OptimizedArtwork source={optimizedArtwork.skillflowLogo} style={styles.logo} />
         <AppText weight="bold" style={styles.logoText}>SkillFlow</AppText>
       </View>
       <Pressable accessibilityLabel="Open notifications" onPress={onNotifications} style={styles.bellWrap}>

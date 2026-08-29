@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AppLogo,
   AppText,
+  BottomWaveDecor,
   FormField,
   MobilePage,
   PrimaryButton,
@@ -147,9 +148,10 @@ export default function RegisterScreen() {
         <View
           style={[
             styles.content,
-            { paddingBottom: Math.max(insets.bottom + 66, 86) },
+            { paddingBottom: Math.max(insets.bottom + 20, 40) },
           ]}
         >
+          <BottomWaveDecor />
           <AppLogo compact />
           {verification ? (
             <VerificationForm
@@ -401,7 +403,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: contentPadding,
   },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 15 },
-  content: { flexGrow: 1, paddingHorizontal: contentPadding, paddingTop: 12 },
+  content: { flexGrow: 1, paddingHorizontal: contentPadding, paddingTop: 12, paddingBottom: 40, justifyContent: "center", overflow: "hidden" },
   form: { gap: 11, marginTop: 16 },
   verify: { gap: 16, marginTop: 30 },
   verifyCopy: { color: colors.muted, textAlign: "center", fontSize: 11 },

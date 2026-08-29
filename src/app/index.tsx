@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AppLogo,
   AppText,
+  BottomWaveDecor,
   FormField,
   MobilePage,
   PrimaryButton,
@@ -96,11 +97,11 @@ export default function LoginScreen() {
             styles.content,
             {
               paddingTop: Math.max(insets.top + 32, 54),
-              paddingBottom: Math.max(insets.bottom + 140, 156),
+              paddingBottom: Math.max(insets.bottom + 20, 40),
             },
           ]}
         >
-          <View style={styles.decorTop} />
+          <BottomWaveDecor />
           <AppLogo />
           <View style={styles.welcome}>
             <AppText weight="bold" style={styles.welcomeTitle}>
@@ -253,17 +254,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: contentPadding,
     justifyContent: "center",
     overflow: "hidden",
-  },
-  decorTop: {
-    position: "absolute",
-    width: 190,
-    height: 90,
-    borderWidth: 1,
-    borderColor: "#ffe9ea",
-    borderRadius: 100,
-    right: -85,
-    top: -45,
-    transform: [{ rotate: "18deg" }],
   },
   welcome: { alignItems: "center", marginTop: 31, marginBottom: 18 },
   welcomeTitle: { fontSize: 18 },
