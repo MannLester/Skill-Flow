@@ -62,7 +62,7 @@ function DashboardFeatured({ children, onPress, style }: { children: ReactNode; 
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1 },
+  scroll: { flexGrow: 1, paddingBottom: 24 },
   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87, overflow: 'hidden' },
   heroExtension: { backgroundColor: colors.red, height: 97 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   studentSubtitle: { marginTop: 5 },
   avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', elevation: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   featured: { minHeight: 140, backgroundColor: colors.white, paddingTop: 14, paddingBottom: 18, paddingHorizontal: 20, marginTop: -100, marginHorizontal: 24, zIndex: 1, transform: [{ translateY: -68 }], ...shadow },
-  body: { flex: 1, backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -164, borderTopLeftRadius: 42, borderTopRightRadius: 42, paddingTop: 112, overflow: 'hidden' },
+  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -164, borderTopLeftRadius: 42, borderTopRightRadius: 42, paddingTop: 112 },
   clientFeatured: { borderRadius: 17 },
   studentFeatured: { borderRadius: 18 },
 });
