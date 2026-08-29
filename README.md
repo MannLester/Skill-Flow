@@ -40,11 +40,11 @@ npm run seed:apply -- <student-profile-id> <client-profile-id>
 
 Production needs a separate Clerk production instance, Convex production deployment, and explicit release authorization. There is no production fallback to local accounts or AsyncStorage data.
 
-The project targets Expo SDK 54 for compatibility with the Play Store version
-of Expo Go. For a remote client demo or manual verification, start a public
-tunnel and share the newly printed Expo Go URL or QR code while the command
-remains running. This command clears Metro's cache before publishing so the
-session bundles the current source changes:
+The project targets Expo SDK 57. Use an SDK 57-compatible Expo Go installation
+or a development build for physical-device testing. For a remote client demo
+or manual verification, start a public tunnel and share the newly printed URL
+or QR code while the command remains running. This command clears Metro's cache
+so the session bundles the current source changes:
 
 ```powershell
 npm run start:client

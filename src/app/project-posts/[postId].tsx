@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -198,11 +198,7 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
   const [coverLetter, setCoverLetter] = useState('');
   const [amount, setAmount] = useState(String(post.budget));
   const [deliveryDays, setDeliveryDays] = useState('5');
-  const [feedback, setFeedback] = useState<string>();
-
-  useEffect(() => {
-    if (verification?.status === 'verified') setFeedback(undefined);
-  }, [verification?.status]);
+  const [feedback, setFeedback] = useState<{ message: string; verificationStatus: StudentVerification['status'] | undefined }>();
 
   const handleSubmit = () => {
     consumeResult(submitProposal(post.id, {
@@ -210,13 +206,14 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
       amount: parseNumberOrZero(amount),
       deliveryDays: parseNumberOrZero(deliveryDays),
     }), (result) => {
-      if (!result.ok) return setFeedback(result.message);
+      if (!result.ok) return setFeedback({ message: result.message, verificationStatus: verification?.status });
       setFeedback(undefined);
       Alert.alert('Proposal submitted', 'The client can now compare your proposal.');
     });
   };
   const clearFeedback = () => setFeedback(undefined);
   const verificationRequired = verification?.status !== 'verified';
+  const visibleFeedback = verification?.status === 'verified' && feedback?.verificationStatus !== 'verified' ? undefined : feedback?.message;
 
   return (
     <>
@@ -247,7 +244,7 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
         placeholder="Delivery days"
         keyboardType="number-pad"
       />
-      {feedback ? <ProposalFeedback message={feedback} verificationRequired={verificationRequired} /> : null}
+      {visibleFeedback ? <ProposalFeedback message={visibleFeedback} verificationRequired={verificationRequired} /> : null}
       <PrimaryButton title="Submit Proposal" onPress={handleSubmit} style={styles.submitButton} />
     </>
   );

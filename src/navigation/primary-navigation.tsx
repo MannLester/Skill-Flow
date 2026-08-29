@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { memo, ReactNode, useEffect, useRef } from 'react';
+import { memo, ReactNode, useEffect, useState } from 'react';
 import { Animated, Easing } from 'react-native';
 
 import { BottomNav } from '@/components/ui';
@@ -66,9 +66,9 @@ function consumeTransition(target: PrimaryTabKey) {
 }
 
 export function PrimaryTabScene({ active, children }: { active: PrimaryTabKey; children: ReactNode }) {
-  const direction = useRef(consumeTransition(active)).current;
-  const translateX = useRef(new Animated.Value(direction * 28)).current;
-  const opacity = useRef(new Animated.Value(direction ? 0.96 : 1)).current;
+  const [direction] = useState(() => consumeTransition(active));
+  const [translateX] = useState(() => new Animated.Value(direction * 28));
+  const [opacity] = useState(() => new Animated.Value(direction ? 0.96 : 1));
   useEffect(() => {
     if (!direction) return;
     const animation = Animated.parallel([

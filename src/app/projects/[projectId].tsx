@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
@@ -60,7 +60,6 @@ function useProjectActionForm(bookingId: string, actionContext: string, actOnPro
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback>();
-  useEffect(() => setActionFeedback(undefined), [actionContext]);
   const run: RunProjectAction = (action, payload) => {
     consumeResult(actOnProject(bookingId, action, payload), (result) => {
       if (!result.ok) return setActionFeedback({ context: actionContext, message: result.message });

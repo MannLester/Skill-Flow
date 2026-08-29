@@ -13,6 +13,12 @@ jest.mock('expo-web-browser', () => ({
   maybeCompleteAuthSession: jest.fn(),
 }));
 
+Object.defineProperty(globalThis, 'fetch', {
+  configurable: true,
+  writable: true,
+  value: jest.fn(),
+});
+
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');
   const { Text } = require('react-native');
