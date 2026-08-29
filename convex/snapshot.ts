@@ -1,6 +1,22 @@
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { requireProfile } from "./lib/auth";
+
+function ownerProfile(profile: Doc<"profiles">) {
+  const { authTokenIdentifier: _authTokenIdentifier, ...safeProfile } = profile;
+  return safeProfile;
+}
+
+function publicProfile(profile: Doc<"profiles">) {
+  const { _id, _creationTime, role, name, bio, skills } = profile;
+  return { _id, _creationTime, role, name, bio, skills };
+}
+
+function publicVerification(verification: Doc<"studentVerifications">) {
+  const { _id, _creationTime, studentProfileId } = verification;
+  return { _id, _creationTime, studentProfileId, status: "verified" as const, isSimulated: true as const };
+}
 
 export const get = query({
   args: {}, returns: v.any(),
@@ -13,7 +29,7 @@ export const get = query({
       ctx.db.query("reviews").take(500), ctx.db.query("studentVerifications").take(200), ctx.db.query("portfolioItems").take(500),
       ctx.db.query("certifications").take(500), ctx.db.query("mentorMessages").take(500), ctx.db.query("preferences").take(200),
     ]);
-    const profiles = allProfiles.map(({ authTokenIdentifier: _authTokenIdentifier, ...profile }) => profile);
+    const profiles = allProfiles.map((profile) => profile._id === currentProfile._id ? ownerProfile(profile) : publicProfile(profile));
     const services = allServices.filter((service) => service.status === "published" || service.ownerProfileId === currentProfile._id);
     const savedServices = allSavedServices.filter((saved) => saved.profileId === currentProfile._id);
     const projectPosts = allProjectPosts.filter((post) => post.status === "open" || post.clientProfileId === currentProfile._id);
@@ -24,13 +40,14 @@ export const get = query({
     const messages = allMessages.filter((message) => bookingIds.has(message.bookingId));
     const notifications = allNotifications.filter((notification) => notification.recipientProfileId === currentProfile._id);
     const ledger = allLedger.filter((entry) => entry.ownerProfileId === currentProfile._id);
-    const verifications = allVerifications.map((verification) => verification.studentProfileId === currentProfile._id
-      ? verification
-      : { _id: verification._id, _creationTime: verification._creationTime, studentProfileId: verification.studentProfileId, status: verification.status, school: "", studentNumberMasked: "", program: "", gradeLevel: "", version: verification.version, isSimulated: true as const, updatedAt: verification.updatedAt });
+    const verifications: (Doc<"studentVerifications"> | ReturnType<typeof publicVerification>)[] = [];
+    for (const verification of allVerifications) {
+      if (verification.studentProfileId === currentProfile._id) verifications.push(verification);
+      else if (verification.status === "verified") verifications.push(publicVerification(verification));
+    }
     const mentorMessages = allMentorMessages.filter((message) => message.studentProfileId === currentProfile._id);
     const preferences = allPreferences.filter((preference) => preference.profileId === currentProfile._id);
-    const { authTokenIdentifier: _authTokenIdentifier, ...safeCurrentProfile } = currentProfile;
-    return { currentProfile: safeCurrentProfile, profiles, services, savedServices, projectPosts, proposals, bookings, messages, notifications, ledger, reviews, verifications, portfolioItems, certifications, mentorMessages, preferences };
+    return { currentProfile: ownerProfile(currentProfile), profiles, services, savedServices, projectPosts, proposals, bookings, messages, notifications, ledger, reviews, verifications, portfolioItems, certifications, mentorMessages, preferences };
   },
 });
 
