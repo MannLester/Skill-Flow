@@ -30,14 +30,14 @@ export default function ProfileScreen() {
   return (
     <PrimaryTabScene active="profile"><MobilePage>
       <StatusBar style="light" />
-      <View style={styles.heroArea}>
-        <HeroDecor />
-        <Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')} style={[styles.settingsButton, { top: insets.top + 22 }]}>
-          <Ionicons name="settings-outline" size={25} color={colors.white} />
-        </Pressable>
-        <ProfileIdentity account={currentAccount} verification={verification} />
-      </View>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.heroArea}>
+          <HeroDecor />
+          <Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')} style={[styles.settingsButton, { top: insets.top + 22 }]}>
+            <Ionicons name="settings-outline" size={25} color={colors.white} />
+          </Pressable>
+          <ProfileIdentity account={currentAccount} verification={verification} />
+        </View>
         <ProfileAbout profile={profile} />
 
         <ProfileRoleContent account={currentAccount} readiness={readiness} ownPortfolio={ownPortfolio} ownCertifications={ownCertifications} ownServices={ownServices} earnings={earnings} completedNotAdded={completedNotAdded} ownReviews={ownReviews} ownProjects={ownProjects} onAddProject={addProject} />
@@ -132,9 +132,9 @@ function Info({ icon, text }: { icon: 'location-outline' | 'business-outline' | 
 function Stat({ value, label }: { value: string; label: string }) { return <View style={styles.stat}><AppText weight="bold" style={styles.statValue}>{value}</AppText><AppText style={styles.small}>{label}</AppText></View>; }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: contentPadding, gap: 16, paddingBottom: 30, paddingTop: 16 },
+  content: { paddingHorizontal: contentPadding, gap: 16, paddingBottom: 30, paddingTop: 0 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  heroArea: { backgroundColor: colors.red, overflow: 'hidden', borderBottomLeftRadius: 62, borderBottomRightRadius: 62 },
+  heroArea: { backgroundColor: colors.red, overflow: 'hidden', borderBottomLeftRadius: 62, borderBottomRightRadius: 62, marginHorizontal: -contentPadding },
   settingsButton: { position: 'absolute', right: 16, zIndex: 10 },
   identity: { alignItems: 'center', paddingTop: 56, paddingBottom: 24 },
   avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
