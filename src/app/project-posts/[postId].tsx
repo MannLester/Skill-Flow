@@ -24,6 +24,8 @@ type ProposalSubmitter = (projectPostId: string, input: ProposalInput) => Promis
 export default function ProjectPostDetailsScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const [manageVisible, setManageVisible] = useState(false);
+  const [applyVisible, setApplyVisible] = useState(false);
+  const insets = useSafeAreaInsets();
   const {
     accounts,
     bookings,
@@ -53,16 +55,9 @@ export default function ProjectPostDetailsScreen() {
   return (
     <MobilePage>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
         <ProjectSummary post={post} client={client} booking={booking} />
-        {isOwner ? (
-          <Pressable onPress={() => setManageVisible(true)} style={styles.manageTrigger}>
-            <Ionicons name="settings-outline" size={20} color={colors.burgundy} />
-            <AppText weight="medium" style={styles.manageTriggerText}>Manage this post</AppText>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
-        ) : null}
-        {currentAccount?.role === 'student' && !booking ? (
+        {currentAccount?.role === 'student' && !booking && myProposal ? (
           <StudentProposalSection
             post={post}
             proposal={myProposal}
@@ -72,6 +67,20 @@ export default function ProjectPostDetailsScreen() {
           />
         ) : null}
       </ScrollView>
+      {isOwner ? (
+        <View style={[styles.manageBottomWrapper, { paddingBottom: insets.bottom + 12 }]}>
+          <Pressable onPress={() => setManageVisible(true)} style={styles.manageBottomBar}>
+            <AppText weight="semibold" style={styles.manageBottomBarText}>Manage this post</AppText>
+          </Pressable>
+        </View>
+      ) : null}
+      {currentAccount?.role === 'student' && !booking && !myProposal && post.status === 'open' ? (
+        <View style={[styles.manageBottomWrapper, { paddingBottom: insets.bottom + 12 }]}>
+          <Pressable onPress={() => setApplyVisible(true)} style={styles.manageBottomBar}>
+            <AppText weight="semibold" style={styles.manageBottomBarText}>Apply for this Job</AppText>
+          </Pressable>
+        </View>
+      ) : null}
       <Modal visible={manageVisible} animationType="slide" transparent onRequestClose={() => setManageVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -87,6 +96,25 @@ export default function ProjectPostDetailsScreen() {
                 post={post}
                 setProjectPostStatus={setProjectPostStatus}
                 onAction={() => setManageVisible(false)}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={applyVisible} animationType="slide" transparent onRequestClose={() => setApplyVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <AppText weight="semibold" style={styles.modalTitle}>Apply for this Job</AppText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setApplyVisible(false)} hitSlop={12} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color={colors.ink} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalBody}>
+              <ProposalForm
+                post={post}
+                verification={verification}
+                submitProposal={submitProposal}
               />
             </ScrollView>
           </View>
@@ -341,7 +369,7 @@ function parseNumberOrZero(value: string) {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 36 },
+  content: { paddingBottom: 100 },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: contentPadding },
   hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 48, borderBottomLeftRadius: 42, borderBottomRightRadius: 42 },
   backButton: { marginBottom: 24 },
@@ -366,8 +394,9 @@ const styles = StyleSheet.create({
   skill: { backgroundColor: colors.blush, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   skillText: { color: colors.burgundy, fontSize: 11 },
   bookingButton: { marginHorizontal: contentPadding, marginTop: 20 },
-  manageTrigger: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 20, borderRadius: 14, padding: 14, ...shadow },
-  manageTriggerText: { flex: 1, color: colors.ink, fontSize: 14 },
+  manageBottomWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingBottom: 12, paddingHorizontal: 12, ...shadow },
+  manageBottomBar: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.red, borderRadius: 14, padding: 16 },
+  manageBottomBarText: { color: colors.white, fontSize: 15, textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalContainer: { backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: contentPadding, paddingTop: 20, paddingBottom: 12 },
