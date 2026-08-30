@@ -168,7 +168,7 @@ function BottomNavButton({ item, selected, plus }: { item: BottomNavItem; select
 export function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; onPress?: () => void }) {
   return (
     <Pressable disabled={!onPress} accessibilityState={{ disabled: !onPress }} onPress={onPress} style={styles.quickAction}>
-      <View style={styles.quickIcon}><Ionicons name={icon} size={27} color={colors.burgundy} /></View>
+      <View style={styles.quickIcon}><Ionicons name={icon} size={27} color={colors.red} style={{ textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }} /></View>
       <AppText weight="medium" style={styles.quickLabel}>{label}</AppText>
     </Pressable>
   );
