@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   infoLabel: { color: colors.muted, fontSize: 10 },
   infoValue: { fontSize: 13 },
   skillsRow: { flexDirection: 'row', gap: 7, flexWrap: 'wrap', marginTop: 10 },
-  skill: { backgroundColor: colors.blush, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, borderLeftWidth: 3, borderLeftColor: colors.burgundy },
+  skill: { backgroundColor: colors.blush, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   skillText: { color: colors.burgundy, fontSize: 11 },
   bookingButton: { marginHorizontal: contentPadding, marginTop: 20 },
   manageTrigger: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 20, borderRadius: 14, padding: 14, ...shadow },
