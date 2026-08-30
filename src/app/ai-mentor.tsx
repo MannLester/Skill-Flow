@@ -5,7 +5,6 @@ import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet,
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
 import { MentorMessage, useSession } from '@/context/session.remote';
@@ -24,9 +23,8 @@ const MentorMessageRow = memo(function MentorMessageRow({ item }: { item: Mentor
 
 function MentorListHeader({ accountName, hasConversation, onSuggestion }: { accountName?: string; hasConversation: boolean; onSuggestion: (value: string) => void }) {
   return <>
-    <OptimizedArtwork source={optimizedArtwork.mentorRobot} style={styles.robot} />
-    <View style={styles.simulation}><Ionicons name="flask-outline" size={19} color={colors.burgundy} /><AppText style={styles.simulationText}>Simulated AI: responses are deterministic and do not contact an external AI service. Prompts and conversation history are stored in Convex Cloud.</AppText></View>
-    <View style={styles.greeting}><AppText weight="semibold" style={styles.greetingText}>Hi {accountName ?? 'Student'}! I&apos;m your AI Mentor.{`\n`}How can I help you today?</AppText></View>
+    <View style={styles.robotWrap}><View style={styles.robotContainer}><Ionicons name="hardware-chip" size={64} color={colors.red} /></View><AppText weight="semibold" style={styles.robotTitle}>AI Mentor</AppText></View>
+    <View style={styles.greetingBubble}><AppText weight="medium" style={styles.greetingSpeaker}>Simulated Mentor</AppText><AppText style={styles.greetingText}>Hi {accountName ?? 'Student'}! I&apos;m your AI Mentor.{`\n`}How can I help you today?</AppText></View>
     {!hasConversation ? <View style={styles.suggestions}>{suggestions.map((item) => <Pressable key={item.label} onPress={() => onSuggestion(item.label)} style={styles.suggestion}><Ionicons name={item.icon} size={23} color={colors.burgundy} /><AppText weight="medium" style={styles.suggestionText}>{item.label}</AppText></Pressable>)}</View> : null}
   </>;
 }
@@ -48,7 +46,8 @@ export default function AiMentorScreen() {
   if (!hydrated || isClient) return <MobilePage><View /></MobilePage>;
 
   const send = async () => { const result = await sendMentorMessage(message); if (!result.ok) Alert.alert('Unable to send', result.message); else setMessage(''); };
-  return <MobilePage><StatusBar style="light" /><AppHeader title="AI Project Mentor" onBack={() => router.back()} right={conversation.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear mentor conversation" onPress={() => Alert.alert('Clear conversation?', 'This removes the mentor messages stored in SkillFlow Cloud.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: clearMentorConversation }])}><Ionicons name="trash-outline" size={23} color={colors.white} /></Pressable> : null} />
+  return <MobilePage><StatusBar style="light" /><AppHeader title="AI Project Mentor" onBack={() => router.back()} />
+    <View style={styles.simulationBanner}><Ionicons name="flask-outline" size={19} color={colors.muted} /><AppText style={styles.simulationText}>Simulated AI: responses are deterministic and do not contact an external AI service. Prompts and conversation history are stored in Convex Cloud.</AppText></View>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <FlatList
         testID="mentor-transcript"
@@ -71,5 +70,5 @@ export default function AiMentorScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: { flex: 1 }, content: { flexGrow: 1, padding: contentPadding, paddingBottom: 24 }, robot: { width: 150, aspectRatio: 267 / 205, alignSelf: 'center', marginTop: 8 }, simulation: { flexDirection: 'row', gap: 8, backgroundColor: colors.blush, borderRadius: 10, padding: 11, marginTop: 8 }, simulationText: { flex: 1, color: colors.burgundy, fontSize: 9, lineHeight: 15 }, greeting: { backgroundColor: colors.white, borderRadius: 13, padding: 17, marginTop: 12, ...shadow }, greetingText: { fontSize: 16, lineHeight: 24 }, suggestions: { gap: 11, marginTop: 22 }, suggestion: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 17 }, suggestionText: { fontSize: 14 }, bubble: { maxWidth: '88%', borderRadius: 13, padding: 13, marginTop: 11 }, userBubble: { alignSelf: 'flex-end', backgroundColor: colors.red }, mentorBubble: { alignSelf: 'flex-start', backgroundColor: colors.blush }, speaker: { color: colors.burgundy, fontSize: 8, marginBottom: 4 }, messageText: { fontSize: 11, lineHeight: 18 }, composerWrap: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.white }, composer: { minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: 26, flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 4 }, input: { flex: 1, fontFamily: font.regular, color: colors.ink, fontSize: 13 }, send: { width: 43, height: 43, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.red },
+  list: { flex: 1 }, content: { flexGrow: 1, padding: contentPadding, paddingBottom: 24 }, robotWrap: { alignItems: 'center', marginTop: 16 }, robotContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }, robotTitle: { fontSize: 15, color: colors.ink, marginTop: 8 }, simulationBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, paddingVertical: 11, paddingHorizontal: contentPadding }, simulationText: { flex: 1, color: colors.muted, fontSize: 9, lineHeight: 15 },   greetingBubble: { alignSelf: 'flex-start', backgroundColor: colors.blush, borderRadius: 13, padding: 13, marginTop: 11, maxWidth: '88%' }, greetingSpeaker: { color: colors.burgundy, fontSize: 8, marginBottom: 4 }, greetingText: { fontSize: 11, lineHeight: 18 }, suggestions: { gap: 10, marginTop: 18 }, suggestion: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 17 }, suggestionText: { fontSize: 14 }, bubble: { maxWidth: '88%', borderRadius: 13, padding: 13, marginTop: 11 }, userBubble: { alignSelf: 'flex-end', backgroundColor: colors.red }, mentorBubble: { alignSelf: 'flex-start', backgroundColor: colors.blush }, speaker: { color: colors.burgundy, fontSize: 8, marginBottom: 4 }, messageText: { fontSize: 11, lineHeight: 18 }, composerWrap: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.white }, composer: { minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: 26, flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 4 }, input: { flex: 1, fontFamily: font.regular, color: colors.ink, fontSize: 13 }, send: { width: 43, height: 43, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.red },
 });
