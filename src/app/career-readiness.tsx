@@ -9,7 +9,7 @@ import { CareerReadinessCategory, ReadinessCategoryKey } from '@/domain/career-r
 import { useSession } from '@/context/session.remote';
 
 const iconByCategory: Record<ReadinessCategoryKey, keyof typeof Ionicons.glyphMap> = {
-  profile: 'person-outline', verification: 'shield-checkmark-outline', portfolio: 'images-outline', projects: 'briefcase-outline', ratings: 'star-outline', certifications: 'ribbon-outline',
+  profile: 'person', verification: 'shield-checkmark', portfolio: 'images', projects: 'briefcase', ratings: 'star', certifications: 'ribbon',
 };
 
 export default function CareerReadinessScreen() {
@@ -38,7 +38,7 @@ function CategoryCard({ category }: { category: CareerReadinessCategory }) {
   const complete = category.score === category.maximum;
   const percent = `${Math.round((category.score / category.maximum) * 100)}%` as `${number}%`;
   return <Pressable accessibilityRole="button" accessibilityLabel={`${category.label}: ${category.score} of ${category.maximum}`} onPress={routeFor} style={styles.category}>
-    <View style={styles.categoryTop}><View style={styles.categoryIcon}><Ionicons name={iconByCategory[category.key]} size={22} color={complete ? colors.green : colors.red} /></View><View style={{ flex: 1 }}><AppText weight="semibold" style={styles.categoryTitle}>{category.label}</AppText><AppText style={styles.detail}>{category.detail}</AppText></View><AppText weight="bold" style={styles.points}>{category.score}/{category.maximum}</AppText></View>
+    <View style={styles.categoryTop}><View style={styles.categoryIcon}><Ionicons name={iconByCategory[category.key]} size={22} color={colors.red} /></View><View style={{ flex: 1 }}><AppText weight="semibold" style={styles.categoryTitle}>{category.label}</AppText><AppText style={styles.detail}>{category.detail}</AppText></View><AppText weight="bold" style={styles.points}>{category.score}/{category.maximum}</AppText></View>
     <View style={styles.track}><View style={[styles.fill, { width: percent }, complete && { backgroundColor: colors.green }]} /></View>
     <View style={styles.next}><AppText style={styles.nextText}>{category.nextStep}</AppText><Ionicons name="chevron-forward" size={18} color={colors.burgundy} /></View>
   </Pressable>;
