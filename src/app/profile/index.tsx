@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
+import { AppText, HeroDecor, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
 import { CareerReadinessBreakdown } from '@/domain/career-readiness';
@@ -11,8 +12,9 @@ import { Certification, DemoAccount, PortfolioItem, ProjectBooking, ProjectRevie
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { addCompletedProjectToPortfolio, bookings, certifications, currentAccount, getCareerReadiness, portfolioItems, profiles, reviews, services, verifications } = useSession();
-  if (!currentAccount) return <MobilePage><AppHeader title="Profile" onBack={() => router.back()} /><View style={styles.center}><AppText>Please log in to view a profile.</AppText></View></MobilePage>;
+  if (!currentAccount) return <MobilePage><View style={styles.center}><AppText>Please log in to view a profile.</AppText></View></MobilePage>;
   const profile = profiles.find((item) => item.accountId === currentAccount.id);
   const verification = verifications.find((item) => item.studentId === currentAccount.id);
   const ownPortfolio = portfolioItems.filter((item) => item.studentId === currentAccount.id);
@@ -28,9 +30,14 @@ export default function ProfileScreen() {
   return (
     <PrimaryTabScene active="profile"><MobilePage>
       <StatusBar style="light" />
-      <AppHeader title="Profile" right={<Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="settings-outline" size={25} color={colors.white} /></Pressable>} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.heroArea}>
+        <HeroDecor />
+        <Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')} style={[styles.settingsButton, { top: insets.top + 22 }]}>
+          <Ionicons name="settings-outline" size={25} color={colors.white} />
+        </Pressable>
         <ProfileIdentity account={currentAccount} verification={verification} />
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
         <ProfileAbout profile={profile} />
 
         <ProfileRoleContent account={currentAccount} readiness={readiness} ownPortfolio={ownPortfolio} ownCertifications={ownCertifications} ownServices={ownServices} earnings={earnings} completedNotAdded={completedNotAdded} ownReviews={ownReviews} ownProjects={ownProjects} onAddProject={addProject} />
@@ -125,5 +132,37 @@ function Info({ icon, text }: { icon: 'location-outline' | 'business-outline' | 
 function Stat({ value, label }: { value: string; label: string }) { return <View style={styles.stat}><AppText weight="bold" style={styles.statValue}>{value}</AppText><AppText style={styles.small}>{label}</AppText></View>; }
 
 const styles = StyleSheet.create({
-  content: { padding: contentPadding, gap: 16, paddingBottom: 30 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, identity: { alignItems: 'center', paddingVertical: 10 }, avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }, name: { fontSize: 25, marginTop: 12 }, role: { color: colors.muted, fontSize: 12, marginTop: 2 }, verification: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: colors.blush, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 6 }, verified: { backgroundColor: colors.greenSoft }, verificationText: { color: colors.burgundy, fontSize: 10, textTransform: 'capitalize' }, card: { backgroundColor: colors.white, borderRadius: 14, padding: 17, ...shadow }, readiness: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.blush, borderRadius: 14, padding: 16 }, readinessScore: { flexDirection: 'row', alignItems: 'baseline' }, readinessTitle: { fontSize: 15 }, readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 }, readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 }, readinessMax: { color: colors.burgundy, fontSize: 9 }, heading: { fontSize: 17 }, headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, copy: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 6 }, info: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 11 }, infoText: { fontSize: 12 }, skills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 13 }, skill: { backgroundColor: colors.blush, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 }, skillText: { color: colors.burgundy, fontSize: 10 }, stats: { flexDirection: 'row', gap: 8 }, stat: { flex: 1, alignItems: 'center', backgroundColor: colors.white, borderRadius: 12, paddingVertical: 14, ...shadow }, statValue: { fontSize: 16 }, small: { color: colors.muted, fontSize: 9, textTransform: 'capitalize', marginTop: 2 }, link: { color: colors.burgundy, fontSize: 12 }, actionRow: { minHeight: 49, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, marginTop: 10, paddingTop: 10 }, review: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 10, paddingTop: 10 },
+  content: { paddingHorizontal: contentPadding, gap: 16, paddingBottom: 30, paddingTop: 16 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  heroArea: { backgroundColor: colors.red, overflow: 'hidden', borderBottomLeftRadius: 62, borderBottomRightRadius: 62 },
+  settingsButton: { position: 'absolute', right: 16, zIndex: 10 },
+  identity: { alignItems: 'center', paddingTop: 56, paddingBottom: 24 },
+  avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  name: { fontSize: 25, marginTop: 12, color: colors.white },
+  role: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  verification: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 15, paddingHorizontal: 11, paddingVertical: 6 },
+  verified: { backgroundColor: colors.greenSoft },
+  verificationText: { color: colors.white, fontSize: 10, textTransform: 'capitalize' },
+  card: { backgroundColor: colors.white, borderRadius: 14, padding: 17, ...shadow },
+  readiness: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.blush, borderRadius: 14, padding: 16 },
+  readinessScore: { flexDirection: 'row', alignItems: 'baseline' },
+  readinessTitle: { fontSize: 15 },
+  readinessDetail: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
+  readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 },
+  readinessMax: { color: colors.burgundy, fontSize: 9 },
+  heading: { fontSize: 17 },
+  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  copy: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 6 },
+  info: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 11 },
+  infoText: { fontSize: 12 },
+  skills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 13 },
+  skill: { backgroundColor: colors.blush, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+  skillText: { color: colors.burgundy, fontSize: 10 },
+  stats: { flexDirection: 'row', gap: 8 },
+  stat: { flex: 1, alignItems: 'center', backgroundColor: colors.white, borderRadius: 12, paddingVertical: 14, ...shadow },
+  statValue: { fontSize: 16 },
+  small: { color: colors.muted, fontSize: 9, textTransform: 'capitalize', marginTop: 2 },
+  link: { color: colors.burgundy, fontSize: 12 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border },
+  review: { gap: 6, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
 });
