@@ -12,7 +12,7 @@ type PrimaryRoute = '/student-home' | '/client-home' | '/projects' | '/portfolio
 
 const TAB_ORDER: Record<UserRole, PrimaryTabKey[]> = {
   student: ['home', 'projects', 'portfolio', 'messages', 'profile'],
-  client: ['home', 'projects', 'messages', 'saved', 'profile'],
+  client: ['home', 'projects', 'messages', 'profile'],
 };
 
 const ACTIVE_BY_PATH: Record<UserRole, Record<string, PrimaryNavActive>> = {
@@ -90,7 +90,7 @@ export const PrimaryBottomNav = memo(function PrimaryBottomNav({ active, role, m
     onProjects={go('projects')}
     onPortfolio={!isClient ? go('portfolio') : undefined}
     onMessages={go('messages')}
-    onSaved={isClient ? go('saved') : undefined}
+    onCreate={isClient ? () => router.push('/project-posts/new') : undefined}
     onProfile={go('profile')}
     messageUnread={messageUnread}
     variant={isClient ? 'client' : 'student'}
