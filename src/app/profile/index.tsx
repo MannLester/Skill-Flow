@@ -48,7 +48,7 @@ export default function ProfileScreen() {
 
 function ProfileIdentity({ account, verification }: { account: DemoAccount; verification?: StudentVerification }) {
   const isStudent = account.role === 'student';
-  return <View style={styles.identity}><View style={styles.avatar}><Ionicons name={isStudent ? 'school' : 'person'} size={43} color={colors.red} /></View><AppText weight="bold" style={styles.name}>{account.name}</AppText><AppText style={styles.role}>{isStudent ? 'Student Designer' : 'Client'}</AppText><ProfileVerificationBadge isStudent={isStudent} verification={verification} /></View>;
+  return <View style={styles.identity}><View style={styles.avatar}><Ionicons name="person" size={43} color={colors.red} /></View><AppText weight="bold" style={styles.name}>{account.name}</AppText><AppText style={styles.role}>{isStudent ? 'Student Designer' : 'Client'}</AppText><ProfileVerificationBadge isStudent={isStudent} verification={verification} /></View>;
 }
 
 function ProfileAbout({ profile }: { profile?: UserProfile }) {
