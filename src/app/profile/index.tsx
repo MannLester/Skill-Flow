@@ -58,7 +58,7 @@ function ProfileAbout({ profile }: { profile?: UserProfile }) {
 function ProfileVerificationBadge({ isStudent, verification }: { isStudent: boolean; verification?: StudentVerification }) {
   if (!isStudent) return null;
   const isVerified = verification?.status === 'verified';
-  return <Pressable onPress={() => router.push('/verification')} style={[styles.verification, isVerified && styles.verified]}><Ionicons name={isVerified ? 'checkmark-circle' : 'shield-outline'} size={17} color={isVerified ? colors.green : colors.burgundy} /><AppText weight="medium" style={styles.verificationText}>{isVerified ? 'Verified Student' : `Verification: ${(verification?.status ?? 'not submitted').replace('_', ' ')}`}</AppText></Pressable>;
+  return <Pressable onPress={() => router.push('/verification')} style={[styles.verification, isVerified && styles.verified]}><Ionicons name={isVerified ? 'checkmark-circle' : 'shield-outline'} size={17} color={isVerified ? colors.white : colors.burgundy} /><AppText weight={isVerified ? 'semibold' : 'medium'} style={[styles.verificationText, isVerified && { color: colors.white }]}>{isVerified ? 'Verified Student' : `Verification: ${(verification?.status ?? 'not submitted').replace('_', ' ')}`}</AppText></Pressable>;
 }
 
 function ProfileDetails({ profile }: { profile?: UserProfile }) {
@@ -109,7 +109,7 @@ function StudentReadinessCard({ readiness }: { readiness: CareerReadinessBreakdo
 }
 
 function PortfolioSummary({ portfolioCount, certificationCount }: { portfolioCount: number; certificationCount: number }) {
-  return <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>Portfolio & Certifications</AppText><Pressable onPress={() => router.push('/portfolio')}><AppText weight="medium" style={styles.link}>Manage</AppText></Pressable></View><AppText style={styles.copy}>{portfolioCount} portfolio item{portfolioCount === 1 ? '' : 's'} · {certificationCount} certification{certificationCount === 1 ? '' : 's'}</AppText></View>;
+  return <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>Portfolio & Certifications</AppText><Pressable onPress={() => router.push('/portfolio')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><AppText weight="medium" style={styles.link}>Manage</AppText><Ionicons name="chevron-forward" size={14} color={colors.burgundy} /></Pressable></View><AppText style={styles.copy}>{portfolioCount} portfolio item{portfolioCount === 1 ? '' : 's'} · {certificationCount} certification{certificationCount === 1 ? '' : 's'}</AppText></View>;
 }
 
 function CompletedWork({ projects, onAddProject }: { projects: ProjectBooking[]; onAddProject: (projectId: string) => void }) {
@@ -117,7 +117,7 @@ function CompletedWork({ projects, onAddProject }: { projects: ProjectBooking[];
 }
 
 function ServicesCard({ services }: { services: Service[] }) {
-  return <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>My Services</AppText><Pressable onPress={() => router.push('/services/new')}><AppText weight="medium" style={styles.link}>Create</AppText></Pressable></View>{services.length ? services.map((service) => <Pressable key={service.id} onPress={() => router.push({ pathname: '/services/[serviceId]/edit', params: { serviceId: service.id } })} style={styles.actionRow}><View style={{ flex: 1 }}><AppText weight="medium">{service.title}</AppText><AppText style={styles.small}>{service.status}</AppText></View><Ionicons name="create-outline" size={21} color={colors.burgundy} /></Pressable>) : <AppText style={styles.copy}>No services created yet.</AppText>}</View>;
+  return <View style={styles.card}><View style={styles.headingRow}><AppText weight="semibold" style={styles.heading}>My Services</AppText><Pressable onPress={() => router.push('/services/new')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><AppText weight="medium" style={styles.link}>Create</AppText><Ionicons name="chevron-forward" size={14} color={colors.burgundy} /></Pressable></View>{services.length ? services.map((service) => <Pressable key={service.id} onPress={() => router.push({ pathname: '/services/[serviceId]/edit', params: { serviceId: service.id } })} style={styles.actionRow}><View style={{ flex: 1 }}><AppText weight="medium">{service.title}</AppText><AppText style={styles.small}>{service.status}</AppText></View><Ionicons name="create-outline" size={21} color={colors.burgundy} /></Pressable>) : <AppText style={styles.copy}>No services created yet.</AppText>}</View>;
 }
 
 function ReviewsCard({ reviews }: { reviews: ProjectReview[] }) {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 25, marginTop: 12, color: colors.white },
   role: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
   verification: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 15, paddingHorizontal: 11, paddingVertical: 6 },
-  verified: { backgroundColor: colors.greenSoft },
+  verified: { backgroundColor: colors.green, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, elevation: 4, shadowColor: colors.green, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6 },
   verificationText: { color: colors.white, fontSize: 10, textTransform: 'capitalize' },
   card: { backgroundColor: colors.white, borderRadius: 14, padding: 17, ...shadow },
   readiness: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.blush, borderRadius: 14, padding: 16 },
