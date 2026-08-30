@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -23,6 +23,7 @@ type ProposalSubmitter = (projectPostId: string, input: ProposalInput) => Promis
 
 export default function ProjectPostDetailsScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
+  const router = useRouter();
   const [manageVisible, setManageVisible] = useState(false);
   const [applyVisible, setApplyVisible] = useState(false);
   const insets = useSafeAreaInsets();
@@ -126,6 +127,7 @@ export default function ProjectPostDetailsScreen() {
 
 function MissingProject() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   return (
     <MobilePage>
       <StatusBar style="light" />
@@ -144,6 +146,7 @@ function MissingProject() {
 
 function ProjectSummary({ post, client, booking }: { post: ProjectPost; client?: { id: string; name: string }; booking?: ProjectBooking }) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   return (
     <>
       <View style={[styles.hero, { paddingTop: insets.top + 28 }]}>
@@ -210,6 +213,7 @@ function OwnerControls({
   setProjectPostStatus: (projectPostId: string, status: ProjectPost['status']) => Promise<StoreResult>;
   onAction?: () => void;
 }) {
+  const router = useRouter();
   const changeStatus = (status: ProjectPost['status']) => {
     consumeResult(setProjectPostStatus(post.id, status), (result) => {
       Alert.alert(result.ok ? 'Project updated' : 'Unable to update', result.ok ? `Project is now ${status}.` : result.message);
@@ -347,6 +351,7 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
 }
 
 function ProposalFeedback({ message, verificationRequired }: { message: string; verificationRequired: boolean }) {
+  const router = useRouter();
   return (
     <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.feedback}>
       <Ionicons name="alert-circle-outline" size={22} color={colors.burgundy} />
