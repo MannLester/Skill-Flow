@@ -21,6 +21,7 @@ import {
   MobilePage,
   PrimaryButton,
   RoleSelector,
+  TopCornerDecor,
 } from "@/components/ui";
 import { colors, contentPadding } from "@/constants/theme";
 import type { UserRole } from "@/context/session";
@@ -151,6 +152,7 @@ export default function RegisterScreen() {
             { paddingBottom: Math.max(insets.bottom + 20, 40) },
           ]}
         >
+          <TopCornerDecor />
           <BottomWaveDecor />
           <AppLogo compact />
           {verification ? (

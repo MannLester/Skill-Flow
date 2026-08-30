@@ -59,6 +59,26 @@ export function BottomWaveDecor() {
   );
 }
 
+export function TopCornerDecor() {
+  return (
+    <View style={styles.topCorner} pointerEvents="none">
+      <Svg width="100%" height="100%" viewBox="0 0 400 250" preserveAspectRatio="none">
+        <Path
+          d="M0,0 C160,60 300,10 400,80"
+          fill="none"
+          stroke={colors.red}
+          strokeWidth={2.5}
+          opacity={0.35}
+        />
+        <Path
+          d="M0,0 C140,50 280,5 400,65 L400,0 Z"
+          fill={colors.red}
+        />
+      </Svg>
+    </View>
+  );
+}
+
 export function AppHeader({ title, onBack, right, red = true }: { title: string; onBack?: () => void; right?: ReactNode; red?: boolean }) {
   const insets = useSafeAreaInsets();
   const color = red ? colors.white : colors.ink;
@@ -192,4 +212,5 @@ const styles = StyleSheet.create({
   logoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   logoStack: { alignItems: 'center', gap: 10 },
   bottomWave: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 100 },
+  topCorner: { position: 'absolute', top: 0, right: 0, width: '70%', height: 250 },
 });

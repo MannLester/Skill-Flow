@@ -20,6 +20,7 @@ import {
   FormField,
   MobilePage,
   PrimaryButton,
+  TopCornerDecor,
 } from "@/components/ui";
 import { colors, contentPadding } from "@/constants/theme";
 
@@ -101,6 +102,7 @@ export default function LoginScreen() {
             },
           ]}
         >
+          <TopCornerDecor />
           <BottomWaveDecor />
           <AppLogo />
           <View style={styles.welcome}>
