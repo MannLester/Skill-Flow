@@ -93,10 +93,10 @@ export function AppHeader({ title, onBack, right, red = true }: { title: string;
   );
 }
 
-export function PrimaryButton({ title, onPress, style, disabled = false }: { title: string; onPress?: () => void | Promise<void>; style?: StyleProp<ViewStyle>; disabled?: boolean }) {
+export function PrimaryButton({ title, onPress, style, textStyle, disabled = false }: { title: string; onPress?: () => void | Promise<void>; style?: StyleProp<ViewStyle>; textStyle?: StyleProp<import('react-native').TextStyle>; disabled?: boolean }) {
   return (
     <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.primaryButton, style, disabled ? { opacity: 0.55 } : null, pressed && onPress ? { opacity: 0.85 } : null]}>
-      <AppText weight="semibold" style={styles.primaryButtonText}>{title}</AppText>
+      <AppText weight="semibold" style={[styles.primaryButtonText, textStyle]}>{title}</AppText>
     </Pressable>
   );
 }
