@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   readinessValue: { color: colors.red, fontSize: 24, lineHeight: 27 },
   readinessMax: { color: colors.burgundy, fontSize: 9 },
   heading: { fontSize: 17 },
-  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   copy: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 6 },
   info: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 11 },
   infoText: { fontSize: 12 },
@@ -163,6 +163,6 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16 },
   small: { color: colors.muted, fontSize: 9, textTransform: 'capitalize', marginTop: 2 },
   link: { color: colors.burgundy, fontSize: 12 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border },
+  actionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   review: { gap: 6, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
 });
