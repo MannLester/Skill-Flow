@@ -1,10 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
+import { AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
 import {
   ProjectBooking,
@@ -22,6 +23,7 @@ type ProposalSubmitter = (projectPostId: string, input: ProposalInput) => Promis
 
 export default function ProjectPostDetailsScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
+  const [manageVisible, setManageVisible] = useState(false);
   const {
     accounts,
     bookings,
@@ -46,19 +48,19 @@ export default function ProjectPostDetailsScreen() {
   const booking = bookings.find((item) => item.projectPostId === post.id);
   const verification = verifications.find((item) => item.studentId === currentAccount?.id);
   const isOwner = currentAccount?.id === post.clientId;
+  const proposalCount = proposals.filter((item) => item.projectPostId === post.id && item.status !== 'withdrawn').length;
 
   return (
     <MobilePage>
       <StatusBar style="light" />
-      <AppHeader title="Project Brief" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
         <ProjectSummary post={post} client={client} booking={booking} />
         {isOwner ? (
-          <OwnerControls
-            post={post}
-            proposalCount={proposals.filter((item) => item.projectPostId === post.id && item.status !== 'withdrawn').length}
-            setProjectPostStatus={setProjectPostStatus}
-          />
+          <Pressable onPress={() => setManageVisible(true)} style={styles.manageTrigger}>
+            <Ionicons name="settings-outline" size={20} color={colors.burgundy} />
+            <AppText weight="medium" style={styles.manageTriggerText}>Manage this post</AppText>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
         ) : null}
         {currentAccount?.role === 'student' && !booking ? (
           <StudentProposalSection
@@ -70,15 +72,41 @@ export default function ProjectPostDetailsScreen() {
           />
         ) : null}
       </ScrollView>
+      <Modal visible={manageVisible} animationType="slide" transparent onRequestClose={() => setManageVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <AppText weight="semibold" style={styles.modalTitle}>Manage this post</AppText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setManageVisible(false)} hitSlop={12} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color={colors.ink} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalBody}>
+              <PrimaryButton title={`View Proposals (${proposalCount})`} onPress={() => { setManageVisible(false); router.push({ pathname: '/project-posts/[postId]/proposals', params: { postId: post.id } }); }} />
+              <OwnerControls
+                post={post}
+                setProjectPostStatus={setProjectPostStatus}
+                onAction={() => setManageVisible(false)}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </MobilePage>
   );
 }
 
 function MissingProject() {
+  const insets = useSafeAreaInsets();
   return (
     <MobilePage>
       <StatusBar style="light" />
-      <AppHeader title="Project" onBack={() => router.back()} />
+      <View style={[styles.hero, { paddingTop: insets.top + 28 }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={26} color={colors.white} />
+        </Pressable>
+        <AppText weight="bold" style={styles.heroTitle}>Project</AppText>
+      </View>
       <View style={styles.missing}>
         <AppText weight="semibold">Project post not found.</AppText>
       </View>
@@ -87,32 +115,59 @@ function MissingProject() {
 }
 
 function ProjectSummary({ post, client, booking }: { post: ProjectPost; client?: { id: string; name: string }; booking?: ProjectBooking }) {
+  const insets = useSafeAreaInsets();
   return (
     <>
-      <View style={styles.statusRow}>
-        <View style={styles.status}><AppText weight="medium" style={styles.statusText}>{post.status.toUpperCase()}</AppText></View>
-        <AppText style={styles.deadline}>Deadline {post.deadline}</AppText>
+      <View style={[styles.hero, { paddingTop: insets.top + 28 }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={26} color={colors.white} />
+        </Pressable>
+        <View style={styles.heroRow}>
+          <AppText weight="bold" style={styles.heroTitle}>{post.title}</AppText>
+          <AppText weight="bold" style={styles.heroBudget}>{formatPeso(post.budget)}</AppText>
+        </View>
       </View>
-      <AppText weight="bold" style={styles.title}>{post.title}</AppText>
-      <AppText weight="bold" style={styles.budget}>{formatPeso(post.budget)} budget</AppText>
+      <View style={[styles.infoRow, { marginTop: -16 }]}>
+        <View style={styles.infoHalf}>
+          <Ionicons name="calendar-outline" size={20} color={colors.burgundy} />
+          <AppText style={styles.infoLabel}>Deadline</AppText>
+          <AppText weight="semibold" style={styles.infoValue}>{post.deadline}</AppText>
+        </View>
+        <View style={styles.infoDivider} />
+        <View style={styles.infoHalf}>
+          <Ionicons name="pricetag-outline" size={20} color={colors.burgundy} />
+          <AppText style={styles.infoLabel}>Category</AppText>
+          <AppText weight="semibold" style={styles.infoValue}>{post.category}</AppText>
+        </View>
+      </View>
+      <View style={[styles.divider, { marginHorizontal: contentPadding, marginTop: 16 }]} />
+      <View style={{ marginHorizontal: contentPadding, marginTop: 16 }}>
+        <AppText weight="semibold" style={styles.sectionHeading}>About</AppText>
+        <AppText style={styles.description}>{post.description}</AppText>
+        {post.skills.length ? (
+          <>
+            <AppText weight="semibold" style={[styles.sectionHeading, { marginTop: 20, borderTopWidth: 1, borderTopColor: '#E8E8E8', paddingTop: 16 }]}>Skills Required</AppText>
+            <View style={styles.skillsRow}>
+              {post.skills.map((skill) => <View key={skill} style={styles.skill}><AppText style={styles.skillText}>{skill}</AppText></View>)}
+            </View>
+          </>
+        ) : null}
+      </View>
+      <View style={[styles.divider, { marginHorizontal: contentPadding, marginTop: 16 }]} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={client ? `Open ${client.name}'s profile` : 'Project client'}
         disabled={!client}
         onPress={() => client && router.push({ pathname: '/profiles/[userId]', params: { userId: client.id } })}
-        style={styles.client}
+        style={styles.clientCard}
       >
-        <View style={styles.avatar}><Ionicons name="business-outline" size={24} color={colors.burgundy} /></View>
+        <View style={styles.clientAvatar}><Ionicons name="person" size={22} color={colors.burgundy} /></View>
         <View style={styles.clientInfo}>
-          <AppText weight="semibold">{client?.name ?? 'Client'}</AppText>
-          <AppText style={styles.muted}>{post.category}</AppText>
+          <AppText weight="semibold" style={styles.clientName}>by {client?.name ?? 'Client'}</AppText>
+          <AppText style={styles.clientCategory}>{post.category}</AppText>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>
-      <AppText style={styles.description}>{post.description}</AppText>
-      <View style={styles.skills}>
-        {post.skills.map((skill) => <View key={skill} style={styles.skill}><AppText style={styles.skillText}>{skill}</AppText></View>)}
-      </View>
       {booking ? <PrimaryButton title="Open Accepted Project" onPress={() => router.push({ pathname: '/projects/[projectId]', params: { projectId: booking.id } })} style={styles.bookingButton} /> : null}
     </>
   );
@@ -120,31 +175,44 @@ function ProjectSummary({ post, client, booking }: { post: ProjectPost; client?:
 
 function OwnerControls({
   post,
-  proposalCount,
   setProjectPostStatus,
+  onAction,
 }: {
   post: ProjectPost;
-  proposalCount: number;
   setProjectPostStatus: (projectPostId: string, status: ProjectPost['status']) => Promise<StoreResult>;
+  onAction?: () => void;
 }) {
   const changeStatus = (status: ProjectPost['status']) => {
     consumeResult(setProjectPostStatus(post.id, status), (result) => {
       Alert.alert(result.ok ? 'Project updated' : 'Unable to update', result.ok ? `Project is now ${status}.` : result.message);
+      if (result.ok) onAction?.();
     });
   };
   const canEdit = !['closed', 'archived'].includes(post.status);
   const canOpen = post.status === 'draft' || (post.status === 'closed' && !post.acceptedProposalId);
 
   return (
-    <View style={styles.panel}>
-      <AppText weight="semibold" style={styles.panelTitle}>Manage this post</AppText>
-      <PrimaryButton title={`View Proposals (${proposalCount})`} onPress={() => router.push({ pathname: '/project-posts/[postId]/proposals', params: { postId: post.id } })} />
-      <Pressable disabled={!canEdit} onPress={() => router.push({ pathname: '/project-posts/[postId]/edit', params: { postId: post.id } })} style={styles.secondary}>
-        <AppText weight="semibold" style={styles.secondaryText}>Edit Project</AppText>
+    <View style={styles.controlGroup}>
+      <Pressable disabled={!canEdit} onPress={() => { onAction?.(); router.push({ pathname: '/project-posts/[postId]/edit', params: { postId: post.id } }); }} style={styles.controlRow}>
+        <Ionicons name="create-outline" size={20} color={colors.burgundy} />
+        <AppText weight="medium" style={styles.controlText}>Edit Project</AppText>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </Pressable>
-      {post.status === 'open' ? <Pressable onPress={() => changeStatus('closed')} style={styles.secondary}><AppText weight="semibold" style={styles.secondaryText}>Close Proposals</AppText></Pressable> : null}
-      {canOpen ? <Pressable onPress={() => changeStatus('open')} style={styles.secondary}><AppText weight="semibold" style={styles.secondaryText}>Open for Proposals</AppText></Pressable> : null}
-      <Pressable onPress={() => changeStatus('archived')} style={styles.archive}><AppText weight="semibold" style={styles.archiveText}>Archive Project</AppText></Pressable>
+      {post.status === 'open' ? <Pressable onPress={() => changeStatus('closed')} style={styles.controlRow}>
+        <Ionicons name="close-circle-outline" size={20} color={colors.burgundy} />
+        <AppText weight="medium" style={styles.controlText}>Close Proposals</AppText>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </Pressable> : null}
+      {canOpen ? <Pressable onPress={() => changeStatus('open')} style={styles.controlRow}>
+        <Ionicons name="rocket-outline" size={20} color={colors.burgundy} />
+        <AppText weight="medium" style={styles.controlText}>Open for Proposals</AppText>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </Pressable> : null}
+      <View style={[styles.divider, { marginVertical: 4 }]} />
+      <Pressable onPress={() => changeStatus('archived')} style={styles.archiveRow}>
+        <Ionicons name="archive-outline" size={18} color={colors.red} />
+        <AppText weight="medium" style={styles.archiveText}>Archive Project</AppText>
+      </Pressable>
     </View>
   );
 }
@@ -273,29 +341,49 @@ function parseNumberOrZero(value: string) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: contentPadding, paddingBottom: 36 },
+  content: { paddingBottom: 36 },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: contentPadding },
-  statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  status: { backgroundColor: colors.blush, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  statusText: { color: colors.burgundy, fontSize: 9 },
-  deadline: { color: colors.muted, fontSize: 10 },
-  title: { fontSize: 25, lineHeight: 33, marginTop: 16 },
-  budget: { fontSize: 20, color: colors.burgundy, marginTop: 8 },
-  client: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  hero: { backgroundColor: colors.red, paddingHorizontal: contentPadding, paddingBottom: 48, borderBottomLeftRadius: 42, borderBottomRightRadius: 42 },
+  backButton: { marginBottom: 24 },
+  heroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 8 },
+  heroTitle: { color: colors.white, fontSize: 26, lineHeight: 34, flex: 1, marginRight: 12 },
+  heroBudget: { color: colors.white, fontSize: 20 },
+  clientCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 14, ...shadow },
+  clientAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.white },
   clientInfo: { flex: 1 },
-  muted: { color: colors.muted, fontSize: 10, marginTop: 2 },
-  description: { fontSize: 14, lineHeight: 23, marginTop: 23 },
-  skills: { flexDirection: 'row', gap: 7, flexWrap: 'wrap', marginTop: 17 },
-  skill: { backgroundColor: colors.blush, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
-  skillText: { color: colors.burgundy, fontSize: 9 },
-  bookingButton: { marginTop: 24 },
-  panel: { backgroundColor: colors.white, borderRadius: 14, padding: 15, marginTop: 25, gap: 10, ...shadow },
+  clientName: { fontSize: 15 },
+  clientCategory: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  divider: { height: 1, backgroundColor: colors.border },
+  description: { color: colors.ink, fontSize: 13, lineHeight: 24 },
+  aboutCard: { backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 17, ...shadow },
+  sectionHeading: { fontSize: 18, marginBottom: 12 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 14, ...shadow },
+  infoHalf: { flex: 1, alignItems: 'center', gap: 4 },
+  infoDivider: { width: 1, height: 40, backgroundColor: colors.border },
+  infoLabel: { color: colors.muted, fontSize: 10 },
+  infoValue: { fontSize: 13 },
+  skillsRow: { flexDirection: 'row', gap: 7, flexWrap: 'wrap', marginTop: 10 },
+  skill: { backgroundColor: colors.blush, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, borderLeftWidth: 3, borderLeftColor: colors.burgundy },
+  skillText: { color: colors.burgundy, fontSize: 11 },
+  bookingButton: { marginHorizontal: contentPadding, marginTop: 20 },
+  manageTrigger: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 20, borderRadius: 14, padding: 14, ...shadow },
+  manageTriggerText: { flex: 1, color: colors.ink, fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContainer: { backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: contentPadding, paddingTop: 20, paddingBottom: 12 },
+  modalTitle: { fontSize: 18 },
+  modalClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  modalBody: { padding: contentPadding, paddingBottom: 36, gap: 10 },
+  controlGroup: { gap: 10 },
+  panel: { backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 20, borderRadius: 14, padding: 17, gap: 10, ...shadow },
   panelTitle: { fontSize: 17, marginBottom: 3 },
-  secondary: { minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { color: colors.burgundy, textTransform: 'capitalize' },
+  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 10 },
+  controlText: { flex: 1, color: colors.ink, fontSize: 13 },
+  archiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42 },
+  archiveText: { color: colors.red, fontSize: 13 },
   archive: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
-  archiveText: { color: colors.red },
+  secondaryText: { color: colors.burgundy, fontSize: 13 },
+  muted: { color: colors.muted, fontSize: 10, marginTop: 2 },
   hint: { color: colors.muted, fontSize: 10, lineHeight: 16 },
   textArea: { minHeight: 115, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontFamily: font.regular, color: colors.ink, textAlignVertical: 'top' },
   fieldGap: { height: 10 },
