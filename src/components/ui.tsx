@@ -189,7 +189,7 @@ export function AppLogo({ compact = false }: { compact?: boolean }) {
 
 const styles = StyleSheet.create({
   outer: { flex: 1, alignItems: 'center' },
-  phone: { flex: 1, width: '100%', maxWidth: MAX_PHONE_WIDTH, backgroundColor: colors.white },
+  phone: { flex: 1, width: '100%', maxWidth: MAX_PHONE_WIDTH, backgroundColor: colors.white, overflow: 'hidden' },
   header: { width: '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
   headerSide: { width: 40 },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 19 },

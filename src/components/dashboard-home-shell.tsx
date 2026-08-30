@@ -18,7 +18,7 @@ export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role
     <PrimaryTabScene active="home">
       <MobilePage backgroundColor={colors.red}>
         <StatusBar style="light" />
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={{ minHeight: screenHeight }}>
             <View testID="dashboard-hero" style={[styles.hero, { paddingTop: insets.top + 28 }]}><HeroDecor />{hero}</View>
             <View style={styles.heroExtension} />

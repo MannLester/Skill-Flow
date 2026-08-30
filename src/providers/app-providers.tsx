@@ -115,5 +115,5 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: contentPadding },
   onboarding: { flex: 1, justifyContent: 'center', gap: 16, paddingHorizontal: contentPadding },
   title: { fontSize: 20, textAlign: 'center' }, copy: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' }, error: { color: colors.red, fontSize: 11, textAlign: 'center' },
-  shell: { flex: 1 }, stack: { flex: 1 }, navOuter: { alignItems: 'center', backgroundColor: '#fff' }, navPhone: { width: '100%', maxWidth: MAX_PHONE_WIDTH },
+  shell: { flex: 1 }, stack: { flex: 1, overflow: 'hidden' },   navOuter: { alignItems: 'center', backgroundColor: '#fff', flexShrink: 0 }, navPhone: { width: '100%', maxWidth: MAX_PHONE_WIDTH },
 });

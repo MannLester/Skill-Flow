@@ -30,7 +30,7 @@ export default function ProfileScreen() {
   return (
     <PrimaryTabScene active="profile"><MobilePage>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={{ flex: 1 }} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={[styles.heroArea, { paddingTop: insets.top }]}>
           <HeroDecor />
           <View style={styles.topRow}><View /><Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="settings-outline" size={25} color={colors.white} /></Pressable></View>
