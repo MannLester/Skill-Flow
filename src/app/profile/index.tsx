@@ -31,11 +31,9 @@ export default function ProfileScreen() {
     <PrimaryTabScene active="profile"><MobilePage>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heroArea}>
+        <View style={[styles.heroArea, { paddingTop: insets.top }]}>
           <HeroDecor />
-          <Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')} style={[styles.settingsButton, { top: insets.top + 22 }]}>
-            <Ionicons name="settings-outline" size={25} color={colors.white} />
-          </Pressable>
+          <View style={styles.topRow}><View /><Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="settings-outline" size={25} color={colors.white} /></Pressable></View>
           <ProfileIdentity account={currentAccount} verification={verification} />
         </View>
         <ProfileAbout profile={profile} />
@@ -135,8 +133,8 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: contentPadding, gap: 16, paddingBottom: 30, paddingTop: 0 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   heroArea: { backgroundColor: colors.red, overflow: 'hidden', borderBottomLeftRadius: 62, borderBottomRightRadius: 62, marginHorizontal: -contentPadding },
-  settingsButton: { position: 'absolute', right: 16, zIndex: 10 },
-  identity: { alignItems: 'center', paddingTop: 56, paddingBottom: 24 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24 },
+  identity: { alignItems: 'center', paddingTop: 32, paddingBottom: 24 },
   avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   name: { fontSize: 25, marginTop: 12, color: colors.white },
   role: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
