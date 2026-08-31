@@ -11,12 +11,12 @@ type PrimaryRoute = '/student-home' | '/client-home' | '/projects' | '/portfolio
   | { pathname: '/marketplace'; params: { saved: 'true' } };
 
 const TAB_ORDER: Record<UserRole, PrimaryTabKey[]> = {
-  student: ['home', 'projects', 'portfolio', 'messages', 'profile'],
+  student: ['home', 'projects', 'messages', 'profile'],
   client: ['home', 'projects', 'messages', 'profile'],
 };
 
 const ACTIVE_BY_PATH: Record<UserRole, Record<string, PrimaryNavActive>> = {
-  student: { '/student-home': 'home', '/projects': 'projects', '/portfolio': 'portfolio', '/messages': 'messages', '/profile': 'profile', '/notifications': 'none' },
+  student: { '/student-home': 'home', '/projects': 'projects', '/messages': 'messages', '/profile': 'profile', '/notifications': 'none' },
   client: { '/client-home': 'home', '/projects': 'projects', '/messages': 'messages', '/profile': 'profile', '/marketplace': 'none', '/notifications': 'none' },
 };
 
@@ -90,7 +90,7 @@ export const PrimaryBottomNav = memo(function PrimaryBottomNav({ active, role, m
     onProjects={go('projects')}
     onPortfolio={!isClient ? go('portfolio') : undefined}
     onMessages={go('messages')}
-    onCreate={isClient ? () => router.push('/project-posts/new') : undefined}
+    onCreate={isClient ? () => router.push('/project-posts/new') : () => router.push('/projects/discover')}
     onProfile={go('profile')}
     messageUnread={messageUnread}
     variant={isClient ? 'client' : 'student'}

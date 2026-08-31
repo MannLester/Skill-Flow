@@ -144,7 +144,7 @@ function buildBottomNavItems({ onHome, onProjects, onPortfolio, onMessages, onCr
   const common = { home: { key: 'home' as const, label: 'Home', icon: 'home' as IconName, action: onHome }, projects: { key: 'projects' as const, label: 'Projects', icon: 'briefcase' as IconName, action: onProjects } };
   if (variant === 'client') { const center: BottomNavItem = { key: 'none', label: '', icon: 'add', action: onCreate }; return [common.home, common.projects, center, { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages, dot: messageUnread }, { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile }]; }
   if (variant === 'compact') return [common.home, common.projects, { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages }, { key: 'profile', label: 'Profile', icon: 'person', action: onProfile }];
-  const center: BottomNavItem = variant === 'marketplace' ? { key: 'none', label: '', icon: 'add', action: onCreate } : { key: 'portfolio', label: 'Portfolio', icon: 'folder', action: onPortfolio };
+  const center: BottomNavItem = variant === 'marketplace' ? { key: 'none', label: '', icon: 'add', action: onCreate } : { key: 'none', label: '', icon: 'search', action: onCreate };
   return [common.home, common.projects, center, { key: 'messages', label: 'Messages', icon: 'chatbubble', action: onMessages, dot: messageUnread }, { key: 'profile', label: 'Profile', icon: 'person-circle', action: onProfile }];
 }
 
@@ -155,14 +155,14 @@ export function BottomNav(props: BottomNavProps) {
 
   return (
     <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8), height: 76 + Math.max(insets.bottom, 8) }]}> 
-      {items.map((item, index) => <BottomNavButton key={`${item.key}-${index}`} item={item} selected={item.key === active} plus={(variant === 'marketplace' || variant === 'client') && item.key === 'none'} />)}
+      {items.map((item, index) => <BottomNavButton key={`${item.key}-${index}`} item={item} selected={item.key === active} plus={(variant === 'marketplace' || variant === 'client' || variant === 'student') && item.key === 'none'} />)}
     </View>
   );
 }
 
 function BottomNavButton({ item, selected, plus }: { item: BottomNavItem; selected: boolean; plus: boolean }) {
   const iconColor = plus ? colors.white : selected ? colors.red : '#555';
-  return <Pressable accessibilityRole="button" accessibilityLabel={plus ? 'Create' : item.label} accessibilityState={{ disabled: !item.action, selected }} disabled={!item.action} onPress={item.action} style={styles.navItem}><View style={styles.navIconWrap}>{plus ? <View style={styles.plusOuter}><View style={styles.plusButton}><Ionicons name={item.icon} size={40} color={colors.white} /></View></View> : <><View style={undefined}><Ionicons name={item.icon} size={27} color={iconColor} /></View>{item.dot ? <View style={styles.messageDot} /> : null}</>}</View>{plus ? null : <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText>}</Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={plus ? (item.icon === 'search' ? 'Discover' : 'Create') : item.label} accessibilityState={{ disabled: !item.action, selected }} disabled={!item.action} onPress={item.action} style={styles.navItem}><View style={styles.navIconWrap}>{plus ? <View style={styles.plusOuter}><View style={styles.plusButton}><Ionicons name={item.icon} size={item.icon === 'search' ? 28 : 40} color={colors.white} /></View></View> : <><View style={undefined}><Ionicons name={item.icon} size={27} color={iconColor} /></View>{item.dot ? <View style={styles.messageDot} /> : null}</>}</View>{plus ? null : <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText>}</Pressable>;
 }
 
 export function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; onPress?: () => void }) {
