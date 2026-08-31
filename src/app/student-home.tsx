@@ -29,7 +29,7 @@ export default function StudentHomeScreen() {
           <StudentReadiness readiness={readiness} />
           <SectionTitle title="Quick Actions" />
           <View style={styles.quickRow}>
-            <QuickAction icon="person" label={'Browse\nProjects'} onPress={() => router.push('/projects/discover')} />
+            <QuickAction icon="search" label={'Browse\nProjects'} onPress={() => router.push('/projects/discover')} />
             <QuickAction icon="briefcase" label={'My\nPortfolio'} onPress={() => router.push('/portfolio')} />
             <QuickAction icon="hardware-chip" label="AI Mentor" onPress={() => router.push('/ai-mentor')} />
             <QuickAction icon="chatbubble" label="Messages" onPress={() => router.push('/messages')} />
