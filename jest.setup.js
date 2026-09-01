@@ -78,3 +78,15 @@ jest.mock('@clerk/expo', () => {
     useUser: () => ({ user: null }),
   };
 });
+jest.mock('expo-image-manipulator', () => ({
+  SaveFormat: { JPEG: 'jpeg', PNG: 'png', WEBP: 'webp' },
+  manipulateAsync: jest.fn(async (uri) => ({ uri, width: 100, height: 100 })),
+}));
+
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
+  requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
+  launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+  launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+  getPendingResultAsync: jest.fn(async () => null),
+}));

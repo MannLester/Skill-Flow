@@ -30,6 +30,14 @@
       "@clerk/expo",
       "expo-secure-store",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SkillFlow to choose sample and project images from your gallery.",
+          "cameraPermission": "Allow SkillFlow to take sample and project photos.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#D60000",
@@ -42,6 +50,14 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "runtimeConfigurationHasUnknownPublicValues": false,
+      "router": {},
+      "eas": {
+        "projectId": "a1d352bd-e780-4c3c-bac5-82bd1d8aa2b5"
+      }
+    },
+    "owner": "gssjsbss-team"
   }
 }
