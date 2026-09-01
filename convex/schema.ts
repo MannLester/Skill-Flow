@@ -11,6 +11,21 @@ export const bookingStatus = v.union(
   v.literal("revision_requested"), v.literal("completed"), v.literal("reviewed"),
 );
 export const verificationStatus = v.union(v.literal("not_submitted"), v.literal("pending"), v.literal("verified"), v.literal("rejected"));
+export const mediaPurpose = v.union(
+  v.literal("avatar"), v.literal("portfolio_evidence"), v.literal("certification_evidence"),
+  v.literal("verification_sample"), v.literal("service_cover"), v.literal("service_gallery"),
+  v.literal("project_reference"), v.literal("booking_reference"), v.literal("proposal_sample"),
+  v.literal("delivery_image"), v.literal("message_image"),
+);
+export const mediaVisibility = v.union(v.literal("public"), v.literal("owner"), v.literal("participants"));
+export const mediaTargetType = v.union(
+  v.literal("profile"), v.literal("portfolio"), v.literal("certification"), v.literal("verification"),
+  v.literal("service"), v.literal("project_post"), v.literal("proposal"), v.literal("booking"), v.literal("message"),
+);
+export const mediaTargetId = v.union(
+  v.id("profiles"), v.id("portfolioItems"), v.id("certifications"), v.id("studentVerifications"),
+  v.id("services"), v.id("projectPosts"), v.id("proposals"), v.id("projectBookings"), v.id("projectMessages"),
+);
 export const seedFields = {
   seedNamespace: v.optional(v.string()),
   seedVersion: v.optional(v.string()),
@@ -18,6 +33,28 @@ export const seedFields = {
 };
 
 export default defineSchema({
+  mediaUploadIntents: defineTable({
+    ownerProfileId: v.id("profiles"), purpose: mediaPurpose,
+    state: v.union(v.literal("pending"), v.literal("finalized"), v.literal("discarded"), v.literal("expired")),
+    expiresAt: v.number(), finalizedFileId: v.optional(v.id("uploadedFiles")), createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_ownerProfileId_and_state_and_expiresAt", ["ownerProfileId", "state", "expiresAt"])
+    .index("by_state_and_expiresAt", ["state", "expiresAt"]),
+
+  uploadedFiles: defineTable({
+    storageId: v.id("_storage"), ownerProfileId: v.id("profiles"), contentType: v.string(), byteSize: v.number(),
+    width: v.number(), height: v.number(), originalName: v.string(), linkCount: v.number(), createdAt: v.number(), updatedAt: v.number(),
+    unattachedExpiresAt: v.optional(v.number()), ...seedFields,
+  }).index("by_storageId", ["storageId"]).index("by_ownerProfileId_and_createdAt", ["ownerProfileId", "createdAt"])
+    .index("by_unattachedExpiresAt", ["unattachedExpiresAt"]).index("by_seed", ["seedNamespace", "seedKey"]),
+
+  mediaAttachments: defineTable({
+    uploadedFileId: v.id("uploadedFiles"), ownerProfileId: v.id("profiles"), targetType: mediaTargetType,
+    targetId: mediaTargetId, purpose: mediaPurpose, position: v.number(), altText: v.string(), visibility: mediaVisibility,
+    createdAt: v.number(), updatedAt: v.number(), ...seedFields,
+  }).index("by_targetType_and_targetId_and_purpose_and_position", ["targetType", "targetId", "purpose", "position"])
+    .index("by_uploadedFileId", ["uploadedFileId"]).index("by_ownerProfileId_and_createdAt", ["ownerProfileId", "createdAt"])
+    .index("by_seed", ["seedNamespace", "seedKey"]),
+
   profiles: defineTable({
     authTokenIdentifier: v.optional(v.string()), role, name: v.string(), bio: v.string(), location: v.string(),
     organization: v.optional(v.string()), school: v.optional(v.string()), program: v.optional(v.string()),

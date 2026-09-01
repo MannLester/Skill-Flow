@@ -2,6 +2,9 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { assertText, requireIdentity, requireProfile } from "./lib/auth";
 import { role } from "./schema";
+import { replaceAttachments } from "./media";
+
+const mediaInput = v.object({ uploadedFileId: v.id("uploadedFiles"), altText: v.string() });
 
 export const current = query({
   args: {}, returns: v.any(),
@@ -38,6 +41,7 @@ export const update = mutation({
   args: {
     name: v.string(), bio: v.string(), location: v.string(), organization: v.optional(v.string()), school: v.optional(v.string()),
     program: v.optional(v.string()), gradeLevel: v.optional(v.string()), graduationYear: v.optional(v.number()), skills: v.array(v.string()),
+    avatar: v.optional(v.array(mediaInput)),
   }, returns: v.null(),
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
@@ -47,6 +51,7 @@ export const update = mutation({
       gradeLevel: args.gradeLevel?.trim().slice(0, 80), graduationYear: args.graduationYear,
       skills: args.skills.map((skill) => skill.trim()).filter(Boolean).slice(0, 20), updatedAt: Date.now(),
     });
+    if (args.avatar) await replaceAttachments(ctx, profile._id, "profile", profile._id, "avatar", "public", args.avatar, 0, 1);
     return null;
   },
 });

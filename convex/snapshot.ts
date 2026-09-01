@@ -26,12 +26,12 @@ export const get = query({
       .withIndex("by_auth_token", (q) => q.eq("authTokenIdentifier", identity.tokenIdentifier))
       .unique();
     if (!currentProfile) return null;
-    const [allProfiles, allServices, allSavedServices, allProjectPosts, allProposals, allBookings, allMessages, allNotifications, allLedger, reviews, allVerifications, portfolioItems, certifications, allMentorMessages, allPreferences] = await Promise.all([
+    const [allProfiles, allServices, allSavedServices, allProjectPosts, allProposals, allBookings, allMessages, allNotifications, allLedger, reviews, allVerifications, portfolioItems, certifications, allMentorMessages, allPreferences, allAttachments] = await Promise.all([
       ctx.db.query("profiles").take(200), ctx.db.query("services").take(500), ctx.db.query("savedServices").take(500),
       ctx.db.query("projectPosts").take(500), ctx.db.query("proposals").take(500), ctx.db.query("projectBookings").take(500),
       ctx.db.query("projectMessages").take(500), ctx.db.query("notifications").take(500), ctx.db.query("ledgerEntries").take(500),
       ctx.db.query("reviews").take(500), ctx.db.query("studentVerifications").take(200), ctx.db.query("portfolioItems").take(500),
-      ctx.db.query("certifications").take(500), ctx.db.query("mentorMessages").take(500), ctx.db.query("preferences").take(200),
+      ctx.db.query("certifications").take(500), ctx.db.query("mentorMessages").take(500), ctx.db.query("preferences").take(200), ctx.db.query("mediaAttachments").take(1000),
     ]);
     const profiles = allProfiles.map((profile) => profile._id === currentProfile._id ? ownerProfile(profile) : publicProfile(profile));
     const services = allServices.filter((service) => service.status === "published" || service.ownerProfileId === currentProfile._id);
@@ -51,7 +51,19 @@ export const get = query({
     }
     const mentorMessages = allMentorMessages.filter((message) => message.studentProfileId === currentProfile._id);
     const preferences = allPreferences.filter((preference) => preference.profileId === currentProfile._id);
-    return { currentProfile: ownerProfile(currentProfile), profiles, services, savedServices, projectPosts, proposals, bookings, messages, notifications, ledger, reviews, verifications, portfolioItems, certifications, mentorMessages, preferences };
+    const targetIds = new Set<string>([
+      ...profiles.map((item) => item._id), ...services.map((item) => item._id), ...projectPosts.map((item) => item._id),
+      ...proposals.map((item) => item._id), ...bookings.map((item) => item._id), ...messages.map((item) => item._id),
+      ...portfolioItems.map((item) => item._id), ...certifications.map((item) => item._id),
+      ...allVerifications.filter((item) => item.studentProfileId === currentProfile._id).map((item) => item._id),
+    ]);
+    const mediaAttachments = await Promise.all(allAttachments.filter((item) => targetIds.has(item.targetId)).map(async (attachment) => {
+      const isPublishedService = attachment.targetType !== "service" || services.some((service) => service._id === attachment.targetId && service.status === "published");
+      const file = attachment.visibility === "public" && isPublishedService ? await ctx.db.get(attachment.uploadedFileId) : null;
+      const publicUrl = file ? await ctx.storage.getUrl(file.storageId) : null;
+      return { _id: attachment._id, targetType: attachment.targetType, targetId: attachment.targetId, purpose: attachment.purpose, position: attachment.position, altText: attachment.altText, visibility: attachment.visibility, publicUrl };
+    }));
+    return { currentProfile: ownerProfile(currentProfile), profiles, services, savedServices, projectPosts, proposals, bookings, messages, notifications, ledger, reviews, verifications, portfolioItems, certifications, mentorMessages, preferences, mediaAttachments };
   },
 });
 

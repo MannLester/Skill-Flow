@@ -5,8 +5,13 @@ import { mutation } from "./_generated/server";
 import { assertPositive, assertText, requireProfile, requireRole } from "./lib/auth";
 import { notifyBooking, notifyPost } from "./lib/events";
 import { postStatus } from "./schema";
+import { copyAttachments, replaceAttachments } from "./media";
+import type { AttachmentInput } from "./media";
+
+const mediaInput = v.object({ uploadedFileId: v.id("uploadedFiles"), altText: v.string() });
 
 type ProjectPostStatus = Doc<"projectPosts">["status"];
+type ProjectPostFields = Pick<Doc<"projectPosts">, "clientProfileId" | "title" | "description" | "category" | "budget" | "deadline" | "deadlineEpoch" | "skills" | "status" | "normalizedSearch" | "updatedAt"> & { openedAt?: number };
 
 function assertPostStatusTransition(current: ProjectPostStatus, next: ProjectPostStatus) {
   if (current === "archived" && next !== "archived") {
@@ -15,7 +20,7 @@ function assertPostStatusTransition(current: ProjectPostStatus, next: ProjectPos
 }
 
 export const savePost = mutation({
-  args: { projectPostId: v.optional(v.id("projectPosts")), title: v.string(), description: v.string(), category: v.string(), budget: v.number(), deadline: v.string(), skills: v.array(v.string()), publish: v.boolean() },
+  args: { projectPostId: v.optional(v.id("projectPosts")), title: v.string(), description: v.string(), category: v.string(), budget: v.number(), deadline: v.string(), skills: v.array(v.string()), publish: v.boolean(), referenceImages: v.optional(v.array(mediaInput)) },
   returns: v.id("projectPosts"),
   handler: async (ctx, args) => {
     const client = await requireRole(ctx, "client");
@@ -28,16 +33,20 @@ export const savePost = mutation({
     if (!skills.length) throw new Error("Add at least one required skill.");
     const now = Date.now();
     const fields = { clientProfileId: client._id, title, description, category, budget: assertPositive(args.budget, "Budget"), deadline: args.deadline.trim(), deadlineEpoch, skills, status: args.publish ? "open" as const : "draft" as const, normalizedSearch: `${title} ${description} ${category} ${skills.join(" ")}`.toLowerCase(), updatedAt: now, openedAt: args.publish ? now : undefined };
-    if (args.projectPostId) {
-      const post = await ctx.db.get(args.projectPostId);
-      if (!post || post.clientProfileId !== client._id) throw new Error("You can only edit your own project posts.");
-      if (post.status === "closed" || post.status === "archived") throw new Error("Closed or archived projects cannot be edited.");
-      await ctx.db.patch(post._id, fields);
-      return post._id;
-    }
-    return await ctx.db.insert("projectPosts", { ...fields, createdAt: now });
+    const postId = await persistProjectPost(ctx, client._id, args.projectPostId, fields, now);
+    if (args.referenceImages) await replaceAttachments(ctx, client._id, "project_post", postId, "project_reference", "participants", args.referenceImages, 0, 5);
+    return postId;
   },
 });
+
+async function persistProjectPost(ctx: MutationCtx, clientId: Id<"profiles">, projectPostId: Id<"projectPosts"> | undefined, fields: ProjectPostFields, now: number) {
+  if (!projectPostId) return await ctx.db.insert("projectPosts", { ...fields, createdAt: now });
+  const post = await ctx.db.get(projectPostId);
+  if (!post || post.clientProfileId !== clientId) throw new Error("You can only edit your own project posts.");
+  if (post.status === "closed" || post.status === "archived") throw new Error("Closed or archived projects cannot be edited.");
+  await ctx.db.patch(post._id, fields);
+  return post._id;
+}
 
 export const setPostStatus = mutation({
   args: { projectPostId: v.id("projectPosts"), status: postStatus }, returns: v.null(),
@@ -54,7 +63,7 @@ export const setPostStatus = mutation({
 });
 
 export const submitProposal = mutation({
-  args: { projectPostId: v.id("projectPosts"), coverLetter: v.string(), amount: v.number(), deliveryDays: v.number() }, returns: v.id("proposals"),
+  args: { projectPostId: v.id("projectPosts"), coverLetter: v.string(), amount: v.number(), deliveryDays: v.number(), sampleImages: v.optional(v.array(mediaInput)) }, returns: v.id("proposals"),
   handler: async (ctx, args) => {
     const student = await requireRole(ctx, "student");
     const verification = await ctx.db.query("studentVerifications").withIndex("by_student", (q) => q.eq("studentProfileId", student._id)).unique();
@@ -65,6 +74,7 @@ export const submitProposal = mutation({
     if (duplicate) throw new Error("You already have an active proposal for this project.");
     const now = Date.now();
     const proposalId = await ctx.db.insert("proposals", { projectPostId: post._id, studentProfileId: student._id, coverLetter: assertText(args.coverLetter, "Cover letter", 2000), amount: assertPositive(args.amount, "Amount"), deliveryDays: assertPositive(args.deliveryDays, "Delivery days"), status: "submitted", createdAt: now, updatedAt: now });
+    if (args.sampleImages) await replaceAttachments(ctx, student._id, "proposal", proposalId, "proposal_sample", "participants", args.sampleImages, 0, 3);
     await notifyPost(ctx, { recipientProfileId: post.clientProfileId, projectPostId: post._id, title: "New project proposal", detail: `${student.name} proposed for ${post.title}`, eventKey: `proposal:${proposalId}:submitted` });
     return proposalId;
   },
@@ -95,6 +105,7 @@ export const decideProposal = mutation({
       return null;
     }
     const bookingId = await ctx.db.insert("projectBookings", { clientProfileId: client._id, studentProfileId: proposal.studentProfileId, source: "proposal", projectPostId: post._id, proposalId: proposal._id, title: post.title, description: post.description, category: post.category, deliveryDays: proposal.deliveryDays, budget: proposal.amount, status: "accepted", version: 1, createdAt: now, updatedAt: now, acceptedAt: now, lastCommand: "accept_proposal", lastActorProfileId: client._id });
+    await copyAttachments(ctx, client._id, "project_post", post._id, "project_reference", "booking", bookingId, "booking_reference", "participants", 5);
     const pending = await ctx.db.query("proposals").withIndex("by_post_status", (q) => q.eq("projectPostId", post._id).eq("status", "submitted")).take(200);
     await Promise.all(pending.map(async (item) => {
       const accepted = item._id === proposal._id;
@@ -107,7 +118,7 @@ export const decideProposal = mutation({
 });
 
 export const createBooking = mutation({
-  args: { serviceId: v.id("services"), description: v.string(), deliveryDays: v.number(), budget: v.number(), requestKey: v.string() }, returns: v.id("projectBookings"),
+  args: { serviceId: v.id("services"), description: v.string(), deliveryDays: v.number(), budget: v.number(), requestKey: v.string(), referenceImages: v.optional(v.array(mediaInput)) }, returns: v.id("projectBookings"),
   handler: async (ctx, args) => {
     const client = await requireRole(ctx, "client");
     const service = await ctx.db.get(args.serviceId);
@@ -116,16 +127,17 @@ export const createBooking = mutation({
     if (existing) return existing._id;
     const now = Date.now();
     const bookingId = await ctx.db.insert("projectBookings", { clientProfileId: client._id, studentProfileId: service.ownerProfileId, source: "service_request", serviceId: service._id, requestKey: assertText(args.requestKey, "Request key", 120), title: service.title, description: assertText(args.description, "Project description", 3000), category: service.category, deliveryDays: assertPositive(args.deliveryDays, "Delivery days"), revisions: service.revisions, budget: assertPositive(args.budget, "Budget"), status: "requested", version: 1, createdAt: now, updatedAt: now, lastCommand: "request", lastActorProfileId: client._id });
+    if (args.referenceImages) await replaceAttachments(ctx, client._id, "booking", bookingId, "booking_reference", "participants", args.referenceImages, 0, 5);
     await notifyBooking(ctx, { recipientProfileId: service.ownerProfileId, bookingId, kind: "project", title: "New service request", detail: service.title, eventKey: `booking:${bookingId}:requested` });
     return bookingId;
   },
 });
 
 type Action = "accept" | "decline" | "cancel" | "fund" | "start" | "submit" | "request_revision" | "approve" | "review";
-type ActionArgs = { action: Action; note?: string; rating?: number; comment?: string };
+type ActionArgs = { action: Action; note?: string; rating?: number; comment?: string; deliveryImages?: { uploadedFileId: Id<"uploadedFiles">; altText: string }[] };
 
 export const actOnBooking = mutation({
-  args: { bookingId: v.id("projectBookings"), action: v.union(v.literal("accept"), v.literal("decline"), v.literal("cancel"), v.literal("fund"), v.literal("start"), v.literal("submit"), v.literal("request_revision"), v.literal("approve"), v.literal("review")), note: v.optional(v.string()), rating: v.optional(v.number()), comment: v.optional(v.string()) },
+  args: { bookingId: v.id("projectBookings"), action: v.union(v.literal("accept"), v.literal("decline"), v.literal("cancel"), v.literal("fund"), v.literal("start"), v.literal("submit"), v.literal("request_revision"), v.literal("approve"), v.literal("review")), note: v.optional(v.string()), rating: v.optional(v.number()), comment: v.optional(v.string()), deliveryImages: v.optional(v.array(mediaInput)) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const actor = await requireProfile(ctx);
@@ -146,7 +158,7 @@ async function applyBookingAction(ctx: MutationCtx, actor: Doc<"profiles">, book
     cancel: () => cancelBooking(ctx, actor._id, booking, isClient && ["requested", "accepted"].includes(booking.status), now),
     fund: () => fundBooking(ctx, actor._id, booking, isClient && booking.status === "accepted", now),
     start: () => transition(ctx, actor._id, booking, isStudent && booking.status === "demo_funded", "in_progress", "Work started", booking.clientProfileId, now),
-    submit: () => submitDelivery(ctx, actor._id, booking, isStudent && ["in_progress", "revision_requested"].includes(booking.status), args.note, now),
+    submit: () => submitDelivery(ctx, actor._id, booking, isStudent && ["in_progress", "revision_requested"].includes(booking.status), args.note, args.deliveryImages, now),
     request_revision: () => requestRevision(ctx, actor._id, booking, isClient && booking.status === "submitted", args.note, now),
     approve: () => approveBooking(ctx, actor._id, booking, isClient && booking.status === "submitted", now),
     review: () => reviewBooking(ctx, actor._id, booking, isClient && booking.status === "completed", args.rating, args.comment, now),
@@ -174,10 +186,11 @@ async function fundBooking(ctx: MutationCtx, actorId: Id<"profiles">, booking: D
   await notifyBooking(ctx, { recipientProfileId: booking.studentProfileId, bookingId: booking._id, kind: "payment", title: "Demo funds reserved", detail: booking.title, eventKey: `booking:${booking._id}:funded` });
 }
 
-async function submitDelivery(ctx: MutationCtx, actorId: Id<"profiles">, booking: Doc<"projectBookings">, allowed: boolean, note: string | undefined, now: number) {
+async function submitDelivery(ctx: MutationCtx, actorId: Id<"profiles">, booking: Doc<"projectBookings">, allowed: boolean, note: string | undefined, deliveryImages: AttachmentInput[] | undefined, now: number) {
   if (!allowed) throw new Error("This action is not available for the current account or project status.");
   const deliveryNote = assertText(note ?? "", "Delivery note", 3000);
   await ctx.db.patch(booking._id, { status: "submitted", deliveryNote, revisionNote: undefined, version: booking.version + 1, updatedAt: now, submittedAt: now, lastCommand: "submit", lastActorProfileId: actorId });
+  await replaceAttachments(ctx, actorId, "booking", booking._id, "delivery_image", "participants", deliveryImages ?? [], 0, 5);
   await notifyBooking(ctx, { recipientProfileId: booking.clientProfileId, bookingId: booking._id, kind: "project", title: "Delivery submitted", detail: booking.title, eventKey: `booking:${booking._id}:submitted:${booking.version + 1}` });
 }
 

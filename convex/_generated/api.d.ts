@@ -9,10 +9,13 @@
  */
 
 import type * as communication from "../communication.js";
+import type * as crons from "../crons.js";
 import type * as devSeed from "../devSeed.js";
 import type * as growth from "../growth.js";
+import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_events from "../lib/events.js";
+import type * as media from "../media.js";
 import type * as profiles from "../profiles.js";
 import type * as projects from "../projects.js";
 import type * as services from "../services.js";
@@ -26,10 +29,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   communication: typeof communication;
+  crons: typeof crons;
   devSeed: typeof devSeed;
   growth: typeof growth;
+  http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/events": typeof lib_events;
+  media: typeof media;
   profiles: typeof profiles;
   projects: typeof projects;
   services: typeof services;
