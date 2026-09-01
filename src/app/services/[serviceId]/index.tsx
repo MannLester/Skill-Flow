@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { OptimizedArtwork, optimizedArtwork, ServiceArtwork as ServiceThumbnail } from '@/components/optimized-artwork';
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
+import { MediaGallery } from '@/components/media-gallery';
 import { colors, contentPadding } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
 import { useSession } from '@/context/session.remote';
@@ -34,6 +35,7 @@ export default function ServiceDetailsScreen() {
       <AppHeader title="" onBack={() => router.back()} right={<View style={styles.actions}><Pressable accessibilityRole="button" accessibilityLabel={favorite ? 'Remove from saved services' : 'Save service'} onPress={() => toggleSavedService(service.id)}><Ionicons name={favorite ? 'heart' : 'heart-outline'} size={29} color={colors.white} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel="More service actions" onPress={() => Alert.alert('Service actions', 'Sharing and reporting are simulated in this demo.')}><Ionicons name="ellipsis-vertical" size={25} color={colors.white} /></Pressable></View>} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <ServiceArtwork service={service} />
+        <MediaGallery targetType="service" targetId={service.id} purposes={['service_cover', 'service_gallery']} />
         <View style={styles.content}>
           <View style={styles.titleRow}><AppText weight="bold" style={styles.title}>{service.title}</AppText><AppText weight="bold" style={styles.price}>{formatPeso(service.price)}</AppText></View>
           <Pressable accessibilityRole="button" accessibilityLabel={`Open ${service.provider} profile`} onPress={() => router.push({ pathname: '/profiles/[userId]', params: { userId: service.providerId } })} style={styles.providerRow}>

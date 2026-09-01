@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 
 import { Service, services as seededServices } from '@/data/fixtures';
 import { calculateCareerReadiness, CareerReadinessBreakdown } from '@/domain/career-readiness';
+import type { MediaAttachment, MediaInput } from '@/media/types';
 
 export type UserRole = 'student' | 'client';
 export type ProjectStatus = 'requested' | 'accepted' | 'declined' | 'cancelled' | 'demo_funded' | 'in_progress' | 'submitted' | 'revision_requested' | 'approved' | 'completed' | 'reviewed';
@@ -183,15 +184,15 @@ type RegisterAccountInput = Pick<DemoAccount, 'name' | 'email' | 'password' | 'r
 type AuthResult = { ok: true; account: DemoAccount } | { ok: false; message: string };
 export type StoreResult = { ok: true } | { ok: false; message: string };
 
-type ProjectActionPayload = { note?: string; rating?: number; comment?: string };
-type ProfileInput = Omit<UserProfile, 'accountId'> & { name: string };
-type VerificationInput = Pick<StudentVerification, 'school' | 'program' | 'gradeLevel' | 'graduationYear' | 'sampleDocumentName'> & { studentNumber: string };
-type PortfolioInput = Pick<PortfolioItem, 'title' | 'description' | 'category' | 'sourceProjectId'>;
-type CertificationInput = Pick<Certification, 'name' | 'issuer' | 'year'>;
-export type ServiceInput = Pick<Service, 'title' | 'subtitle' | 'category' | 'description' | 'price' | 'deliveryDays' | 'revisions'>;
+type ProjectActionPayload = { note?: string; rating?: number; comment?: string; deliveryImages?: MediaInput[] };
+type ProfileInput = Omit<UserProfile, 'accountId'> & { name: string; avatar?: MediaInput[] };
+type VerificationInput = Pick<StudentVerification, 'school' | 'program' | 'gradeLevel' | 'graduationYear' | 'sampleDocumentName'> & { studentNumber: string; evidenceImage?: MediaInput[] };
+type PortfolioInput = Pick<PortfolioItem, 'title' | 'description' | 'category' | 'sourceProjectId'> & { evidenceImages?: MediaInput[] };
+type CertificationInput = Pick<Certification, 'name' | 'issuer' | 'year'> & { evidenceImage?: MediaInput[] };
+export type ServiceInput = Pick<Service, 'title' | 'subtitle' | 'category' | 'description' | 'price' | 'deliveryDays' | 'revisions'> & { coverImage?: MediaInput[]; galleryImages?: MediaInput[] };
 type ServiceResult = { ok: true; service: Service } | { ok: false; message: string };
-export type ProjectPostInput = Pick<ProjectPost, 'title' | 'description' | 'category' | 'budget' | 'deadline' | 'skills'>;
-export type ProposalInput = Pick<Proposal, 'coverLetter' | 'amount' | 'deliveryDays'>;
+export type ProjectPostInput = Pick<ProjectPost, 'title' | 'description' | 'category' | 'budget' | 'deadline' | 'skills'> & { referenceImages?: MediaInput[] };
+export type ProposalInput = Pick<Proposal, 'coverLetter' | 'amount' | 'deliveryDays'> & { sampleImages?: MediaInput[] };
 type ProjectPostResult = { ok: true; projectPost: ProjectPost } | { ok: false; message: string };
 type ProposalDecisionResult = { ok: true; bookingId?: string } | { ok: false; message: string };
 
@@ -217,6 +218,7 @@ type SessionValue = {
   savedServiceIds: string[];
   mentorMessages: MentorMessage[];
   preferences: DemoPreferences;
+  mediaAttachments?: MediaAttachment[];
   unreadCount: number;
   getCareerReadiness: (studentId: string) => CareerReadinessBreakdown;
   login: (email: string, password: string, role: UserRole) => AuthResult;

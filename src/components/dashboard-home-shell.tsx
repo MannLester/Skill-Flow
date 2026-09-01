@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,16 +8,27 @@ import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwo
 import { AppText, HeroDecor, MobilePage } from '@/components/ui';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import type { UserRole } from '@/context/session.remote';
+import { NavigationDrawer } from '@/components/navigation-drawer';
 import { PrimaryTabScene } from '@/navigation/primary-navigation';
 
 export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role }: { body: ReactNode; featured: ReactNode; featuredOnPress?: () => void; hero: ReactNode; role: UserRole }) {
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
   const roleStyle = roleStyles[role];
+  const [drawerVisible, setDrawerVisible] = useState(false);
   return (
     <PrimaryTabScene active="home">
       <MobilePage backgroundColor={colors.red}>
         <StatusBar style="light" />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open navigation menu"
+          hitSlop={12}
+          onPress={() => setDrawerVisible(true)}
+          style={[styles.menuButton, { top: insets.top + 24 }]}
+        >
+          <Ionicons name="menu" size={27} color={colors.white} />
+        </Pressable>
         <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={{ minHeight: screenHeight }}>
             <View testID="dashboard-hero" style={[styles.hero, { paddingTop: insets.top + 28 }]}><HeroDecor />{hero}</View>
@@ -26,6 +37,7 @@ export function DashboardHomeShell({ body, featured, featuredOnPress, hero, role
             <View testID="dashboard-body" style={styles.body}>{body}</View>
           </View>
         </ScrollView>
+        <NavigationDrawer visible={drawerVisible} role={role} onClose={() => setDrawerVisible(false)} />
       </MobilePage>
     </PrimaryTabScene>
   );
@@ -64,6 +76,7 @@ function DashboardFeatured({ children, onPress, style }: { children: ReactNode; 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingBottom: 24 },
   hero: { backgroundColor: colors.red, paddingHorizontal: 24, paddingBottom: 87, overflow: 'hidden' },
+  menuButton: { position: 'absolute', right: 68, zIndex: 3 },
   heroExtension: { backgroundColor: colors.red, height: 97 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   logo: { width: 36, height: 36, resizeMode: 'contain' },
@@ -79,7 +92,7 @@ const styles = StyleSheet.create({
   studentSubtitle: { marginTop: 5 },
   avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', elevation: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   featured: { minHeight: 140, backgroundColor: colors.white, paddingTop: 14, paddingBottom: 18, paddingHorizontal: 20, marginTop: -100, marginHorizontal: 24, zIndex: 1, transform: [{ translateY: -68 }], ...shadow },
-  body: { backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -164, borderTopLeftRadius: 42, borderTopRightRadius: 42, paddingTop: 112 },
+  body: { flex: 1, backgroundColor: colors.white, paddingHorizontal: contentPadding, marginTop: -164, borderTopLeftRadius: 42, borderTopRightRadius: 42, paddingTop: 112 },
   clientFeatured: { borderRadius: 17 },
   studentFeatured: { borderRadius: 18 },
 });

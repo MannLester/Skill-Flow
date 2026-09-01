@@ -13,6 +13,7 @@ import { AppText, FormField, MobilePage, PrimaryButton, RoleSelector } from '@/c
 import { readRuntimeConfiguration, RuntimeConfiguration } from '@/config/runtime';
 import { colors, contentPadding, MAX_PHONE_WIDTH } from '@/constants/theme';
 import { SessionProvider, useSession } from '@/context/session.remote';
+import { MediaUploadProvider } from '@/providers/media-upload-provider';
 import type { UserRole } from '@/context/session';
 import { primaryNavActiveForPath, PrimaryBottomNav } from '@/navigation/primary-navigation';
 import { blurActiveWebElement } from '@/utils/web-focus';
@@ -34,7 +35,7 @@ function ConfiguredProviders({ children, configuration }: PropsWithChildren<{ co
       <ClerkLoading><LoadingState message="Restoring your secure session…" /></ClerkLoading>
       <ClerkLoaded>
         <ConvexProviderWithClerk key={authAttempt} client={convex} useAuth={useAuth}>
-          <SessionProvider><AuthProfileGate onRetry={() => setAuthAttempt((attempt) => attempt + 1)}>{children}</AuthProfileGate></SessionProvider>
+          <MediaUploadProvider><SessionProvider><AuthProfileGate onRetry={() => setAuthAttempt((attempt) => attempt + 1)}>{children}</AuthProfileGate></SessionProvider></MediaUploadProvider>
         </ConvexProviderWithClerk>
       </ClerkLoaded>
     </ClerkProvider>

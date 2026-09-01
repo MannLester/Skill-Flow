@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader, AppText, MobilePage } from '@/components/ui';
-import { colors, contentPadding, font, shadow } from '@/constants/theme';
+import { colors, contentPadding, font } from '@/constants/theme';
 import { MentorMessage, useSession } from '@/context/session.remote';
 
 const suggestions = [
@@ -31,7 +31,7 @@ function MentorListHeader({ accountName, hasConversation, onSuggestion }: { acco
 
 export default function AiMentorScreen() {
   const insets = useSafeAreaInsets();
-  const { clearMentorConversation, currentAccount, hydrated, mentorMessages, sendMentorMessage } = useSession();
+  const { currentAccount, hydrated, mentorMessages, sendMentorMessage } = useSession();
   const [message, setMessage] = useState('');
   const isClient = currentAccount?.role === 'client';
 

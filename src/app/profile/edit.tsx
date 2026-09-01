@@ -4,21 +4,24 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInpu
 import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { ProfileInput, UserProfile, UserRole, useSession } from '@/context/session.remote';
 import { consumeResult } from '@/utils/consume-result';
+import { mediaInputs, type UploadedImage } from '@/media/types';
 
 export default function EditProfileScreen() {
   const { currentAccount, profiles, updateProfile } = useSession();
   const profile = profiles.find((item) => item.accountId === currentAccount?.id);
   const fields = useProfileFields(currentAccount?.name, profile);
+  const [avatar, setAvatar] = useState<UploadedImage[]>([]);
   if (!currentAccount) return <MobilePage><AppHeader title="Edit Profile" onBack={() => router.back()} /><AppText>Please log in.</AppText></MobilePage>;
-  const save = () => consumeResult(updateProfile(profileInput(currentAccount.role, fields.values)), (result) => {
+  const save = () => consumeResult(updateProfile({ ...profileInput(currentAccount.role, fields.values), ...(avatar.length ? { avatar: mediaInputs(avatar) } : {}) }), (result) => {
     if (!result.ok) return Alert.alert('Unable to save', result.message);
     Alert.alert('Profile saved', 'Your SkillFlow profile was updated.');
     router.back();
   });
-  return <MobilePage><StatusBar style="light" /><AppHeader title="Edit Profile" onBack={() => router.back()} /><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}><Label text="Display Name" /><FormField icon="person-outline" value={fields.values.name} onChangeText={fields.setters.setName} placeholder="Display Name" /><Label text="Bio" /><TextInput value={fields.values.bio} onChangeText={fields.setters.setBio} placeholder="Tell clients or students about yourself…" placeholderTextColor={colors.muted} multiline style={styles.textArea} /><Label text="Location" /><FormField icon="location-outline" value={fields.values.location} onChangeText={fields.setters.setLocation} placeholder="Location" /><RoleFields role={currentAccount.role} values={fields.values} setters={fields.setters} /><PrimaryButton title="Save Profile" onPress={save} style={{ marginTop: 23 }} /></ScrollView></KeyboardAvoidingView></MobilePage>;
+  return <MobilePage><StatusBar style="light" /><AppHeader title="Edit Profile" onBack={() => router.back()} /><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}><ImageUploader purpose="avatar" value={avatar} onChange={setAvatar} max={1} label="Profile Image" defaultAltText={`${fields.values.name || 'SkillFlow user'} profile image`} /><Label text="Display Name" /><FormField icon="person-outline" value={fields.values.name} onChangeText={fields.setters.setName} placeholder="Display Name" /><Label text="Bio" /><TextInput value={fields.values.bio} onChangeText={fields.setters.setBio} placeholder="Tell clients or students about yourself…" placeholderTextColor={colors.muted} multiline style={styles.textArea} /><Label text="Location" /><FormField icon="location-outline" value={fields.values.location} onChangeText={fields.setters.setLocation} placeholder="Location" /><RoleFields role={currentAccount.role} values={fields.values} setters={fields.setters} /><PrimaryButton title="Save Profile" onPress={save} style={{ marginTop: 23 }} /></ScrollView></KeyboardAvoidingView></MobilePage>;
 }
 
 function useProfileFields(accountName: string | undefined, profile: UserProfile | undefined) {

@@ -7,9 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ServiceArtwork } from '@/components/optimized-artwork';
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
 import { useSession } from '@/context/session.remote';
+import { mediaInputs, type UploadedImage } from '@/media/types';
 
 
 type SelectorKey = 'delivery' | 'budget';
@@ -29,6 +31,7 @@ export default function BookServiceScreen() {
   const [deliveryDays, setDeliveryDays] = useState(service?.deliveryDays ?? 3);
   const [budget, setBudget] = useState(service?.price ?? 1500);
   const [openSelector, setOpenSelector] = useState<SelectorKey | null>(null);
+  const [images, setImages] = useState<UploadedImage[]>([]);
 
   if (!service) return <MobilePage><StatusBar style="light" /><AppHeader title="Book Service" onBack={() => router.back()} /><View style={styles.missing}><AppText weight="semibold">Service not found.</AppText></View></MobilePage>;
 
@@ -47,7 +50,7 @@ export default function BookServiceScreen() {
       return;
     }
     setDescriptionError(undefined);
-    const booking = await createBooking({ serviceId: service.id, studentId: service.providerId, title: service.title, description: description.trim(), deliveryDays, budget });
+    const booking = await createBooking({ serviceId: service.id, studentId: service.providerId, title: service.title, description: description.trim(), deliveryDays, budget, referenceImages: mediaInputs(images) });
     router.replace({ pathname: '/projects/[projectId]', params: { projectId: booking.id } });
   };
 
@@ -64,6 +67,7 @@ export default function BookServiceScreen() {
           <AppText weight="semibold" style={styles.label}>Project Details</AppText>
           <View style={[styles.textArea, descriptionError && styles.textAreaError]}><TextInput value={description} onChangeText={(next) => { setDescription(next); setDescriptionError(undefined); }} placeholder="Describe your project…" placeholderTextColor={colors.muted} multiline maxLength={500} accessibilityLabel="Project details" accessibilityHint={descriptionError ?? 'Describe the work you want the Student Designer to complete.'} style={styles.multiline} /><AppText style={styles.counter}>{description.length}/500</AppText></View>
           {descriptionError ? <AppText accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.fieldError}>{descriptionError}</AppText> : null}
+          <ImageUploader purpose="booking_reference" value={images} onChange={setImages} max={5} label="Reference Images" defaultAltText="Service request reference image" />
           <AppText weight="semibold" style={styles.label}>Delivery Time</AppText>
           <SelectRow
             testID="delivery-selector"

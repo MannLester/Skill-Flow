@@ -162,7 +162,13 @@ export function BottomNav(props: BottomNavProps) {
 
 function BottomNavButton({ item, selected, plus }: { item: BottomNavItem; selected: boolean; plus: boolean }) {
   const iconColor = plus ? colors.white : selected ? colors.red : '#555';
-  return <Pressable accessibilityRole="button" accessibilityLabel={plus ? (item.icon === 'search' ? 'Discover' : 'Create') : item.label} accessibilityState={{ disabled: !item.action, selected }} disabled={!item.action} onPress={item.action} style={styles.navItem}><View style={styles.navIconWrap}>{plus ? <View style={styles.plusOuter}><View style={styles.plusButton}><Ionicons name={item.icon} size={item.icon === 'search' ? 28 : 40} color={colors.white} /></View></View> : <><View style={undefined}><Ionicons name={item.icon} size={27} color={iconColor} /></View>{item.dot ? <View style={styles.messageDot} /> : null}</>}</View>{plus ? null : <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText>}</Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={bottomNavLabel(item, plus)} accessibilityState={{ disabled: !item.action, selected }} disabled={!item.action} onPress={item.action} style={styles.navItem}><View style={styles.navIconWrap}><BottomNavIcon item={item} plus={plus} color={iconColor} /></View>{plus ? null : <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText>}</Pressable>;
+}
+
+function bottomNavLabel(item: BottomNavItem, plus: boolean) { return plus ? (item.icon === 'search' ? 'Discover' : 'Create') : item.label; }
+function BottomNavIcon({ item, plus, color }: { item: BottomNavItem; plus: boolean; color: string }) {
+  if (plus) return <View style={styles.plusOuter}><View style={styles.plusButton}><Ionicons name={item.icon} size={item.icon === 'search' ? 28 : 40} color={colors.white} /></View></View>;
+  return <><View><Ionicons name={item.icon} size={27} color={color} /></View>{item.dot ? <View style={styles.messageDot} /> : null}</>;
 }
 
 export function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; onPress?: () => void }) {

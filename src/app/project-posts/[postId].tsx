@@ -1,11 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
+import { MediaGallery } from '@/components/media-gallery';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
 import {
   ProjectBooking,
@@ -18,12 +20,12 @@ import {
 } from '@/context/session.remote';
 import { formatPeso } from '@/data/fixtures';
 import { consumeResult } from '@/utils/consume-result';
+import { mediaInputs, type UploadedImage } from '@/media/types';
 
 type ProposalSubmitter = (projectPostId: string, input: ProposalInput) => Promise<StoreResult>;
 
 export default function ProjectPostDetailsScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
-  const router = useRouter();
   const [manageVisible, setManageVisible] = useState(false);
   const [applyVisible, setApplyVisible] = useState(false);
   const insets = useSafeAreaInsets();
@@ -52,13 +54,14 @@ export default function ProjectPostDetailsScreen() {
   const verification = verifications.find((item) => item.studentId === currentAccount?.id);
   const isOwner = currentAccount?.id === post.clientId;
   const proposalCount = proposals.filter((item) => item.projectPostId === post.id && item.status !== 'withdrawn').length;
+  const visibility = projectPostVisibility(currentAccount?.role, Boolean(booking), Boolean(myProposal), post.status);
 
   return (
     <MobilePage>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
         <ProjectSummary post={post} client={client} booking={booking} />
-        {currentAccount?.role === 'student' && !booking && myProposal ? (
+        {visibility.showProposal && myProposal ? (
           <StudentProposalSection
             post={post}
             proposal={myProposal}
@@ -67,6 +70,7 @@ export default function ProjectPostDetailsScreen() {
             withdrawProposal={withdrawProposal}
           />
         ) : null}
+        {visibility.showApply ? <ProposalForm post={post} verification={verification} submitProposal={submitProposal} /> : null}
       </ScrollView>
       {isOwner ? (
         <View style={[styles.manageBottomWrapper, { paddingBottom: insets.bottom + 12 }]}>
@@ -75,7 +79,7 @@ export default function ProjectPostDetailsScreen() {
           </Pressable>
         </View>
       ) : null}
-      {currentAccount?.role === 'student' && !booking && !myProposal && post.status === 'open' ? (
+      {visibility.showApply ? (
         <View style={[styles.manageBottomWrapper, { paddingBottom: insets.bottom + 12 }]}>
           <Pressable onPress={() => setApplyVisible(true)} style={styles.manageBottomBar}>
             <AppText weight="semibold" style={styles.manageBottomBarText}>Apply for this Job</AppText>
@@ -125,9 +129,13 @@ export default function ProjectPostDetailsScreen() {
   );
 }
 
+function projectPostVisibility(role: string | undefined, hasBooking: boolean, hasProposal: boolean, status: ProjectPost['status']) {
+  const isStudent = role === 'student';
+  return { showProposal: isStudent && !hasBooking && hasProposal, showApply: isStudent && !hasBooking && !hasProposal && status === 'open' };
+}
+
 function MissingProject() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   return (
     <MobilePage>
       <StatusBar style="light" />
@@ -146,7 +154,6 @@ function MissingProject() {
 
 function ProjectSummary({ post, client, booking }: { post: ProjectPost; client?: { id: string; name: string }; booking?: ProjectBooking }) {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   return (
     <>
       <View style={[styles.hero, { paddingTop: insets.top + 28 }]}>
@@ -175,6 +182,7 @@ function ProjectSummary({ post, client, booking }: { post: ProjectPost; client?:
       <View style={{ marginHorizontal: contentPadding, marginTop: 16 }}>
         <AppText weight="semibold" style={styles.sectionHeading}>About</AppText>
         <AppText style={styles.description}>{post.description}</AppText>
+        <MediaGallery targetType="project_post" targetId={post.id} purposes={['project_reference']} />
         {post.skills.length ? (
           <>
             <AppText weight="semibold" style={[styles.sectionHeading, { marginTop: 20, borderTopWidth: 1, borderTopColor: '#E8E8E8', paddingTop: 16 }]}>Skills Required</AppText>
@@ -213,7 +221,6 @@ function OwnerControls({
   setProjectPostStatus: (projectPostId: string, status: ProjectPost['status']) => Promise<StoreResult>;
   onAction?: () => void;
 }) {
-  const router = useRouter();
   const changeStatus = (status: ProjectPost['status']) => {
     consumeResult(setProjectPostStatus(post.id, status), (result) => {
       Alert.alert(result.ok ? 'Project updated' : 'Unable to update', result.ok ? `Project is now ${status}.` : result.message);
@@ -289,6 +296,7 @@ function ExistingProposal({ proposal, onWithdraw }: { proposal: Proposal; onWith
           <AppText style={styles.muted}>{formatPeso(proposal.amount)} · {proposal.deliveryDays} days</AppText>
         </View>
       </View>
+      <MediaGallery targetType="proposal" targetId={proposal.id} purposes={['proposal_sample']} />
       {proposal.status === 'submitted' ? <Pressable onPress={onWithdraw} style={styles.archive}><AppText weight="semibold" style={styles.archiveText}>Withdraw Proposal</AppText></Pressable> : null}
     </>
   );
@@ -298,6 +306,7 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
   const [coverLetter, setCoverLetter] = useState('');
   const [amount, setAmount] = useState(String(post.budget));
   const [deliveryDays, setDeliveryDays] = useState('5');
+  const [images, setImages] = useState<UploadedImage[]>([]);
   const [feedback, setFeedback] = useState<{ message: string; verificationStatus: StudentVerification['status'] | undefined }>();
 
   const handleSubmit = () => {
@@ -305,6 +314,7 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
       coverLetter,
       amount: parseNumberOrZero(amount),
       deliveryDays: parseNumberOrZero(deliveryDays),
+      sampleImages: mediaInputs(images),
     }), (result) => {
       if (!result.ok) return setFeedback({ message: result.message, verificationStatus: verification?.status });
       setFeedback(undefined);
@@ -335,6 +345,7 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
         placeholder="Proposed amount"
         keyboardType="number-pad"
       />
+      <ImageUploader purpose="proposal_sample" value={images} onChange={setImages} max={3} label="Optional Work Samples" defaultAltText="Proposal work sample" />
       <View style={styles.fieldGap} />
       <FormField
         accessibilityLabel="Delivery days"
@@ -351,7 +362,6 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
 }
 
 function ProposalFeedback({ message, verificationRequired }: { message: string; verificationRequired: boolean }) {
-  const router = useRouter();
   return (
     <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.feedback}>
       <Ionicons name="alert-circle-outline" size={22} color={colors.burgundy} />

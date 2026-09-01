@@ -34,6 +34,7 @@ const runtimeTargets: RuntimeTarget[] = ['web', 'android-emulator', 'android-dev
 const documentedPublicRuntimeKeys = new Set([
   'EXPO_PUBLIC_RUNTIME_TARGET',
   'EXPO_PUBLIC_CONVEX_URL',
+  'EXPO_PUBLIC_CONVEX_SITE_URL',
   'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
 ]);
 

@@ -4,21 +4,31 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText, FormField, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { ServiceInput, StoreResult, useSession } from '@/context/session.remote';
 import { Service } from '@/data/fixtures';
+import { mediaInputs, type UploadedImage } from '@/media/types';
 
 export function ServiceForm({ serviceId }: { serviceId?: string }) {
   const { currentAccount, saveService, services, setServiceStatus, verifications } = useSession();
   const existing = serviceId ? services.find((item) => item.id === serviceId) : undefined;
   const verification = verifications.find((item) => item.studentId === currentAccount?.id);
   const { title, setTitle, subtitle, setSubtitle, category, setCategory, description, setDescription, price, setPrice, deliveryDays, setDeliveryDays, revisions, setRevisions } = useServiceFormState(existing);
+  const [cover, setCover] = useState<UploadedImage[]>([]);
+  const [gallery, setGallery] = useState<UploadedImage[]>([]);
   if (!currentAccount || currentAccount.role !== 'student') return <View style={styles.blocked}><AppText>Only Student Designers can manage services.</AppText></View>;
   if (existing && existing.providerId !== currentAccount.id) return <View style={styles.blocked}><AppText>You can only edit your own services.</AppText></View>;
-  const input: ServiceInput = { title, subtitle, category, description, price: Number(price), deliveryDays: Number(deliveryDays), revisions };
+  const input = serviceInputWithMedia({ title, subtitle, category, description, price: Number(price), deliveryDays: Number(deliveryDays), revisions }, Boolean(existing), cover, gallery);
   const save = (publish: boolean) => saveServiceWithFeedback(saveService, input, publish, existing?.id, verification?.status === 'verified');
   const archive = () => archiveService(existing, setServiceStatus);
-  return <ServiceFormContent state={{ title, setTitle, subtitle, setSubtitle, category, setCategory, description, setDescription, price, setPrice, deliveryDays, setDeliveryDays, revisions, setRevisions }} isVerified={verification?.status === 'verified'} hasExisting={Boolean(existing)} onSave={save} onArchive={archive} />;
+  return <ServiceFormContent state={{ title, setTitle, subtitle, setSubtitle, category, setCategory, description, setDescription, price, setPrice, deliveryDays, setDeliveryDays, revisions, setRevisions }} media={{ cover, setCover, gallery, setGallery }} isVerified={verification?.status === 'verified'} hasExisting={Boolean(existing)} onSave={save} onArchive={archive} />;
+}
+
+function serviceInputWithMedia(input: ServiceInput, hasExisting: boolean, cover: UploadedImage[], gallery: UploadedImage[]): ServiceInput {
+  const coverInput = !hasExisting || cover.length ? { coverImage: mediaInputs(cover) } : {};
+  const galleryInput = !hasExisting || gallery.length ? { galleryImages: mediaInputs(gallery) } : {};
+  return { ...input, ...coverInput, ...galleryInput };
 }
 
 type ServiceFormState = {
@@ -47,16 +57,19 @@ function defaultServiceNumber(value: number | undefined, fallback: string) { ret
 
 type ServiceFormContentProps = {
   state: ServiceFormState;
+  media: { cover: UploadedImage[]; setCover: (images: UploadedImage[]) => void; gallery: UploadedImage[]; setGallery: (images: UploadedImage[]) => void };
   isVerified: boolean;
   hasExisting: boolean;
   onSave: (publish: boolean) => void;
   onArchive: () => void;
 };
 
-function ServiceFormContent({ state, isVerified, hasExisting, onSave, onArchive }: ServiceFormContentProps) {
+function ServiceFormContent({ state, media, isVerified, hasExisting, onSave, onArchive }: ServiceFormContentProps) {
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
     <ServiceVerificationBanner isVerified={isVerified} />
     <ServiceFields state={state} />
+    <ImageUploader purpose="service_cover" value={media.cover} onChange={media.setCover} max={1} required={!hasExisting} label="Service Cover" defaultAltText={state.title ? `${state.title} service cover` : 'Service cover image'} />
+    <ImageUploader purpose="service_gallery" value={media.gallery} onChange={media.setGallery} max={4} label="Gallery Images" defaultAltText={state.title ? `${state.title} service sample` : 'Service gallery image'} />
     <ServiceActions hasExisting={hasExisting} onSave={onSave} onArchive={onArchive} />
   </ScrollView>;
 }
@@ -78,7 +91,7 @@ function ServiceFields({ state }: { state: ServiceFormState }) {
   </>;
 }
 
-function ServiceActions({ hasExisting, onSave, onArchive }: Omit<ServiceFormContentProps, 'state' | 'isVerified'>) {
+function ServiceActions({ hasExisting, onSave, onArchive }: Omit<ServiceFormContentProps, 'state' | 'media' | 'isVerified'>) {
   return <>
     <PrimaryButton title="Publish Service" onPress={() => onSave(true)} style={{ marginTop: 24 }} />
     <Pressable onPress={() => onSave(false)} style={styles.secondary}><AppText weight="semibold" style={{ color: colors.burgundy }}>Save Draft</AppText></Pressable>

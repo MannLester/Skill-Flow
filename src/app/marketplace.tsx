@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ServiceArtwork } from '@/components/optimized-artwork';
+import { MediaCover } from '@/components/media-gallery';
 import { AppText, BottomNav, MobilePage } from '@/components/ui';
 import { colors, font, shadow } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
@@ -98,7 +99,7 @@ function MarketplaceBottomNav({ currentAccountRole }: { currentAccountRole?: 'st
 const ServiceRow = memo(function ServiceRow({ service, favorite, onToggleFavorite }: { service: Service; favorite: boolean; onToggleFavorite: (serviceId: string) => void }) {
   return (
     <Pressable onPress={() => router.push({ pathname: '/services/[serviceId]', params: { serviceId: service.id } })} style={styles.serviceRow}>
-      <ServiceArtwork serviceId={service.id} style={styles.thumb} />
+      <MediaCover targetType="service" targetId={service.id} purpose="service_cover" tileStyle={styles.thumb} fallback={<ServiceArtwork serviceId={service.id} style={styles.thumb} />} />
       <View style={{ flex: 1 }}>
         <AppText weight="semibold" style={styles.serviceTitle}>{service.title}</AppText><AppText style={styles.serviceSubtitle}>{service.subtitle}</AppText><Pressable accessibilityRole="link" onPress={(event) => { event.stopPropagation(); router.push({ pathname: '/profiles/[userId]', params: { userId: service.providerId } }); }}><AppText weight="medium" style={styles.provider}>By {service.provider}</AppText></Pressable>
       </View>

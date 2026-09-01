@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { AppText, HeroDecor, MobilePage, PrimaryButton } from '@/components/ui';
+import { MediaAvatar } from '@/components/media-gallery';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
 import { CareerReadinessBreakdown } from '@/domain/career-readiness';
@@ -34,7 +35,7 @@ export default function ProfileScreen() {
         <View style={[styles.heroArea, { paddingTop: insets.top }]}>
           <HeroDecor />
           <View style={styles.topRow}><View /><Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => router.push('/settings')}><Ionicons name="settings-outline" size={25} color={colors.white} /></Pressable></View>
-          <ProfileIdentity account={currentAccount} verification={verification} />
+          <ProfileIdentity account={currentAccount} profileId={profile?.accountId} verification={verification} />
         </View>
         <ProfileAbout profile={profile} />
 
@@ -44,9 +45,9 @@ export default function ProfileScreen() {
   );
 }
 
-function ProfileIdentity({ account, verification }: { account: DemoAccount; verification?: StudentVerification }) {
+function ProfileIdentity({ account, profileId, verification }: { account: DemoAccount; profileId?: string; verification?: StudentVerification }) {
   const isStudent = account.role === 'student';
-  return <View style={styles.identity}><View style={styles.avatar}><Ionicons name="person" size={43} color={colors.red} /></View><AppText weight="bold" style={styles.name}>{account.name}</AppText><AppText style={styles.role}>{isStudent ? 'Student Designer' : 'Client'}</AppText><ProfileVerificationBadge isStudent={isStudent} verification={verification} /></View>;
+  return <View style={styles.identity}><View style={styles.avatar}><Ionicons name="person" size={43} color={colors.red} /><MediaAvatar profileId={profileId} /></View><AppText weight="bold" style={styles.name}>{account.name}</AppText><AppText style={styles.role}>{isStudent ? 'Student Designer' : 'Client'}</AppText><ProfileVerificationBadge isStudent={isStudent} verification={verification} /></View>;
 }
 
 function ProfileAbout({ profile }: { profile?: UserProfile }) {
@@ -56,7 +57,11 @@ function ProfileAbout({ profile }: { profile?: UserProfile }) {
 function ProfileVerificationBadge({ isStudent, verification }: { isStudent: boolean; verification?: StudentVerification }) {
   if (!isStudent) return null;
   const isVerified = verification?.status === 'verified';
-  return <Pressable onPress={() => router.push('/verification')} style={[styles.verification, isVerified && styles.verified]}><Ionicons name={isVerified ? 'checkmark-circle' : 'shield-outline'} size={17} color={isVerified ? colors.white : colors.burgundy} /><AppText weight={isVerified ? 'semibold' : 'medium'} style={[styles.verificationText, isVerified && { color: colors.white }]}>{isVerified ? 'Verified Student' : `Verification: ${(verification?.status ?? 'not submitted').replace('_', ' ')}`}</AppText></Pressable>;
+  return <Pressable onPress={() => router.push('/verification')} style={[styles.verification, isVerified && styles.verified]}><Ionicons name={isVerified ? 'checkmark-circle' : 'shield-outline'} size={17} color={isVerified ? colors.white : colors.burgundy} /><AppText weight={isVerified ? 'semibold' : 'medium'} style={[styles.verificationText, isVerified && { color: colors.white }]}>{verificationBadgeText(isVerified, verification?.status)}</AppText></Pressable>;
+}
+
+function verificationBadgeText(isVerified: boolean, status?: StudentVerification['status']) {
+  return isVerified ? 'Verified Student' : `Verification: ${(status ?? 'not submitted').replace('_', ' ')}`;
 }
 
 function ProfileDetails({ profile }: { profile?: UserProfile }) {

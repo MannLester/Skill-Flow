@@ -5,6 +5,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useMemo } fr
 import { api } from '../../convex/_generated/api';
 import { services as bundledServices, Service } from '@/data/fixtures';
 import { calculateCareerReadiness, CareerReadinessBreakdown } from '@/domain/career-readiness';
+import type { MediaAttachment, MediaInput } from '@/media/types';
 import type {
   Certification, DemoAccount, DemoLedgerEntry, DemoNotification, DemoPreferences, MentorMessage, PortfolioItem,
   ProjectAction, ProjectBooking as LegacyProjectBooking, ProjectMessage, ProjectPost, ProjectPostInput, ProjectPostStatus,
@@ -13,12 +14,12 @@ import type {
 
 export type ProjectStatus = Exclude<LegacyProjectBooking['status'], 'approved'>;
 export type ProjectBooking = Omit<LegacyProjectBooking, 'status'> & { status: ProjectStatus };
-export type CreateBookingInput = Pick<ProjectBooking, 'serviceId' | 'studentId' | 'title' | 'description' | 'deliveryDays' | 'budget'>;
-export type ProjectActionPayload = { note?: string; rating?: number; comment?: string };
-export type ProfileInput = Omit<UserProfile, 'accountId'> & { name: string };
-export type VerificationInput = Pick<StudentVerification, 'school' | 'program' | 'gradeLevel' | 'graduationYear' | 'sampleDocumentName'> & { studentNumber: string };
-export type PortfolioInput = Pick<PortfolioItem, 'title' | 'description' | 'category' | 'sourceProjectId'>;
-export type CertificationInput = Pick<Certification, 'name' | 'issuer' | 'year'>;
+export type CreateBookingInput = Pick<ProjectBooking, 'serviceId' | 'studentId' | 'title' | 'description' | 'deliveryDays' | 'budget'> & { referenceImages?: MediaInput[] };
+export type ProjectActionPayload = { note?: string; rating?: number; comment?: string; deliveryImages?: MediaInput[] };
+export type ProfileInput = Omit<UserProfile, 'accountId'> & { name: string; avatar?: MediaInput[] };
+export type VerificationInput = Pick<StudentVerification, 'school' | 'program' | 'gradeLevel' | 'graduationYear' | 'sampleDocumentName'> & { studentNumber: string; evidenceImage?: MediaInput[] };
+export type PortfolioInput = Pick<PortfolioItem, 'title' | 'description' | 'category' | 'sourceProjectId'> & { evidenceImages?: MediaInput[] };
+export type CertificationInput = Pick<Certification, 'name' | 'issuer' | 'year'> & { evidenceImage?: MediaInput[] };
 export type ServiceResult = { ok: true; service: Service } | { ok: false; message: string };
 export type ProjectPostResult = { ok: true; projectPost: ProjectPost } | { ok: false; message: string };
 export type ProposalDecisionResult = { ok: true; bookingId?: string } | { ok: false; message: string };
@@ -29,11 +30,11 @@ type RemoteSessionValue = {
   accounts: DemoAccount[]; services: Service[]; bookings: ProjectBooking[]; projectPosts: ProjectPost[]; proposals: Proposal[];
   messages: ProjectMessage[]; notifications: DemoNotification[]; ledger: DemoLedgerEntry[]; reviews: ProjectReview[]; profiles: UserProfile[];
   verifications: StudentVerification[]; portfolioItems: PortfolioItem[]; certifications: Certification[]; savedServiceIds: string[];
-  mentorMessages: MentorMessage[]; preferences: DemoPreferences; unreadCount: number;
+  mentorMessages: MentorMessage[]; preferences: DemoPreferences; unreadCount: number; mediaAttachments: MediaAttachment[];
   getCareerReadiness: (studentId: string) => CareerReadinessBreakdown;
   logout: () => AsyncResult<void>; createBooking: (input: CreateBookingInput) => AsyncResult<ProjectBooking>;
   actOnProject: (id: string, action: ProjectAction, payload?: ProjectActionPayload) => AsyncResult<StoreResult>;
-  sendMessage: (id: string, body: string) => AsyncResult<StoreResult>; markNotificationRead: (id: string) => AsyncResult<void>;
+  sendMessage: (id: string, body: string, image?: MediaInput) => AsyncResult<StoreResult>; markNotificationRead: (id: string) => AsyncResult<void>;
   markProjectMessagesRead: (id: string) => AsyncResult<void>; updateProfile: (input: ProfileInput) => AsyncResult<StoreResult>;
   submitVerification: (input: VerificationInput) => AsyncResult<StoreResult>; simulateVerificationReview: (approved: boolean, reason?: string) => AsyncResult<StoreResult>;
   addPortfolioItem: (input: PortfolioInput) => AsyncResult<StoreResult>; addCertification: (input: CertificationInput) => AsyncResult<StoreResult>;
@@ -79,20 +80,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const mapped = useMemo(() => mapSnapshot(snapshot), [snapshot]);
   const currentAccount = mapped.currentAccount;
 
-  const updateProfile = useCallback(async (input: ProfileInput): Promise<StoreResult> => runStore(() => updateProfileMutation(input)), [updateProfileMutation]);
-  const submitVerification = useCallback(async (input: VerificationInput): Promise<StoreResult> => runStore(() => submitVerificationMutation(input)), [submitVerificationMutation]);
+  const updateProfile = useCallback(async (input: ProfileInput): Promise<StoreResult> => runStore(() => updateProfileMutation(input as never)), [updateProfileMutation]);
+  const submitVerification = useCallback(async (input: VerificationInput): Promise<StoreResult> => runStore(() => submitVerificationMutation({ ...input, evidenceImage: input.evidenceImage ?? [] } as never)), [submitVerificationMutation]);
   const simulateVerificationReview = useCallback(async (approved: boolean, rejectionReason?: string): Promise<StoreResult> => runStore(() => reviewVerificationMutation({ approved, rejectionReason })), [reviewVerificationMutation]);
   const saveService = useCallback(async (input: ServiceInput, publish: boolean, serviceId?: string): Promise<ServiceResult> => {
-    try { const id = await saveServiceMutation({ ...input, publish, serviceId: serviceId as never }); return { ok: true, service: { ...input, id, provider: currentAccount?.name ?? '', providerId: currentAccount?.id ?? '', rating: 0, reviews: 0, status: publish ? 'published' : 'draft', crop: bundledServices[0].crop } }; }
+    try { const id = await saveServiceMutation({ ...input, publish, serviceId: serviceId as never } as never); return { ok: true, service: { ...input, id, provider: currentAccount?.name ?? '', providerId: currentAccount?.id ?? '', rating: 0, reviews: 0, status: publish ? 'published' : 'draft', crop: bundledServices[0].crop } }; }
     catch (error) { return errorResult(error); }
   }, [currentAccount, saveServiceMutation]);
   const setServiceStatus = useCallback(async (serviceId: string, status: Service['status']): Promise<StoreResult> => runStore(() => setServiceStatusMutation({ serviceId: serviceId as never, status })), [setServiceStatusMutation]);
   const saveProjectPost = useCallback(async (input: ProjectPostInput, publish: boolean, projectPostId?: string): Promise<ProjectPostResult> => {
-    try { const id = await savePostMutation({ ...input, publish, projectPostId: projectPostId as never }); const now = new Date().toISOString(); return { ok: true, projectPost: { ...input, id, clientId: currentAccount?.id ?? '', status: publish ? 'open' : 'draft', createdAt: now, updatedAt: now } }; }
+    try { const id = await savePostMutation({ ...input, publish, projectPostId: projectPostId as never } as never); const now = new Date().toISOString(); return { ok: true, projectPost: { ...input, id, clientId: currentAccount?.id ?? '', status: publish ? 'open' : 'draft', createdAt: now, updatedAt: now } }; }
     catch (error) { return errorResult(error); }
   }, [currentAccount, savePostMutation]);
   const setProjectPostStatus = useCallback(async (projectPostId: string, status: ProjectPostStatus): Promise<StoreResult> => runStore(() => setPostStatusMutation({ projectPostId: projectPostId as never, status })), [setPostStatusMutation]);
-  const submitProposal = useCallback(async (projectPostId: string, input: ProposalInput): Promise<StoreResult> => runStore(() => submitProposalMutation({ projectPostId: projectPostId as never, ...input })), [submitProposalMutation]);
+  const submitProposal = useCallback(async (projectPostId: string, input: ProposalInput): Promise<StoreResult> => runStore(() => submitProposalMutation({ projectPostId: projectPostId as never, ...input } as never)), [submitProposalMutation]);
   const withdrawProposal = useCallback(async (proposalId: string): Promise<StoreResult> => runStore(() => withdrawProposalMutation({ proposalId: proposalId as never })), [withdrawProposalMutation]);
   const decideProposal = useCallback(async (proposalId: string, accept: boolean): Promise<ProposalDecisionResult> => {
     try { const bookingId = await decideProposalMutation({ proposalId: proposalId as never, accept }); return { ok: true, bookingId: bookingId ?? undefined }; }
@@ -100,17 +101,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [decideProposalMutation]);
   const createBooking = useCallback(async (input: CreateBookingInput): Promise<ProjectBooking> => {
     if (!input.serviceId) throw new Error('Select a service first.');
-    const id = await createBookingMutation({ serviceId: input.serviceId as never, description: input.description, deliveryDays: input.deliveryDays, budget: input.budget, requestKey: idempotencyKey('request') });
+    const id = await createBookingMutation({ serviceId: input.serviceId as never, description: input.description, deliveryDays: input.deliveryDays, budget: input.budget, requestKey: idempotencyKey('request'), referenceImages: input.referenceImages as never });
     const now = new Date().toISOString(); return { ...input, id, source: 'service_request', clientId: currentAccount?.id ?? '', status: 'requested', createdAt: now, updatedAt: now };
   }, [createBookingMutation, currentAccount]);
-  const actOnProject = useCallback(async (bookingId: string, action: ProjectAction, payload: ProjectActionPayload = {}): Promise<StoreResult> => runStore(() => actBookingMutation({ bookingId: bookingId as never, action, ...payload })), [actBookingMutation]);
-  const sendMessage = useCallback(async (bookingId: string, body: string): Promise<StoreResult> => runStore(() => sendMessageMutation({ bookingId: bookingId as never, body, sendKey: idempotencyKey('message') })), [sendMessageMutation]);
-  const addPortfolioItem = useCallback(async (input: PortfolioInput): Promise<StoreResult> => runStore(() => addPortfolioMutation({ title: input.title, description: input.description, category: input.category, sourceBookingId: input.sourceProjectId as never, idempotencyKey: idempotencyKey('portfolio') })), [addPortfolioMutation]);
+  const actOnProject = useCallback(async (bookingId: string, action: ProjectAction, payload: ProjectActionPayload = {}): Promise<StoreResult> => runStore(() => actBookingMutation({ bookingId: bookingId as never, action, ...payload } as never)), [actBookingMutation]);
+  const sendMessage = useCallback(async (bookingId: string, body: string, image?: MediaInput): Promise<StoreResult> => runStore(() => sendMessageMutation({ bookingId: bookingId as never, body, image: image as never, sendKey: idempotencyKey('message') })), [sendMessageMutation]);
+  const addPortfolioItem = useCallback(async (input: PortfolioInput): Promise<StoreResult> => runStore(() => addPortfolioMutation({ title: input.title, description: input.description, category: input.category, sourceBookingId: input.sourceProjectId as never, evidenceImages: input.evidenceImages as never, idempotencyKey: idempotencyKey('portfolio') })), [addPortfolioMutation]);
   const addCompletedProjectToPortfolio = useCallback(async (id: string): Promise<StoreResult> => {
     const booking = mapped.bookings.find((item: ProjectBooking) => item.id === id); if (!booking) return { ok: false, message: 'Project not found.' };
     return runStore(() => addPortfolioMutation({ title: booking.title, description: booking.deliveryNote ?? booking.description, category: 'Completed Client Project', sourceBookingId: id as never, idempotencyKey: `booking-${id}` }));
   }, [addPortfolioMutation, mapped.bookings]);
-  const addCertification = useCallback(async (input: CertificationInput): Promise<StoreResult> => runStore(() => addCertificationMutation({ ...input, idempotencyKey: idempotencyKey('certification') })), [addCertificationMutation]);
+  const addCertification = useCallback(async (input: CertificationInput): Promise<StoreResult> => runStore(() => addCertificationMutation({ ...input, evidenceImage: input.evidenceImage ?? [], idempotencyKey: idempotencyKey('certification') } as never)), [addCertificationMutation]);
   const sendMentorMessage = useCallback(async (body: string): Promise<StoreResult> => runStore(() => sendMentorMutation({ body, turnKey: idempotencyKey('mentor') })), [sendMentorMutation]);
 
   const value = useMemo<RemoteSessionValue>(() => ({
@@ -146,6 +147,7 @@ function mapSnapshot(snapshot: Raw | null | undefined) {
     portfolioItems: rows(snapshot, 'portfolioItems').filter((item) => !item.archivedAt).map(mapPortfolio),
     certifications: rows(snapshot, 'certifications').map(mapCertification), mentorMessages: rows(snapshot, 'mentorMessages').map(mapMentorMessage),
     savedServiceIds: rows(snapshot, 'savedServices').filter((item) => item.profileId === currentAccount?.id).map((item) => item.serviceId),
+    mediaAttachments: rows(snapshot, 'mediaAttachments').map(mapMediaAttachment),
     unreadCount: unreadNotifications(preferences, notifications, currentAccount),
   };
 }
@@ -164,6 +166,7 @@ const mapReview = (item: Raw): ProjectReview => ({ id: item._id, projectId: item
 const mapPortfolio = (item: Raw): PortfolioItem => ({ id: item._id, studentId: item.studentProfileId, title: item.title, description: item.description, category: item.category, sourceProjectId: item.sourceBookingId, createdAt: iso(item.createdAt)! });
 const mapCertification = (item: Raw): Certification => ({ id: item._id, studentId: item.studentProfileId, name: item.name, issuer: item.issuer, year: item.year, createdAt: iso(item.createdAt)! });
 const mapMentorMessage = (item: Raw): MentorMessage => ({ id: item._id, accountId: item.studentProfileId, role: item.role, body: item.body, createdAt: iso(item.createdAt)! });
+const mapMediaAttachment = (item: Raw): MediaAttachment => ({ id: item._id, targetType: item.targetType, targetId: item.targetId, purpose: item.purpose, position: item.position, altText: item.altText, visibility: item.visibility, publicUrl: item.publicUrl ?? undefined });
 function mapPreferences(items: Raw[], account: DemoAccount | null): DemoPreferences { const own = items.find((item) => item.profileId === account?.id); return { notificationsEnabled: own?.notificationBadgesEnabled ?? true, darkMode: own?.settingsDarkMode ?? false, language: 'English' }; }
 function unreadNotifications(preferences: DemoPreferences, notifications: DemoNotification[], account: DemoAccount | null) { return preferences.notificationsEnabled ? notifications.filter((item) => item.userId === account?.id && !item.read).length : 0; }
 

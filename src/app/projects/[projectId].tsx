@@ -5,16 +5,19 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 
 import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
+import { MediaGallery } from '@/components/media-gallery';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
 import { DemoAccount, ProjectAction, ProjectBooking, ProjectReview, ProjectStatus, useSession } from '@/context/session.remote';
 import { consumeResult } from '@/utils/consume-result';
+import { mediaInputs, type MediaInput, type UploadedImage } from '@/media/types';
 
 const statusLabels: Record<ProjectStatus, string> = {
   requested: 'Request Sent', accepted: 'Accepted', declined: 'Declined', cancelled: 'Cancelled', demo_funded: 'Demo Funds Reserved', in_progress: 'In Progress', submitted: 'Delivery Submitted', revision_requested: 'Revision Requested', completed: 'Completed', reviewed: 'Reviewed',
 };
 
-type ProjectActionPayload = { note?: string; rating?: number; comment?: string };
+type ProjectActionPayload = { note?: string; rating?: number; comment?: string; deliveryImages?: MediaInput[] };
 type RunProjectAction = (action: ProjectAction, payload?: ProjectActionPayload) => void;
 type ActionFeedback = { context: string; message: string };
 
@@ -59,12 +62,14 @@ function useProjectActionForm(bookingId: string, actionContext: string, actOnPro
   const [note, setNote] = useState('');
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [images, setImages] = useState<UploadedImage[]>([]);
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback>();
   const run: RunProjectAction = (action, payload) => {
     consumeResult(actOnProject(bookingId, action, payload), (result) => {
       if (!result.ok) return setActionFeedback({ context: actionContext, message: result.message });
       setActionFeedback(undefined);
       setNote('');
+      if (action === 'submit') setImages([]);
       if (action === 'review') setComment('');
     });
   };
@@ -73,7 +78,7 @@ function useProjectActionForm(bookingId: string, actionContext: string, actOnPro
   const updateRating = (value: number) => { setRating(value); clearActionFeedback(); };
   const updateComment = (value: string) => { setComment(value); clearActionFeedback(); };
   const visibleFeedback = actionFeedback?.context === actionContext ? actionFeedback.message : undefined;
-  return { note, setNote: updateNote, rating, setRating: updateRating, comment, setComment: updateComment, feedback: visibleFeedback, run };
+  return { note, setNote: updateNote, rating, setRating: updateRating, comment, setComment: updateComment, images, setImages, feedback: visibleFeedback, run };
 }
 
 function ProjectStatusCard({ booking, isStudent, client, student }: { booking: ProjectBooking; isStudent: boolean; client?: DemoAccount; student?: DemoAccount }) {
@@ -83,7 +88,7 @@ function ProjectStatusCard({ booking, isStudent, client, student }: { booking: P
 }
 
 function ProjectDetailCard({ booking, review }: { booking: ProjectBooking; review?: ProjectReview }) {
-  return <View style={styles.card}><AppText weight="bold" style={styles.title}>{booking.title}</AppText><Detail label="Budget" value={formatPeso(booking.budget)} /><Detail label="Delivery" value={`${booking.deliveryDays} Days`} /><Detail label="Status" value={statusLabels[booking.status]} /><View style={styles.divider} /><AppText weight="semibold">Project Details</AppText><AppText style={styles.description}>{booking.description}</AppText>{booking.revisionNote ? <InfoBlock title="Requested Revision" text={booking.revisionNote} warning /> : null}{booking.deliveryNote ? <InfoBlock title="Latest Delivery" text={booking.deliveryNote} /> : null}{review ? <InfoBlock title={`Client Review — ${review.rating}/5`} text={review.comment} /> : null}</View>;
+  return <View style={styles.card}><AppText weight="bold" style={styles.title}>{booking.title}</AppText><Detail label="Budget" value={formatPeso(booking.budget)} /><Detail label="Delivery" value={`${booking.deliveryDays} Days`} /><Detail label="Status" value={statusLabels[booking.status]} /><View style={styles.divider} /><AppText weight="semibold">Project Details</AppText><AppText style={styles.description}>{booking.description}</AppText><MediaGallery targetType="booking" targetId={booking.id} purposes={['booking_reference']} />{booking.revisionNote ? <InfoBlock title="Requested Revision" text={booking.revisionNote} warning /> : null}{booking.deliveryNote ? <InfoBlock title="Latest Delivery" text={booking.deliveryNote} /> : null}<MediaGallery targetType="booking" targetId={booking.id} purposes={['delivery_image']} />{review ? <InfoBlock title={`Client Review — ${review.rating}/5`} text={review.comment} /> : null}</View>;
 }
 
 function ProjectLinks({ booking, isClient, isStudent, addedToPortfolio, addToPortfolio }: { booking: ProjectBooking; isClient: boolean; isStudent: boolean; addedToPortfolio: boolean; addToPortfolio: ReturnType<typeof useSession>['addCompletedProjectToPortfolio'] }) {
@@ -107,6 +112,8 @@ type ProjectActionsProps = {
   comment: string;
   setComment: (value: string) => void;
   feedback?: string;
+  images: UploadedImage[];
+  setImages: (images: UploadedImage[]) => void;
   run: RunProjectAction;
 };
 
@@ -116,11 +123,15 @@ function ProjectActions(props: ProjectActionsProps) {
   return <WaitingAction status={props.status} isClient={false} />;
 }
 
-function StudentProjectActions({ status, note, setNote, feedback, run }: ProjectActionsProps) {
+function StudentProjectActions({ status, note, setNote, images, setImages, feedback, run }: ProjectActionsProps) {
   if (status === 'requested') return <View style={styles.actionCard}><AppText weight="semibold" style={styles.actionTitle}>Respond to Request</AppText><PrimaryButton title="Accept Request" onPress={() => run('accept')} /><SecondaryButton title="Decline Request" onPress={() => run('decline')} danger /></View>;
   if (status === 'demo_funded') return <View style={styles.actionCard}><AppText style={styles.helper}>The client reserved simulated funds. You can begin the project.</AppText><PrimaryButton title="Start Work" onPress={() => run('start')} /></View>;
-  if (status === 'in_progress' || status === 'revision_requested') return <View style={styles.actionCard}><AppText weight="semibold" style={styles.actionTitle}>{status === 'revision_requested' ? 'Submit Revised Delivery' : 'Submit Delivery'}</AppText><TextInput accessibilityLabel="Delivery note" accessibilityHint={feedback ?? 'Required. Describe the completed work or demo file.'} value={note} onChangeText={setNote} placeholder="Describe the completed work or demo file…" placeholderTextColor={colors.muted} multiline style={[styles.textArea, feedback && styles.textAreaError]} /><ProjectActionFeedback message={feedback} /><PrimaryButton title={status === 'revision_requested' ? 'Submit Revision' : 'Submit Delivery'} onPress={() => run('submit', { note })} /></View>;
+  if (status === 'in_progress' || status === 'revision_requested') return <View style={styles.actionCard}><AppText weight="semibold" style={styles.actionTitle}>{status === 'revision_requested' ? 'Submit Revised Delivery' : 'Submit Delivery'}</AppText><TextInput accessibilityLabel="Delivery note" accessibilityHint={feedback ?? 'Required. Describe the completed work or demo file.'} value={note} onChangeText={setNote} placeholder="Describe the completed work or demo file…" placeholderTextColor={colors.muted} multiline style={[styles.textArea, feedback && styles.textAreaError]} /><ImageUploader purpose="delivery_image" value={images} onChange={setImages} max={5} label="Optional Delivery Images" defaultAltText="Project delivery image" /><ProjectActionFeedback message={feedback} /><PrimaryButton title={status === 'revision_requested' ? 'Submit Revision' : 'Submit Delivery'} onPress={() => run('submit', deliveryPayload(note, images))} /></View>;
   return <WaitingAction status={status} isClient={false} />;
+}
+
+function deliveryPayload(note: string, images: UploadedImage[]): ProjectActionPayload {
+  return images.length ? { note, deliveryImages: mediaInputs(images) } : { note };
 }
 
 function ClientProjectActions({ status, note, setNote, rating, setRating, comment, setComment, feedback, run }: ProjectActionsProps) {

@@ -3,9 +3,11 @@ import { ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
 
 import { AppText, FormField, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { ProjectPost, ProjectPostInput, useSession } from '@/context/session.remote';
 import { consumeResult } from '@/utils/consume-result';
+import { mediaInputs, type UploadedImage } from '@/media/types';
 
 type ProjectPostField = 'title' | 'description' | 'category' | 'budget' | 'deadline' | 'skills';
 type ProjectPostFormErrors = Partial<Record<ProjectPostField, string>> & { form?: string };
@@ -64,6 +66,7 @@ function useProjectPostValues(existing?: ProjectPost) {
   const [budget, setBudget] = useState(budgetValue(existing));
   const [deadline, setDeadline] = useState(textValue(existing?.deadline, '2026-09-30'));
   const [skills, setSkills] = useState(textValue(existing?.skills.join(', ')));
+  const [images, setImages] = useState<UploadedImage[]>([]);
   const [errors, setErrors] = useState<ProjectPostFormErrors>({});
   const [errorAttempt, setErrorAttempt] = useState(0);
   const errorSummaryRef = useRef<View>(null);
@@ -72,7 +75,7 @@ function useProjectPostValues(existing?: ProjectPost) {
     if (errors.form) errorSummaryRef.current?.focus?.();
   }, [errorAttempt, errors.form]);
   const values = { title, description, category, budget, deadline, skills };
-  const input: ProjectPostInput = { ...values, budget: Number(budget), skills: skills.split(',') };
+  const input: ProjectPostInput = { ...values, budget: Number(budget), skills: skills.split(','), ...(images.length ? { referenceImages: mediaInputs(images) } : {}) };
   const update = (field: ProjectPostField, value: string, setter: (next: string) => void) => {
     setter(value);
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
@@ -81,7 +84,7 @@ function useProjectPostValues(existing?: ProjectPost) {
     setErrors({ ...fieldErrors, form: message });
     setErrorAttempt((current) => current + 1);
   };
-  return { values, input, errors, errorSummaryRef, update, setters: { setTitle, setDescription, setCategory, setBudget, setDeadline, setSkills }, showErrors, clearErrors: () => setErrors({}) };
+  return { values, input, images, setImages, errors, errorSummaryRef, update, setters: { setTitle, setDescription, setCategory, setBudget, setDeadline, setSkills }, showErrors, clearErrors: () => setErrors({}) };
 }
 
 function ProjectPostFields({ form, save, archive, showArchive }: { form: ReturnType<typeof useProjectPostValues>; save: (publish: boolean) => void | Promise<void>; archive: () => void | Promise<void>; showArchive: boolean }) {
@@ -94,6 +97,7 @@ function ProjectPostFields({ form, save, archive, showArchive }: { form: ReturnT
     <ProjectFormField form={form} field="budget" label="Budget" icon="cash-outline" value={values.budget} setter={setters.setBudget} placeholder="Budget" accessibilityLabel="Project budget" hint="Required. Enter a budget greater than zero." keyboardType="number-pad" />
     <ProjectFormField form={form} field="deadline" label="Deadline (YYYY-MM-DD)" icon="calendar-outline" value={values.deadline} setter={setters.setDeadline} placeholder="2026-09-30" accessibilityLabel="Project deadline" hint="Required. Enter a deadline in YYYY-MM-DD format." />
     <ProjectFormField form={form} field="skills" label="Required Skills (comma separated)" icon="sparkles-outline" value={values.skills} setter={setters.setSkills} placeholder="UI/UX, Prototyping" accessibilityLabel="Required skills" hint="Required. Add at least one skill." />
+    <ImageUploader purpose="project_reference" value={form.images} onChange={form.setImages} max={5} label="Reference Images" defaultAltText={values.title ? `${values.title} project reference` : 'Project reference image'} />
     <ProjectPostErrorSummary ref={errorSummaryRef} errors={errors} />
     <PrimaryButton title="Publish Project" onPress={() => save(true)} style={{ marginTop: 24 }} />
     <Pressable accessibilityRole="button" onPress={() => save(false)} style={styles.secondary}><AppText weight="semibold" style={{ color: colors.burgundy }}>Save Draft</AppText></Pressable>

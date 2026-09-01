@@ -5,8 +5,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, shadow } from '@/constants/theme';
 import { StoreResult, StudentVerification, VerificationStatus, useSession } from '@/context/session.remote';
+import { mediaInputs, type MediaInput, type UploadedImage } from '@/media/types';
 
 export default function VerificationScreen() {
   const { currentAccount, simulateVerificationReview, submitVerification, verifications } = useSession();
@@ -39,7 +41,7 @@ function defaultVerificationStatus(value?: VerificationStatus): VerificationStat
   return value ?? 'not_submitted';
 }
 
-type VerificationInput = { school: string; studentNumber: string; program: string; gradeLevel: string; graduationYear: number; sampleDocumentName: string };
+type VerificationInput = { school: string; studentNumber: string; program: string; gradeLevel: string; graduationYear: number; sampleDocumentName: string; evidenceImage: MediaInput[] };
 type VerificationContentProps = {
   current?: StudentVerification;
   status: VerificationStatus;
@@ -60,11 +62,12 @@ type VerificationContentProps = {
 };
 
 function VerificationContent({ current, status, school, studentNumber, program, gradeLevel, year, sampleDocument, setSchool, setStudentNumber, setProgram, setGradeLevel, setYear, setSampleDocument, submitVerification, simulateVerificationReview }: VerificationContentProps) {
-  const submit = () => submitVerificationForm(submitVerification, { school, studentNumber, program, gradeLevel, graduationYear: Number(year), sampleDocumentName: sampleDocument });
+  const [images, setImages] = useState<UploadedImage[]>([]);
+  const submit = () => submitVerificationForm(submitVerification, { school, studentNumber, program, gradeLevel, graduationYear: Number(year), sampleDocumentName: images[0]?.originalName ?? sampleDocument, evidenceImage: mediaInputs(images) });
   const review = (approved: boolean) => reviewVerification(simulateVerificationReview, approved);
   if (status === 'verified') return <VerifiedVerification current={current} />;
   if (status === 'pending') return <PendingVerification onReview={review} />;
-  return <VerificationForm current={current} status={status} school={school} studentNumber={studentNumber} program={program} gradeLevel={gradeLevel} year={year} sampleDocument={sampleDocument} setSchool={setSchool} setStudentNumber={setStudentNumber} setProgram={setProgram} setGradeLevel={setGradeLevel} setYear={setYear} setSampleDocument={setSampleDocument} onSubmit={submit} />;
+  return <VerificationForm current={current} status={status} school={school} studentNumber={studentNumber} program={program} gradeLevel={gradeLevel} year={year} sampleDocument={sampleDocument} setSchool={setSchool} setStudentNumber={setStudentNumber} setProgram={setProgram} setGradeLevel={setGradeLevel} setYear={setYear} setSampleDocument={setSampleDocument} images={images} setImages={setImages} onSubmit={submit} />;
 }
 
 async function submitVerificationForm(submitVerification: (input: VerificationInput) => Promise<StoreResult>, input: VerificationInput) {
@@ -90,10 +93,10 @@ function VerificationPage({ children }: { children: ReactNode }) {
   return <MobilePage><StatusBar style="light" /><AppHeader title="Student Verification" onBack={() => router.back()} />{children}</MobilePage>;
 }
 
-type VerificationFormProps = Omit<VerificationContentProps, 'submitVerification' | 'simulateVerificationReview'> & { onSubmit: () => void };
+type VerificationFormProps = Omit<VerificationContentProps, 'submitVerification' | 'simulateVerificationReview'> & { images: UploadedImage[]; setImages: (images: UploadedImage[]) => void; onSubmit: () => void };
 
-function VerificationForm({ current, status, school, studentNumber, program, gradeLevel, year, sampleDocument, setSchool, setStudentNumber, setProgram, setGradeLevel, setYear, setSampleDocument, onSubmit }: VerificationFormProps) {
-  return <VerificationPage><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}><View style={styles.warning}><Ionicons name="information-circle-outline" size={24} color={colors.burgundy} /><AppText style={styles.warningText}>Demo only. Use sample information and never upload a real student ID.</AppText></View>{status === 'rejected' ? <View style={styles.rejected}><AppText weight="semibold" style={{ color: colors.red }}>Verification rejected</AppText><AppText style={styles.warningText}>{current?.rejectionReason}</AppText></View> : null}<Label text="School or Campus" /><FormField icon="school-outline" value={school} onChangeText={setSchool} placeholder="School or Campus" /><Label text="Student Number" /><FormField icon="card-outline" value={studentNumber} onChangeText={setStudentNumber} placeholder="Sample Student Number" /><Label text="Program or Strand" /><FormField icon="book-outline" value={program} onChangeText={setProgram} placeholder="Program or Strand" /><Label text="Grade Level" /><FormField icon="ribbon-outline" value={gradeLevel} onChangeText={setGradeLevel} placeholder="Grade Level" /><Label text="Graduation Year" /><FormField icon="calendar-outline" value={year} onChangeText={setYear} placeholder="Graduation Year" keyboardType="number-pad" /><Label text="Student ID Sample" /><Pressable onPress={() => setSampleDocument('sample-student-id.png')} style={styles.document}><Ionicons name={sampleDocument ? 'checkmark-circle' : 'image-outline'} size={25} color={sampleDocument ? colors.green : colors.burgundy} /><AppText weight="medium" style={{ flex: 1 }}>{sampleDocument || 'Use Sample Student ID'}</AppText></Pressable><PrimaryButton title={status === 'rejected' ? 'Resubmit Verification' : 'Submit for Verification'} onPress={onSubmit} style={{ marginTop: 23 }} /></ScrollView></VerificationPage>;
+function VerificationForm({ current, status, school, studentNumber, program, gradeLevel, year, images, setSchool, setStudentNumber, setProgram, setGradeLevel, setYear, onSubmit, setImages }: VerificationFormProps) {
+  return <VerificationPage><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}><View style={styles.warning}><Ionicons name="information-circle-outline" size={24} color={colors.burgundy} /><AppText style={styles.warningText}>Demo only. Upload a clearly fictional sample image. Never upload a real student ID or real student information.</AppText></View>{status === 'rejected' ? <View style={styles.rejected}><AppText weight="semibold" style={{ color: colors.red }}>Verification rejected</AppText><AppText style={styles.warningText}>{current?.rejectionReason}</AppText></View> : null}<Label text="School or Campus" /><FormField icon="school-outline" value={school} onChangeText={setSchool} placeholder="School or Campus" /><Label text="Student Number" /><FormField icon="card-outline" value={studentNumber} onChangeText={setStudentNumber} placeholder="Sample Student Number" /><Label text="Program or Strand" /><FormField icon="book-outline" value={program} onChangeText={setProgram} placeholder="Program or Strand" /><Label text="Grade Level" /><FormField icon="ribbon-outline" value={gradeLevel} onChangeText={setGradeLevel} placeholder="Grade Level" /><Label text="Graduation Year" /><FormField icon="calendar-outline" value={year} onChangeText={setYear} placeholder="Graduation Year" keyboardType="number-pad" /><ImageUploader purpose="verification_sample" value={images} onChange={setImages} max={1} required label="Fictional Student ID Sample" defaultAltText="Sample student identification for simulated verification" /><PrimaryButton title={status === 'rejected' ? 'Resubmit Verification' : 'Submit for Verification'} disabled={images.length !== 1} onPress={onSubmit} style={{ marginTop: 23 }} /></ScrollView></VerificationPage>;
 }
 
 function Label({ text }: { text: string }) { return <AppText weight="semibold" style={styles.label}>{text}</AppText>; }

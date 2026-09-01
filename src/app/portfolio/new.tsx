@@ -4,9 +4,11 @@ import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
+import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { useSession } from '@/context/session.remote';
 import { consumeResult } from '@/utils/consume-result';
+import { mediaInputs, type UploadedImage } from '@/media/types';
 
 type PortfolioFormErrors = { title?: string; category?: string; description?: string; form?: string };
 type PortfolioFormValues = Pick<PortfolioFormErrors, 'title' | 'category' | 'description'>;
@@ -23,12 +25,13 @@ function validatePortfolioForm(values: PortfolioFormValues): PortfolioFormErrors
 export default function NewPortfolioItemScreen() {
   const { addPortfolioItem } = useSession();
   const [title, setTitle] = useState(''); const [category, setCategory] = useState(''); const [description, setDescription] = useState('');
+  const [images, setImages] = useState<UploadedImage[]>([]);
   const [errors, setErrors] = useState<PortfolioFormErrors>({});
   const clearError = (field: keyof PortfolioFormValues) => setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
   const save = () => {
     const nextErrors = validatePortfolioForm({ title, category, description });
     if (nextErrors.form) return setErrors(nextErrors);
-    consumeResult(addPortfolioItem({ title, category, description }), (result) => {
+    consumeResult(addPortfolioItem({ title, category, description, evidenceImages: mediaInputs(images) }), (result) => {
       if (!result.ok) return setErrors({ form: result.message });
       setErrors({});
       Alert.alert('Portfolio updated', 'The work sample was added to your SkillFlow profile.');
@@ -39,7 +42,8 @@ export default function NewPortfolioItemScreen() {
     <Label text="Project Title" /><FormField icon="images-outline" value={title} onChangeText={(value) => { setTitle(value); clearError('title'); }} placeholder="Project Title" accessibilityLabel="Project title" accessibilityHint={errors.title ?? 'Required. Enter a project title.'} style={errors.title ? styles.fieldError : undefined} /><FieldError message={errors.title} />
     <Label text="Category" /><FormField icon="grid-outline" value={category} onChangeText={(value) => { setCategory(value); clearError('category'); }} placeholder="e.g. Graphics & Design" accessibilityLabel="Portfolio category" accessibilityHint={errors.category ?? 'Required. Enter a category.'} style={errors.category ? styles.fieldError : undefined} /><FieldError message={errors.category} />
     <Label text="Description" /><TextInput value={description} onChangeText={(value) => { setDescription(value); clearError('description'); }} placeholder="Describe the work, skills, and outcome…" placeholderTextColor={colors.muted} multiline accessibilityLabel="Portfolio description" accessibilityHint={errors.description ?? 'Required. Describe the work, skills, and outcome.'} style={[styles.textArea, errors.description ? styles.textAreaError : undefined]} /><FieldError message={errors.description} />
-    <AppText style={styles.note}>Use sample work only. File uploads will be added with later AI and media improvements.</AppText><PortfolioErrorSummary errors={errors} /><PrimaryButton title="Add to Portfolio" onPress={save} style={{ marginTop: 22 }} />
+    <ImageUploader purpose="portfolio_evidence" value={images} onChange={setImages} max={5} required label="Portfolio Images" defaultAltText={title ? `${title} work sample` : 'Portfolio work sample'} />
+    <AppText style={styles.note}>Use only work you are allowed to share. Images are public on your profile.</AppText><PortfolioErrorSummary errors={errors} /><PrimaryButton title="Add to Portfolio" onPress={save} style={{ marginTop: 22 }} />
   </ScrollView></MobilePage>;
 }
 function Label({ text }: { text: string }) { return <AppText weight="semibold" style={styles.label}>{text}</AppText>; }
