@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
-import { requireProfile } from "./lib/auth";
+import { requireIdentity } from "./lib/auth";
 
 function ownerProfile(profile: Doc<"profiles">) {
   const { authTokenIdentifier: _authTokenIdentifier, ...safeProfile } = profile;
@@ -21,7 +21,11 @@ function publicVerification(verification: Doc<"studentVerifications">) {
 export const get = query({
   args: {}, returns: v.any(),
   handler: async (ctx) => {
-    const currentProfile = await requireProfile(ctx);
+    const identity = await requireIdentity(ctx);
+    const currentProfile = await ctx.db.query("profiles")
+      .withIndex("by_auth_token", (q) => q.eq("authTokenIdentifier", identity.tokenIdentifier))
+      .unique();
+    if (!currentProfile) return null;
     const [allProfiles, allServices, allSavedServices, allProjectPosts, allProposals, allBookings, allMessages, allNotifications, allLedger, reviews, allVerifications, portfolioItems, certifications, allMentorMessages, allPreferences] = await Promise.all([
       ctx.db.query("profiles").take(200), ctx.db.query("services").take(500), ctx.db.query("savedServices").take(500),
       ctx.db.query("projectPosts").take(500), ctx.db.query("proposals").take(500), ctx.db.query("projectBookings").take(500),

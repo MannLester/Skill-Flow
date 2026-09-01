@@ -1,4 +1,4 @@
-import { useOAuth, useSignUp } from "@clerk/expo";
+import { useSignUp, useSSO } from "@clerk/expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -14,6 +14,11 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  socialAuthRedirectUrl,
+  socialAuthStrategies,
+  type SocialAuthProvider,
+} from "@/auth/social-auth";
+import {
   AppLogo,
   AppText,
   BottomWaveDecor,
@@ -28,19 +33,16 @@ import type { UserRole } from "@/context/session";
 
 WebBrowser.maybeCompleteAuthSession();
 
-type OAuthProvider = "google" | "facebook";
-
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const { signUp, fetchStatus } = useSignUp();
-  const googleOAuth = useOAuth({ strategy: "oauth_google" });
-  const facebookOAuth = useOAuth({ strategy: "oauth_facebook" });
+  const { startSSOFlow } = useSSO();
   const [role, setRole] = useState<UserRole>("student");
   const [accepted, setAccepted] = useState(false);
   const [verification, setVerification] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
+  const [oauthBusy, setOauthBusy] = useState<SocialAuthProvider | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -98,14 +100,15 @@ export default function RegisterScreen() {
     router.replace("/");
   };
 
-  const continueWithOAuth = async (provider: OAuthProvider) => {
+  const continueWithOAuth = async (provider: SocialAuthProvider) => {
     if (!accepted)
       return setError("Accept the Terms and Privacy Policy to continue.");
     setOauthBusy(provider);
     setError("");
     try {
-      const flow = provider === "google" ? googleOAuth : facebookOAuth;
-      const { createdSessionId, setActive } = await flow.startOAuthFlow({
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: socialAuthStrategies[provider],
+        redirectUrl: socialAuthRedirectUrl(),
         unsafeMetadata: accountMetadata(form.name, role),
       });
       if (!createdSessionId || !setActive)
@@ -307,9 +310,9 @@ function SocialAuthButtons({
   disabled,
   onSelect,
 }: {
-  busy: OAuthProvider | null;
+  busy: SocialAuthProvider | null;
   disabled: boolean;
-  onSelect: (provider: OAuthProvider) => void;
+  onSelect: (provider: SocialAuthProvider) => void;
 }) {
   return (
     <View style={styles.socialBlock}>
@@ -348,7 +351,7 @@ function SocialButton({
 }: {
   disabled: boolean;
   onPress: () => void;
-  provider: OAuthProvider;
+  provider: SocialAuthProvider;
   title: string;
 }) {
   const color = provider === "google" ? "#db4437" : "#1877f2";
@@ -394,7 +397,7 @@ function validate(
 function accountMetadata(name: string, role: UserRole) {
   return { skillflowName: name.trim() || undefined, skillflowRole: role };
 }
-function labelFor(provider: OAuthProvider) {
+function labelFor(provider: SocialAuthProvider) {
   return provider === "google" ? "Google" : "Facebook";
 }
 

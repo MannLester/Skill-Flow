@@ -21,7 +21,21 @@ function expectExactKeys(record: unknown, keys: string[]) {
   expect(Object.keys(record as Record<string, unknown>).sort()).toEqual(keys);
 }
 
+function requireSnapshot<T>(snapshot: T | null): T {
+  expect(snapshot).not.toBeNull();
+  if (snapshot === null) throw new Error('Expected an onboarded account snapshot.');
+  return snapshot;
+}
+
 describe('Convex authorization boundaries', () => {
+  it('returns an empty snapshot state while an authenticated user awaits onboarding', async () => {
+    const t = convexTest(schema, modules);
+    const firstTimeUser = t.withIdentity(identity('first-time-user'));
+
+    await expect(t.query(api.snapshot.get, {})).rejects.toThrow('Authentication required');
+    await expect(firstTimeUser.query(api.snapshot.get, {})).resolves.toBeNull();
+  });
+
   it('requires authentication and keeps service ownership on the server', async () => {
     const t = convexTest(schema, modules);
     const student = t.withIdentity(identity('student-owner'));
@@ -115,7 +129,7 @@ describe('Convex authorization boundaries', () => {
       return { ownBooking, otherBooking, ownMessage, otherMessage, ownNotification, otherNotification, ownLedger, otherLedger };
     });
 
-    const snapshot = await client.query(api.snapshot.get, {});
+    const snapshot = requireSnapshot(await client.query(api.snapshot.get, {}));
     expect(snapshot.bookings.map((item: { _id: string }) => item._id)).toEqual([fixture.ownBooking]);
     expect(snapshot.messages.map((item: { _id: string }) => item._id)).toEqual([fixture.ownMessage]);
     expect(snapshot.notifications.map((item: { _id: string }) => item._id)).toEqual([fixture.ownNotification]);
@@ -140,7 +154,7 @@ describe('Convex authorization boundaries', () => {
       return verification._id;
     });
 
-    const notSubmittedObserverSnapshot = await observer.query(api.snapshot.get, {});
+    const notSubmittedObserverSnapshot = requireSnapshot(await observer.query(api.snapshot.get, {}));
     expect(notSubmittedObserverSnapshot.verifications.some(hasField('studentProfileId', studentId))).toBe(false);
 
     await t.run(async (ctx) => {
@@ -151,7 +165,7 @@ describe('Convex authorization boundaries', () => {
       });
     });
 
-    const ownerSnapshot = await student.query(api.snapshot.get, {});
+    const ownerSnapshot = requireSnapshot(await student.query(api.snapshot.get, {}));
     const ownerProfile = ownerSnapshot.profiles.find(hasField('_id', studentId));
     const ownerVerification = ownerSnapshot.verifications.find(hasField('studentProfileId', studentId));
     expectExactKeys(ownerProfile, [
@@ -163,7 +177,7 @@ describe('Convex authorization boundaries', () => {
       'sampleDocumentName', 'school', 'status', 'studentNumberMasked', 'studentProfileId', 'submittedAt', 'updatedAt', 'version',
     ]);
 
-    const pendingObserverSnapshot = await observer.query(api.snapshot.get, {});
+    const pendingObserverSnapshot = requireSnapshot(await observer.query(api.snapshot.get, {}));
     const publicProfile = pendingObserverSnapshot.profiles.find(hasField('_id', studentId));
     expectExactKeys(publicProfile, ['_creationTime', '_id', 'bio', 'name', 'role', 'skills']);
     expect(publicProfile).toMatchObject({ role: 'student', name: 'Public Student', bio: 'Public biography', skills: ['Public skill'] });
@@ -172,7 +186,7 @@ describe('Convex authorization boundaries', () => {
     await t.run(async (ctx) => {
       await ctx.db.patch(verificationId, { status: 'rejected' });
     });
-    const rejectedObserverSnapshot = await observer.query(api.snapshot.get, {});
+    const rejectedObserverSnapshot = requireSnapshot(await observer.query(api.snapshot.get, {}));
     expect(rejectedObserverSnapshot.verifications.some(hasField('studentProfileId', studentId))).toBe(false);
 
     const consumerFixtures = await t.run(async (ctx) => {
@@ -210,7 +224,7 @@ describe('Convex authorization boundaries', () => {
       });
       return { serviceId, postId, proposalId, reviewId, portfolioId, certificationId };
     });
-    const verifiedObserverSnapshot = await observer.query(api.snapshot.get, {});
+    const verifiedObserverSnapshot = requireSnapshot(await observer.query(api.snapshot.get, {}));
     const publicVerification = verifiedObserverSnapshot.verifications.find(hasField('studentProfileId', studentId));
     expectExactKeys(publicVerification, ['_creationTime', '_id', 'isSimulated', 'status', 'studentProfileId']);
     expect(publicVerification).toMatchObject({ studentProfileId: studentId, status: 'verified', isSimulated: true });

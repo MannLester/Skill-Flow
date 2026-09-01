@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { useSSO } from '@clerk/expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import RegisterScreen from '@/app/register';
@@ -58,9 +59,15 @@ describe('registration', () => {
   });
 
   it('starts Facebook OAuth registration after terms are accepted', async () => {
+    const { startSSOFlow } = useSSO();
     const screen = render(<SafeAreaProvider><SessionProvider><RegisterScreen /></SessionProvider></SafeAreaProvider>);
     fireEvent.press(screen.getByLabelText('Accept Terms and Privacy Policy'));
     fireEvent.press(screen.getByRole('button', { name: 'Continue with Facebook' }));
+    await waitFor(() => expect(startSSOFlow).toHaveBeenCalledWith({
+      strategy: 'oauth_facebook',
+      redirectUrl: 'skillflow://oauth-native-callback',
+      unsafeMetadata: { skillflowName: undefined, skillflowRole: 'student' },
+    }));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 });

@@ -128,8 +128,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
 async function runStore(request: () => Promise<unknown>): Promise<StoreResult> { try { await request(); return { ok: true }; } catch (error) { return errorResult(error); } }
 
 type Raw = Record<string, any>;
-const rows = (snapshot: Raw | undefined, key: string): Raw[] => snapshot?.[key] ?? [];
-function mapSnapshot(snapshot: Raw | undefined) {
+const rows = (snapshot: Raw | null | undefined, key: string): Raw[] => snapshot?.[key] ?? [];
+function mapSnapshot(snapshot: Raw | null | undefined) {
   const profiles = rows(snapshot, 'profiles').map(mapProfile);
   const verifications = rows(snapshot, 'verifications').map(mapVerification);
   const accounts = rows(snapshot, 'profiles').map((profile) => mapAccount(profile, verifications));

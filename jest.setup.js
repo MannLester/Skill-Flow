@@ -13,6 +13,10 @@ jest.mock('expo-web-browser', () => ({
   maybeCompleteAuthSession: jest.fn(),
 }));
 
+jest.mock('expo-auth-session', () => ({
+  makeRedirectUri: jest.fn(() => 'skillflow://oauth-native-callback'),
+}));
+
 Object.defineProperty(globalThis, 'fetch', {
   configurable: true,
   writable: true,
@@ -41,7 +45,7 @@ jest.mock('@clerk/expo', () => {
   const React = require('react');
   const success = async () => ({ error: null });
   const setActive = jest.fn(success);
-  const startOAuthFlow = jest.fn(async () => ({ createdSessionId: 'sess_mock', setActive }));
+  const startSSOFlow = jest.fn(async () => ({ createdSessionId: 'sess_mock', setActive }));
   const signIn = {
     status: 'complete',
     password: jest.fn(success),
@@ -68,7 +72,7 @@ jest.mock('@clerk/expo', () => {
     ClerkLoading: () => null,
     useAuth: () => ({ getToken: jest.fn(), isLoaded: true, isSignedIn: false }),
     useClerk: () => ({ signOut: jest.fn(success) }),
-    useOAuth: () => ({ startOAuthFlow }),
+    useSSO: () => ({ startSSOFlow }),
     useSignIn: () => ({ signIn, fetchStatus: 'idle' }),
     useSignUp: () => ({ signUp, fetchStatus: 'idle' }),
     useUser: () => ({ user: null }),

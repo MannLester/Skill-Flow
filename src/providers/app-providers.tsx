@@ -1,13 +1,14 @@
-import { ClerkLoaded, ClerkLoading, ClerkProvider, useAuth, useUser } from '@clerk/expo';
+import { ClerkLoaded, ClerkLoading, ClerkProvider, useAuth, useClerk, useUser } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexReactClient, useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router, Stack, useGlobalSearchParams, usePathname } from 'expo-router';
 import { memo, PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { api } from '../../convex/_generated/api';
+import { resolveAuthGateState, type AuthGateState } from '@/auth/auth-gate';
 import { AppText, FormField, MobilePage, PrimaryButton, RoleSelector } from '@/components/ui';
 import { readRuntimeConfiguration, RuntimeConfiguration } from '@/config/runtime';
 import { colors, contentPadding, MAX_PHONE_WIDTH } from '@/constants/theme';
@@ -16,7 +17,7 @@ import type { UserRole } from '@/context/session';
 import { primaryNavActiveForPath, PrimaryBottomNav } from '@/navigation/primary-navigation';
 import { blurActiveWebElement } from '@/utils/web-focus';
 
-const publicPaths = new Set(['/', '/register', '/forgot-password', '/terms', '/privacy-policy']);
+const publicPaths = new Set(['/', '/register', '/forgot-password', '/terms', '/privacy-policy', '/oauth-native-callback']);
 const legacyDemoStorageKeys = ['skillflow.demo-state', 'skillflow.demo-state.v1'];
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -27,34 +28,58 @@ export function AppProviders({ children }: PropsWithChildren) {
 
 function ConfiguredProviders({ children, configuration }: PropsWithChildren<{ configuration: RuntimeConfiguration }>) {
   const convex = useMemo(() => new ConvexReactClient(configuration.convexUrl, { unsavedChangesWarning: false }), [configuration.convexUrl]);
+  const [authAttempt, setAuthAttempt] = useState(0);
   return (
     <ClerkProvider publishableKey={configuration.clerkPublishableKey} tokenCache={tokenCache} __experimental_disableNativeClientSync>
       <ClerkLoading><LoadingState message="Restoring your secure session…" /></ClerkLoading>
       <ClerkLoaded>
-        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          <SessionProvider><AuthProfileGate>{children}</AuthProfileGate></SessionProvider>
+        <ConvexProviderWithClerk key={authAttempt} client={convex} useAuth={useAuth}>
+          <SessionProvider><AuthProfileGate onRetry={() => setAuthAttempt((attempt) => attempt + 1)}>{children}</AuthProfileGate></SessionProvider>
         </ConvexProviderWithClerk>
       </ClerkLoaded>
     </ClerkProvider>
   );
 }
 
-function AuthProfileGate({ children }: PropsWithChildren) {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const profile = useQuery(api.profiles.current, isAuthenticated ? {} : 'skip');
+export function AuthProfileGate({ children, onRetry }: PropsWithChildren<{ onRetry: () => void }>) {
+  const { isLoaded: isClerkLoaded, isSignedIn } = useAuth();
+  const { signOut } = useClerk();
+  const { isAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
+  const profile = useQuery(api.profiles.current, isSignedIn && isAuthenticated ? {} : 'skip');
   const pathname = usePathname();
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated && !publicPaths.has(pathname)) router.replace('/');
-    if (isAuthenticated && profile && publicPaths.has(pathname)) router.replace(profile.role === 'student' ? '/student-home' : '/client-home');
-  }, [isAuthenticated, isLoading, pathname, profile]);
+  const state = resolveAuthGateState({ isClerkLoaded, isSignedIn, isConvexLoading, isAuthenticated, profile });
+  useAuthProfileRedirect(state, pathname, profile);
   useEffect(() => {
     if (isAuthenticated && profile) void AsyncStorage.multiRemove(legacyDemoStorageKeys);
   }, [isAuthenticated, profile]);
-  if (isLoading || (isAuthenticated && profile === undefined)) return <LoadingState message="Connecting securely to SkillFlow…" />;
-  if (isAuthenticated && profile === null) return <ProfileOnboarding />;
-  if (!isAuthenticated) return children;
+  if (state === 'loading') return <LoadingState message="Connecting securely to SkillFlow…" />;
+  if (state === 'signed-out') return children;
+  if (state === 'backend-recovery') return <AuthRecoveryState onRetry={onRetry} onSignOut={async () => { await signOut(); router.replace('/'); }} />;
+  if (state === 'profile-onboarding') return <ProfileOnboarding />;
   return <AuthenticatedNavigationShell>{children}</AuthenticatedNavigationShell>;
+}
+
+function useAuthProfileRedirect(state: AuthGateState, pathname: string, profile: { role?: string } | null | undefined) {
+  useEffect(() => {
+    if (state === 'signed-out') {
+      if (!publicPaths.has(pathname)) router.replace('/');
+      return;
+    }
+    if (state !== 'authenticated' || !profile || !publicPaths.has(pathname)) return;
+    router.replace(profile.role === 'student' ? '/student-home' : '/client-home');
+  }, [pathname, profile, state]);
+}
+
+export function AuthRecoveryState({ onRetry, onSignOut }: { onRetry: () => void; onSignOut: () => Promise<void> }) {
+  const [error, setError] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
+  const exitSession = async () => {
+    setSigningOut(true); setError('');
+    try { await onSignOut(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Sign-out could not be completed.'); }
+    finally { setSigningOut(false); }
+  };
+  return <MobilePage><View style={styles.recovery}><AppText weight="bold" style={styles.title}>Finish connecting your account</AppText><AppText style={styles.copy}>Your sign-in succeeded, but SkillFlow could not validate the secure backend session. Check your connection and try again.</AppText>{error ? <AppText accessibilityRole="alert" style={styles.error}>{error}</AppText> : null}<PrimaryButton title="Retry connection" onPress={onRetry} disabled={signingOut} /><Pressable accessibilityRole="button" disabled={signingOut} onPress={exitSession} style={styles.signOut}><AppText weight="semibold" style={styles.signOutText}>{signingOut ? 'Signing out…' : 'Sign Out'}</AppText></Pressable></View></MobilePage>;
 }
 
 function AuthenticatedNavigationShell({ children }: PropsWithChildren) {
@@ -114,6 +139,8 @@ export const AppStack = memo(function AppStack() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: contentPadding },
   onboarding: { flex: 1, justifyContent: 'center', gap: 16, paddingHorizontal: contentPadding },
+  recovery: { flex: 1, justifyContent: 'center', gap: 16, paddingHorizontal: contentPadding },
   title: { fontSize: 20, textAlign: 'center' }, copy: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' }, error: { color: colors.red, fontSize: 11, textAlign: 'center' },
-  shell: { flex: 1 }, stack: { flex: 1, overflow: 'hidden' },   navOuter: { alignItems: 'center', backgroundColor: '#fff', flexShrink: 0 }, navPhone: { width: '100%', maxWidth: MAX_PHONE_WIDTH },
+  signOut: { minHeight: 48, alignItems: 'center', justifyContent: 'center' }, signOutText: { color: colors.burgundy, fontSize: 13 },
+  shell: { flex: 1 }, stack: { flex: 1, overflow: 'hidden' }, navOuter: { alignItems: 'center', backgroundColor: '#fff', flexShrink: 0 }, navPhone: { width: '100%', maxWidth: MAX_PHONE_WIDTH },
 });

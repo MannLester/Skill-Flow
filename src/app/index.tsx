@@ -1,4 +1,4 @@
-import { useOAuth, useSignIn } from "@clerk/expo";
+import { useSignIn, useSSO } from "@clerk/expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -14,6 +14,11 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  socialAuthRedirectUrl,
+  socialAuthStrategies,
+  type SocialAuthProvider,
+} from "@/auth/social-auth";
+import {
   AppLogo,
   AppText,
   BottomWaveDecor,
@@ -26,17 +31,14 @@ import { colors, contentPadding } from "@/constants/theme";
 
 WebBrowser.maybeCompleteAuthSession();
 
-type OAuthProvider = "google" | "facebook";
-
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { signIn, fetchStatus } = useSignIn();
-  const googleOAuth = useOAuth({ strategy: "oauth_google" });
-  const facebookOAuth = useOAuth({ strategy: "oauth_facebook" });
+  const { startSSOFlow } = useSSO();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
+  const [oauthBusy, setOauthBusy] = useState<SocialAuthProvider | null>(null);
   const busy = fetchStatus === "fetching" || oauthBusy !== null;
 
   const logIn = async () => {
@@ -63,12 +65,14 @@ export default function LoginScreen() {
     router.replace("/");
   };
 
-  const continueWithOAuth = async (provider: OAuthProvider) => {
+  const continueWithOAuth = async (provider: SocialAuthProvider) => {
     setOauthBusy(provider);
     setError("");
     try {
-      const flow = provider === "google" ? googleOAuth : facebookOAuth;
-      const { createdSessionId, setActive } = await flow.startOAuthFlow();
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: socialAuthStrategies[provider],
+        redirectUrl: socialAuthRedirectUrl(),
+      });
       if (!createdSessionId || !setActive)
         return setError(
           `${labelFor(provider)} sign-in was canceled or could not be completed.`,
@@ -180,9 +184,9 @@ function SocialAuthButtons({
   disabled,
   onSelect,
 }: {
-  busy: OAuthProvider | null;
+  busy: SocialAuthProvider | null;
   disabled: boolean;
-  onSelect: (provider: OAuthProvider) => void;
+  onSelect: (provider: SocialAuthProvider) => void;
 }) {
   return (
     <View style={styles.socialBlock}>
@@ -221,7 +225,7 @@ function SocialButton({
 }: {
   disabled: boolean;
   onPress: () => void;
-  provider: OAuthProvider;
+  provider: SocialAuthProvider;
   title: string;
 }) {
   const color = provider === "google" ? "#db4437" : "#1877f2";
@@ -245,7 +249,7 @@ function SocialButton({
   );
 }
 
-function labelFor(provider: OAuthProvider) {
+function labelFor(provider: SocialAuthProvider) {
   return provider === "google" ? "Google" : "Facebook";
 }
 
