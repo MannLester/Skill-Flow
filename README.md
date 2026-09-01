@@ -84,7 +84,10 @@ creates a fresh export and runs a bounded HTTP smoke check.
 ## Connected-service configuration
 
 Copy `.env.example` to the ignored `.env.local` and use one matching public
-runtime target and Convex client URL:
+runtime target, Convex client URL, and matching Convex HTTP actions URL. Cloud
+deployments use the displayed `https://…convex.site` value for
+`EXPO_PUBLIC_CONVEX_SITE_URL`; local/self-hosted development uses its configured
+site proxy origin.
 
 | `EXPO_PUBLIC_RUNTIME_TARGET` | Matching Convex URL |
 | --- | --- |
@@ -96,6 +99,11 @@ Use `cloud-development` for Expo Go on a physical phone, an emulator, or web dur
 `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` accepts only Clerk publishable keys. Never put a
 Convex admin key, Clerk secret key, or deploy key in an `EXPO_PUBLIC_*`
 variable: Expo bundles those variables into the application.
+
+Image uploads use the phone gallery or camera, are normalized to JPEG with a
+maximum 2000 px edge and 5 MB processed size, and are stored in Convex File
+Storage. Real student IDs remain prohibited; verification accepts fictional
+sample images only.
 
 The runtime guard allows only those three application keys plus Expo Router's
 exact framework-owned `EXPO_PUBLIC_PROJECT_ROOT` key. Other `EXPO_PUBLIC_*`
