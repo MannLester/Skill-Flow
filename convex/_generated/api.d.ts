@@ -15,7 +15,10 @@ import type * as growth from "../growth.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_events from "../lib/events.js";
+import type * as lib_mentor from "../lib/mentor.js";
 import type * as media from "../media.js";
+import type * as mentor from "../mentor.js";
+import type * as mentorActions from "../mentorActions.js";
 import type * as profiles from "../profiles.js";
 import type * as projects from "../projects.js";
 import type * as services from "../services.js";
@@ -35,7 +38,10 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/events": typeof lib_events;
+  "lib/mentor": typeof lib_mentor;
   media: typeof media;
+  mentor: typeof mentor;
+  mentorActions: typeof mentorActions;
   profiles: typeof profiles;
   projects: typeof projects;
   services: typeof services;
@@ -68,4 +74,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
+};

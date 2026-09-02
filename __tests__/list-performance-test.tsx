@@ -15,14 +15,24 @@ jest.mock('expo-router', () => ({
 }));
 
 function StudentMentorHarness({ children }: { children: ReactNode }) {
-  const { currentAccount, loginAsRole, mentorMessages, sendMentorMessage } = useSession();
+  const { currentAccount, ensureMentorConversation, loginAsRole, mentorMessages, sendMentorMessage } = useSession();
 
   useEffect(() => loginAsRole('student'), [loginAsRole]);
   useEffect(() => {
     if (currentAccount?.role !== 'student' || mentorMessages.length) return;
-    for (let index = 0; index < 12; index += 1) sendMentorMessage(`Question ${index}`);
-  }, [currentAccount, mentorMessages.length, sendMentorMessage]);
+    const conversation = ensureMentorConversation();
+    if (!conversation.ok) return;
+    for (let index = 0; index < 12; index += 1) {
+      sendMentorMessage(`Question ${index}`, undefined, conversation.conversationId);
+    }
+  }, [currentAccount, ensureMentorConversation, mentorMessages.length, sendMentorMessage]);
 
+  return <>{children}</>;
+}
+
+function StudentOnlyHarness({ children }: { children: ReactNode }) {
+  const { loginAsRole } = useSession();
+  useEffect(() => loginAsRole('student'), [loginAsRole]);
   return <>{children}</>;
 }
 
@@ -75,17 +85,19 @@ describe('list performance helpers and virtualization', () => {
     expect(virtualizedList.props.data).toHaveLength(24);
     expect(virtualizedList.props.initialNumToRender).toBe(10);
     expect(virtualizedList.props.windowSize).toBe(7);
-    expect(screen.getByText('Question 0')).toBeTruthy();
+    expect(screen.getAllByText('Question 0').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Break the task into goal/).length).toBeGreaterThan(0);
     expect(transcript.props.testID).toBe('mentor-transcript');
   });
 
-  it('keeps suggestion selection local before sending a mentor question', async () => {
-    const screen = render(<SessionProvider><AiMentorScreen /></SessionProvider>);
-    await waitFor(() => expect(screen.getByText('Improve my project idea')).toBeTruthy());
+  it('starts a mentor conversation when a template is selected', async () => {
+    const screen = render(<SessionProvider><StudentOnlyHarness><AiMentorScreen /></StudentOnlyHarness></SessionProvider>);
+    await waitFor(() => expect(screen.getByText('Improve an idea')).toBeTruthy());
 
-    fireEvent.press(screen.getByText('Improve my project idea'));
-    expect(screen.getByPlaceholderText('Ask about a project or portfolio…').props.value).toBe('Improve my project idea');
+    fireEvent.press(screen.getByText('Improve an idea'));
+    await waitFor(() => expect(screen.getAllByText('Help me improve my project idea.').length).toBeGreaterThan(0));
+    expect(screen.queryByText('Improve an idea')).toBeNull();
+    expect(screen.getByPlaceholderText('Message your AI mentor…').props.value).toBe('');
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });

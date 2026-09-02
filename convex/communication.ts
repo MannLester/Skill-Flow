@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { assertText, requireProfile, requireRole } from "./lib/auth";
+import { assertText, requireProfile } from "./lib/auth";
 import { notifyBooking } from "./lib/events";
 import { replaceAttachments } from "./media";
 
@@ -58,40 +58,6 @@ export const markNotificationRead = mutation({
     const notification = await ctx.db.get(args.notificationId);
     if (!notification || notification.recipientProfileId !== profile._id) throw new Error("Notification not found.");
     if (!notification.readAt) await ctx.db.patch(notification._id, { readAt: Date.now() });
-    return null;
-  },
-});
-
-function mentorResponse(body: string) {
-  const prompt = body.toLowerCase();
-  if (prompt.includes("portfolio")) return "Choose three to four pieces that show different skills. For each one, explain the goal, your design decisions, and the outcome. Lead with your strongest work.";
-  if (prompt.includes("color") || prompt.includes("palette")) return "Start with one primary color, one supporting color, and a neutral. Check text contrast, then test the palette in grayscale so hierarchy does not depend on color alone.";
-  if (prompt.includes("check") || prompt.includes("review") || prompt.includes("design")) return "Review the design in this order: visual hierarchy, alignment and spacing, contrast, readability, then consistency. Ask one classmate to describe what they notice first.";
-  if (prompt.includes("idea") || prompt.includes("project")) return "Turn the idea into a short brief: target user, problem, required deliverables, constraints, and one measurable success criterion. Build the smallest useful first version.";
-  return "Break the task into goal, audience, constraints, and next action. If you share those four details, I can provide a more focused deterministic demo response.";
-}
-
-export const sendMentorMessage = mutation({
-  args: { body: v.string(), turnKey: v.string() }, returns: v.null(),
-  handler: async (ctx, args) => {
-    const student = await requireRole(ctx, "student");
-    const existing = await ctx.db.query("mentorMessages").withIndex("by_student_turn_key", (q) => q.eq("studentProfileId", student._id).eq("turnKey", args.turnKey)).first();
-    if (existing) return null;
-    const body = assertText(args.body, "Mentor question", 2000);
-    const now = Date.now();
-    const turnId = `${student._id}:${args.turnKey}`;
-    await ctx.db.insert("mentorMessages", { studentProfileId: student._id, turnId, role: "user", sequence: 0, body, turnKey: args.turnKey, createdAt: now });
-    await ctx.db.insert("mentorMessages", { studentProfileId: student._id, turnId, role: "mentor", sequence: 1, body: mentorResponse(body), turnKey: args.turnKey, ruleVersion: "deterministic-v1", isSimulated: true, createdAt: now + 1 });
-    return null;
-  },
-});
-
-export const clearMentor = mutation({
-  args: {}, returns: v.null(),
-  handler: async (ctx) => {
-    const student = await requireRole(ctx, "student");
-    const messages = await ctx.db.query("mentorMessages").withIndex("by_student", (q) => q.eq("studentProfileId", student._id)).take(500);
-    await Promise.all(messages.map((message) => ctx.db.delete(message._id)));
     return null;
   },
 });

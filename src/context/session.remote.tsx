@@ -1,5 +1,5 @@
 import { useClerk } from '@clerk/expo';
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { createContext, PropsWithChildren, useCallback, useContext, useMemo } from 'react';
 
 import { api } from '../../convex/_generated/api';
@@ -7,7 +7,7 @@ import { services as bundledServices, Service } from '@/data/fixtures';
 import { calculateCareerReadiness, CareerReadinessBreakdown } from '@/domain/career-readiness';
 import type { MediaAttachment, MediaInput } from '@/media/types';
 import type {
-  Certification, DemoAccount, DemoLedgerEntry, DemoNotification, DemoPreferences, MentorMessage, PortfolioItem,
+  Certification, DemoAccount, DemoLedgerEntry, DemoNotification, DemoPreferences, MentorConversation, MentorConversationResult, MentorMessage, PortfolioItem,
   ProjectAction, ProjectBooking as LegacyProjectBooking, ProjectMessage, ProjectPost, ProjectPostInput, ProjectPostStatus,
   ProjectReview, Proposal, ProposalInput, ServiceInput, StoreResult, StudentVerification, UserProfile, UserRole,
 } from './session';
@@ -30,7 +30,7 @@ type RemoteSessionValue = {
   accounts: DemoAccount[]; services: Service[]; bookings: ProjectBooking[]; projectPosts: ProjectPost[]; proposals: Proposal[];
   messages: ProjectMessage[]; notifications: DemoNotification[]; ledger: DemoLedgerEntry[]; reviews: ProjectReview[]; profiles: UserProfile[];
   verifications: StudentVerification[]; portfolioItems: PortfolioItem[]; certifications: Certification[]; savedServiceIds: string[];
-  mentorMessages: MentorMessage[]; preferences: DemoPreferences; unreadCount: number; mediaAttachments: MediaAttachment[];
+  mentorConversations: MentorConversation[]; mentorMessages: MentorMessage[]; preferences: DemoPreferences; unreadCount: number; mediaAttachments: MediaAttachment[];
   getCareerReadiness: (studentId: string) => CareerReadinessBreakdown;
   logout: () => AsyncResult<void>; createBooking: (input: CreateBookingInput) => AsyncResult<ProjectBooking>;
   actOnProject: (id: string, action: ProjectAction, payload?: ProjectActionPayload) => AsyncResult<StoreResult>;
@@ -42,7 +42,8 @@ type RemoteSessionValue = {
   setServiceStatus: (id: string, status: Service['status']) => AsyncResult<StoreResult>; saveProjectPost: (input: ProjectPostInput, publish: boolean, id?: string) => AsyncResult<ProjectPostResult>;
   setProjectPostStatus: (id: string, status: ProjectPostStatus) => AsyncResult<StoreResult>; submitProposal: (id: string, input: ProposalInput) => AsyncResult<StoreResult>;
   withdrawProposal: (id: string) => AsyncResult<StoreResult>; decideProposal: (id: string, accept: boolean) => AsyncResult<ProposalDecisionResult>;
-  toggleSavedService: (id: string) => AsyncResult<void>; sendMentorMessage: (body: string) => AsyncResult<StoreResult>; clearMentorConversation: () => AsyncResult<void>;
+  toggleSavedService: (id: string) => AsyncResult<void>; ensureMentorConversation: () => AsyncResult<MentorConversationResult>; createMentorConversation: () => AsyncResult<MentorConversationResult>;
+  deleteMentorConversation: (conversationId: string) => AsyncResult<StoreResult>; sendMentorMessage: (body: string, turnKey?: string, conversationId?: string) => AsyncResult<StoreResult>; clearMentorConversation: () => AsyncResult<void>;
   updatePreferences: (input: Partial<DemoPreferences>) => AsyncResult<void>;
 };
 
@@ -69,8 +70,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const sendMessageMutation = useMutation(api.communication.sendMessage);
   const markThreadReadMutation = useMutation(api.communication.markThreadRead);
   const markNotificationReadMutation = useMutation(api.communication.markNotificationRead);
-  const sendMentorMutation = useMutation(api.communication.sendMentorMessage);
-  const clearMentorMutation = useMutation(api.communication.clearMentor);
+  const sendMentorAction = useAction(api.mentorActions.sendMentorMessage);
+  const deleteMentorAction = useAction(api.mentorActions.deleteMentorConversation);
+  const clearMentorAction = useAction(api.mentorActions.clearMentor);
+  const ensureMentorMutation = useMutation(api.mentor.ensureConversation);
+  const createMentorMutation = useMutation(api.mentor.createConversation);
   const submitVerificationMutation = useMutation(api.growth.submitVerification);
   const reviewVerificationMutation = useMutation(api.growth.simulateVerificationReview);
   const addPortfolioMutation = useMutation(api.growth.addPortfolio);
@@ -112,7 +116,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return runStore(() => addPortfolioMutation({ title: booking.title, description: booking.deliveryNote ?? booking.description, category: 'Completed Client Project', sourceBookingId: id as never, idempotencyKey: `booking-${id}` }));
   }, [addPortfolioMutation, mapped.bookings]);
   const addCertification = useCallback(async (input: CertificationInput): Promise<StoreResult> => runStore(() => addCertificationMutation({ ...input, evidenceImage: input.evidenceImage ?? [], idempotencyKey: idempotencyKey('certification') } as never)), [addCertificationMutation]);
-  const sendMentorMessage = useCallback(async (body: string): Promise<StoreResult> => runStore(() => sendMentorMutation({ body, turnKey: idempotencyKey('mentor') })), [sendMentorMutation]);
+  const ensureMentorConversation = useCallback(async (): Promise<MentorConversationResult> => {
+    try { return { ok: true, conversationId: await ensureMentorMutation({}) }; }
+    catch (error) { return errorResult(error); }
+  }, [ensureMentorMutation]);
+  const createMentorConversation = useCallback(async (): Promise<MentorConversationResult> => {
+    try { return { ok: true, conversationId: await createMentorMutation({}) }; }
+    catch (error) { return errorResult(error); }
+  }, [createMentorMutation]);
+  const deleteMentorConversation = useCallback(async (conversationId: string): Promise<StoreResult> => runStore(() => deleteMentorAction({ conversationId: conversationId as never })), [deleteMentorAction]);
+  const sendMentorMessage = useCallback(async (body: string, turnKey?: string, conversationId?: string): Promise<StoreResult> => runStore(() => sendMentorAction({ body, turnKey: turnKey ?? idempotencyKey('mentor'), conversationId: conversationId as never })), [sendMentorAction]);
 
   const value = useMemo<RemoteSessionValue>(() => ({
     ...mapped, hydrated: snapshot !== undefined, role: currentAccount?.role ?? 'student', homeRoute: currentAccount?.role === 'client' ? '/client-home' : '/student-home', currentAccount,
@@ -120,9 +133,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
     markNotificationRead: async (id) => { await markNotificationReadMutation({ notificationId: id as never }); }, markProjectMessagesRead: async (id) => { await markThreadReadMutation({ bookingId: id as never }); },
     updateProfile, submitVerification, simulateVerificationReview, addPortfolioItem, addCertification, addCompletedProjectToPortfolio,
     saveService, setServiceStatus, saveProjectPost, setProjectPostStatus, submitProposal, withdrawProposal, decideProposal,
-    toggleSavedService: async (id) => { await toggleSavedMutation({ serviceId: id as never }); }, sendMentorMessage,
-    clearMentorConversation: async () => { await clearMentorMutation({}); }, updatePreferences: async (input) => { await updatePreferencesMutation({ notificationBadgesEnabled: input.notificationsEnabled, settingsDarkMode: input.darkMode }); },
-  }), [actOnProject, addCertification, addCompletedProjectToPortfolio, addPortfolioItem, clearMentorMutation, createBooking, currentAccount, decideProposal, mapped, markNotificationReadMutation, markThreadReadMutation, saveProjectPost, saveService, sendMentorMessage, sendMessage, setProjectPostStatus, setServiceStatus, signOut, simulateVerificationReview, snapshot, submitProposal, submitVerification, toggleSavedMutation, updatePreferencesMutation, updateProfile, withdrawProposal]);
+    toggleSavedService: async (id) => { await toggleSavedMutation({ serviceId: id as never }); }, ensureMentorConversation, createMentorConversation, deleteMentorConversation, sendMentorMessage,
+    clearMentorConversation: async () => { await clearMentorAction({}); }, updatePreferences: async (input) => { await updatePreferencesMutation({ notificationBadgesEnabled: input.notificationsEnabled, settingsDarkMode: input.darkMode }); },
+  }), [actOnProject, addCertification, addCompletedProjectToPortfolio, addPortfolioItem, clearMentorAction, createBooking, createMentorConversation, currentAccount, decideProposal, deleteMentorConversation, ensureMentorConversation, mapped, markNotificationReadMutation, markThreadReadMutation, saveProjectPost, saveService, sendMentorMessage, sendMessage, setProjectPostStatus, setServiceStatus, signOut, simulateVerificationReview, snapshot, submitProposal, submitVerification, toggleSavedMutation, updatePreferencesMutation, updateProfile, withdrawProposal]);
   return <RemoteSessionContext.Provider value={value}>{children}</RemoteSessionContext.Provider>;
 }
 
@@ -145,7 +158,7 @@ function mapSnapshot(snapshot: Raw | null | undefined) {
     proposals: rows(snapshot, 'proposals').map(mapProposal), messages: rows(snapshot, 'messages').map(mapMessage),
     ledger: rows(snapshot, 'ledger').filter((item) => item.type !== 'refund').map(mapLedger),
     portfolioItems: rows(snapshot, 'portfolioItems').filter((item) => !item.archivedAt).map(mapPortfolio),
-    certifications: rows(snapshot, 'certifications').map(mapCertification), mentorMessages: rows(snapshot, 'mentorMessages').map(mapMentorMessage),
+    certifications: rows(snapshot, 'certifications').map(mapCertification), mentorConversations: rows(snapshot, 'mentorConversations').map(mapMentorConversation), mentorMessages: rows(snapshot, 'mentorMessages').map(mapMentorMessage),
     savedServiceIds: rows(snapshot, 'savedServices').filter((item) => item.profileId === currentAccount?.id).map((item) => item.serviceId),
     mediaAttachments: rows(snapshot, 'mediaAttachments').map(mapMediaAttachment),
     unreadCount: unreadNotifications(preferences, notifications, currentAccount),
@@ -165,7 +178,8 @@ const mapLedger = (item: Raw): DemoLedgerEntry => ({ id: item._id, userId: item.
 const mapReview = (item: Raw): ProjectReview => ({ id: item._id, projectId: item.bookingId, clientId: item.clientProfileId, studentId: item.studentProfileId, rating: item.rating, comment: item.comment, createdAt: iso(item.createdAt)! });
 const mapPortfolio = (item: Raw): PortfolioItem => ({ id: item._id, studentId: item.studentProfileId, title: item.title, description: item.description, category: item.category, sourceProjectId: item.sourceBookingId, createdAt: iso(item.createdAt)! });
 const mapCertification = (item: Raw): Certification => ({ id: item._id, studentId: item.studentProfileId, name: item.name, issuer: item.issuer, year: item.year, createdAt: iso(item.createdAt)! });
-const mapMentorMessage = (item: Raw): MentorMessage => ({ id: item._id, accountId: item.studentProfileId, role: item.role, body: item.body, createdAt: iso(item.createdAt)! });
+const mapMentorConversation = (item: Raw): MentorConversation => ({ id: item._id, accountId: item.studentProfileId, title: item.title, createdAt: iso(item.createdAt)!, updatedAt: iso(item.updatedAt)! });
+const mapMentorMessage = (item: Raw): MentorMessage => ({ id: item._id, accountId: item.studentProfileId, conversationId: item.conversationId, role: item.role, body: item.body, createdAt: iso(item.createdAt)!, source: item.source ?? (item.role === 'mentor' ? 'simulated' : undefined), turnKey: item.turnKey, question: item.question });
 const mapMediaAttachment = (item: Raw): MediaAttachment => ({ id: item._id, targetType: item.targetType, targetId: item.targetId, purpose: item.purpose, position: item.position, altText: item.altText, visibility: item.visibility, publicUrl: item.publicUrl ?? undefined });
 function mapPreferences(items: Raw[], account: DemoAccount | null): DemoPreferences { const own = items.find((item) => item.profileId === account?.id); return { notificationsEnabled: own?.notificationBadgesEnabled ?? true, darkMode: own?.settingsDarkMode ?? false, language: 'English' }; }
 function unreadNotifications(preferences: DemoPreferences, notifications: DemoNotification[], account: DemoAccount | null) { return preferences.notificationsEnabled ? notifications.filter((item) => item.userId === account?.id && !item.read).length : 0; }
@@ -175,7 +189,7 @@ function ratingFor(studentId: string, reviews: any[]) { const own = reviews.filt
 export function useSession() { const value = useContext(RemoteSessionContext); if (!value) throw new Error('useSession must be used inside the remote SessionProvider'); return value; }
 
 export type {
-  Certification, DemoAccount, DemoLedgerEntry, DemoNotification, DemoPreferences, MentorMessage, PortfolioItem, ProjectAction,
+  Certification, DemoAccount, DemoLedgerEntry, DemoNotification, DemoPreferences, MentorConversation, MentorConversationResult, MentorMessage, PortfolioItem, ProjectAction,
   ProjectMessage, ProjectPost, ProjectPostInput, ProjectPostStatus, ProjectReview, Proposal, ProposalInput, ServiceInput, StoreResult,
   StudentVerification, UserProfile, UserRole, VerificationStatus,
 } from './session';
