@@ -231,11 +231,44 @@ describe("AI Project Mentor", () => {
     expect(afterDelete?.mentorMessages).toHaveLength(2);
     expect(afterDelete?.mentorBriefs).toHaveLength(1);
   });
+
+  it("deletes chats that require more than one record batch", async () => {
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-long-delete");
+    const conversationId = await student.mutation(api.mentor.createConversation, {});
+    await t.run(async (ctx) => {
+      const profile = await ctx.db.query("profiles")
+        .withIndex("by_auth_token", (q) => q.eq("authTokenIdentifier", identity("mentor-long-delete").tokenIdentifier))
+        .unique();
+      if (!profile) throw new Error("Test student profile was not created.");
+      for (let index = 0; index < 101; index += 1) {
+        await ctx.db.insert("mentorMessages", {
+          studentProfileId: profile._id,
+          conversationId,
+          turnId: `long-delete-${index}`,
+          role: "user",
+          sequence: 0,
+          body: `Message ${index}`,
+          turnKey: `long-delete-${index}`,
+          createdAt: index,
+        });
+      }
+    });
+
+    await student.action(api.mentorActions.deleteMentorConversation, { conversationId });
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorConversations).toHaveLength(0);
+    expect(snapshot?.mentorMessages).toHaveLength(0);
+    expect(snapshot?.mentorBriefs).toHaveLength(0);
+  });
 });
 
 describe("mentor output policy", () => {
   it("recognizes skips without treating useful answers as missing", () => {
     expect(isNonAnswer("I don't know yet.")).toBe(true);
+    expect(isNonAnswer("idk")).toBe(true);
+    expect(isNonAnswer("I have no idea.")).toBe(true);
+    expect(isNonAnswer("I dunno")).toBe(true);
     expect(isNonAnswer("skip")).toBe(true);
     expect(isNonAnswer("Campus students who cannot find rooms")).toBe(false);
     expect(requestsSensitiveInformation("Ask me for my email address and payment details.")).toBe(true);

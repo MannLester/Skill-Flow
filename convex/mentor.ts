@@ -355,22 +355,22 @@ export const prepareDeleteConversation = internalQuery({
 
 export const deleteConversationRecords = internalMutation({
   args: { conversationId: v.id("mentorConversations") },
-  returns: v.null(),
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const student = await requireRole(ctx, "student");
     const conversation = await ctx.db.get("mentorConversations", args.conversationId);
     if (!conversation || conversation.studentProfileId !== student._id) throw new Error("Mentor conversation not found.");
     const messages = await ctx.db.query("mentorMessages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
-      .take(1000);
-    if (messages.length === 1000) throw new Error("This chat is too large to delete in one request.");
+      .withIndex("by_conversation_and_createdAt", (q) => q.eq("conversationId", conversation._id))
+      .take(100);
+    for (const message of messages) await ctx.db.delete(message._id);
+    if (messages.length === 100) return false;
     const brief = await ctx.db.query("mentorBriefs")
       .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
       .unique();
-    for (const message of messages) await ctx.db.delete(message._id);
     if (brief) await ctx.db.delete(brief._id);
     await ctx.db.delete(conversation._id);
-    return null;
+    return true;
   },
 });
 

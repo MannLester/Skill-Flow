@@ -155,7 +155,7 @@ export default defineSchema({
 
   mentorMessages: defineTable({ studentProfileId: v.id("profiles"), conversationId: v.optional(v.id("mentorConversations")), turnId: v.string(), role: v.union(v.literal("user"), v.literal("mentor")), sequence: v.union(v.literal(0), v.literal(1)), body: v.string(), turnKey: v.string(), question: v.optional(mentorQuestion), ruleVersion: v.optional(v.string()), source: v.optional(v.union(v.literal("simulated"), v.literal("opencode_zen"))), model: v.optional(v.string()), isSimulated: v.optional(v.literal(true)), createdAt: v.number(), ...seedFields })
     .index("by_student", ["studentProfileId", "createdAt"]).index("by_student_turn_key", ["studentProfileId", "turnKey"])
-    .index("by_conversation", ["conversationId", "createdAt"])
+    .index("by_conversation_and_createdAt", ["conversationId", "createdAt"])
     .index("by_turn", ["turnId", "sequence"]).index("by_seed", ["seedNamespace", "seedKey"]),
 
   preferences: defineTable({ profileId: v.id("profiles"), notificationBadgesEnabled: v.boolean(), language: v.literal("en"), settingsDarkMode: v.boolean(), schemaVersion: v.number(), revision: v.number(), createdAt: v.number(), updatedAt: v.number(), ...seedFields })

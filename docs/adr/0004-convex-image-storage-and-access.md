@@ -23,4 +23,4 @@ Existing text-only records and bundled `assetKey` artwork remain valid. New manu
 - Private images require an active authenticated request and participant or owner access.
 - Domain mutations attach uploaded-file IDs transactionally, preventing cross-account linking.
 - Seed/reset tooling must include both media records and storage blobs when seeded media is introduced.
-- AI Mentor image understanding remains excluded while its responses are deterministic and cannot inspect images truthfully.
+- AI Mentor image understanding remains excluded. Provider-generated and deterministic responses are text-only and cannot truthfully claim to inspect images.

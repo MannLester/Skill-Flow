@@ -9,8 +9,7 @@ import { z } from "zod";
 
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action } from "./_generated/server";
-import type { ActionCtx } from "./_generated/server";
+import { action, env, type ActionCtx } from "./_generated/server";
 import { containsQuestion, isNonAnswer, maxDiscoveryQuestions, mentorOutputViolation, mentorSource, requestsSensitiveInformation } from "./lib/mentor";
 
 const defaultModel = "muse-spark-1.2-contributor-free";
@@ -121,24 +120,14 @@ function questionFromToolCalls(toolCalls: readonly { toolName: string; input: un
 }
 
 function configuredModel() {
-  return process.env.OPENCODE_ZEN_MODEL?.trim()
-    || process.env.OPENCODE_ZEN_CHAT_MODEL?.trim()
+  return env.OPENCODE_ZEN_MODEL?.trim()
+    || env.OPENCODE_ZEN_CHAT_MODEL?.trim()
     || defaultModel;
 }
 
 function mentorTools(conversationId: Id<"mentorConversations">, allowQuestions: boolean): ToolSet {
   return {
-    updateProjectBrief: createTool({
-      description: "Save new or corrected project facts in the living mentor brief. Omit fields the student has not established.",
-      inputSchema: z.object({
-        goal: z.string().optional(), audience: z.string().optional(), problem: z.string().optional(),
-        constraints: z.string().optional(), deliverable: z.string().optional(), successCriterion: z.string().optional(),
-      }),
-      execute: async (ctx, facts): Promise<Brief> => {
-        const updated: Brief = await ctx.runMutation(internal.mentor.updateBrief, { conversationId, ...facts });
-        return updated;
-      },
-    }),
+    // Project facts are extracted only from student turns in prepareTurn. The model cannot persist new facts.
     ...(allowQuestions ? { askStudent: createTool({
       description: "Ask one blocking question with two to four short, mutually exclusive answer choices. Mark exactly one useful default as recommended. The interface also lets the student write another answer.",
       inputSchema: askStudentInput,
@@ -205,7 +194,7 @@ function finalizeGeneratedReply(generated: string, question: Question | null, br
 
 async function generateMentorReply(ctx: ActionCtx, prepared: PreparedTurn, threadId: string, promptMessageId: string): Promise<MentorReply> {
   const fallback = deterministicResponse(prepared.body, prepared.brief);
-  const apiKey = process.env.OPENCODE_ZEN_API_KEY?.trim();
+  const apiKey = env.OPENCODE_ZEN_API_KEY?.trim();
   const model = configuredModel();
   if (!apiKey) return { response: fallback.text, source: "simulated" as const, model: simulatedModel, question: fallback.question };
   if (isNonAnswer(prepared.body) || requestsSensitiveInformation(prepared.body)) return { response: fallback.text, source: "simulated" as const, model: simulatedModel, question: fallback.question };
@@ -274,13 +263,15 @@ export const deleteMentorConversation = action({
     const threadId = await ctx.runQuery(internal.mentor.prepareDeleteConversation, args);
     if (threadId) {
       try {
-        await createMentorAgent(process.env.OPENCODE_ZEN_API_KEY?.trim() || "delete-only", configuredModel())
+        await createMentorAgent(env.OPENCODE_ZEN_API_KEY?.trim() || "delete-only", configuredModel())
           .deleteThreadAsync(ctx, { threadId });
       } catch {
         console.warn("The Agent thread could not be deleted; deleting the SkillFlow chat record.");
       }
     }
-    await ctx.runMutation(internal.mentor.deleteConversationRecords, args);
+    while (!(await ctx.runMutation(internal.mentor.deleteConversationRecords, args))) {
+      // Each batch is a separate transaction so long chats remain deletable.
+    }
     return null;
   },
 });
@@ -292,7 +283,7 @@ export const clearMentor = action({
     const threadIds = await ctx.runQuery(internal.mentor.prepareClear, {});
     for (const threadId of threadIds) {
       try {
-        await createMentorAgent(process.env.OPENCODE_ZEN_API_KEY?.trim() || "clear-only", defaultModel)
+        await createMentorAgent(env.OPENCODE_ZEN_API_KEY?.trim() || "clear-only", defaultModel)
           .deleteThreadAsync(ctx, { threadId });
       } catch {
         console.warn("The Agent thread could not be deleted; clearing the SkillFlow mentor record.");

@@ -22,7 +22,9 @@ describe('cloud data-handling disclosures', () => {
     expect(screen.getByText(/Clerk processes account registration and sign-in, email verification, OAuth when you choose it, session data, and delivery of password-recovery email codes/i)).toBeTruthy();
     expect(screen.getByText(/Student Verification and its review outcomes are simulations/i)).toBeTruthy();
     expect(screen.getByText(/does not perform real identity verification/i)).toBeTruthy();
-    expect(screen.getByText(/AI Mentor responses are deterministic simulations/i)).toBeTruthy();
+    expect(screen.getByText(/AI Mentor sends prompts to a temporary OpenCode Zen model/i)).toBeTruthy();
+    expect(screen.getByText(/deterministic simulated guidance when Zen is unavailable/i)).toBeTruthy();
+    expect(screen.getByText(/Do not share personal, confidential, or client information/i)).toBeTruthy();
     expect(screen.getByText(/You can clear mentor conversation history/i)).toBeTruthy();
     expect(screen.getByText(/Cloud-development seed resets are operator-only/i)).toBeTruthy();
     expect(screen.getByText(/Do not enter real student IDs, financial credentials, confidential project files, or private client information/i)).toBeTruthy();
@@ -36,7 +38,8 @@ describe('cloud data-handling disclosures', () => {
     expect(screen.getByText(/Authenticated application records are stored in Convex Cloud/i)).toBeTruthy();
     expect(screen.getByText(/Clerk processes registration, authentication, email verification, OAuth when chosen, session data, and password-recovery email delivery/i)).toBeTruthy();
     expect(screen.getByText(/balances, payment holds, releases, ratings, verification, and notifications are simulations/i)).toBeTruthy();
-    expect(screen.getByText(/Mentor responses are deterministic simulated guidance/i)).toBeTruthy();
+    expect(screen.getByText(/mentor may send prompts to a temporary OpenCode Zen model/i)).toBeTruthy();
+    expect(screen.getByText(/deterministic simulated guidance when Zen is unavailable/i)).toBeTruthy();
     expect(screen.getByText(/Settings does not provide a general account-data deletion or demo-reset action/i)).toBeTruthy();
     expect(screen.getByText(/do not enter real student IDs, financial credentials, confidential project files, private client information/i)).toBeTruthy();
     expect(screen.queryByText(/stored locally on the device/i)).toBeNull();
@@ -52,7 +55,8 @@ describe('cloud data-handling disclosures', () => {
     expect(screen.getByText(/Clerk processes authentication, email verification, OAuth when chosen, session data, and delivery of password-recovery email codes/i)).toBeTruthy();
     expect(screen.getByText(/Never enter card or banking information/i)).toBeTruthy();
     expect(screen.getByText(/Never enter a real student ID/i)).toBeTruthy();
-    expect(screen.getByText(/Mentor responses are deterministic simulations/i)).toBeTruthy();
+    expect(screen.getByText(/prompts are sent to a temporary OpenCode Zen model/i)).toBeTruthy();
+    expect(screen.getByText(/deterministic simulated guidance when Zen is unavailable/i)).toBeTruthy();
     expect(screen.getByText(/There is no demo-reset action in Settings/i)).toBeTruthy();
     expect(screen.queryByText(/only on this device/i)).toBeNull();
     expect(screen.queryByText(/Use Reset Demo Data in Settings/i)).toBeNull();

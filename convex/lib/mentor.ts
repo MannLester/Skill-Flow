@@ -18,7 +18,7 @@ export const maxDiscoveryQuestions = 4;
 
 export function isNonAnswer(text: string) {
   const normalized = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
-  return /^(i (?:do not|don't) know|not sure|unsure|no idea|skip|pass|you decide|what do you mean|can you explain)(?:\s+(?:yet|that|this|please))?$/.test(normalized);
+  return /^(?:i (?:do not|don't) know|i (?:have no idea|dunno)|idk|dunno|not sure|unsure|no idea|skip|pass|you decide|what do you mean|can you explain)(?:\s+(?:yet|that|this|please))?$/.test(normalized);
 }
 
 export function requestsSensitiveInformation(text: string) {
