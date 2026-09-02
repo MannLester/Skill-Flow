@@ -10,13 +10,13 @@ import { z } from "zod";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, type ActionCtx } from "./_generated/server";
-import { containsQuestion, isNonAnswer, maxDiscoveryQuestions, mentorOutputViolation, mentorSource, requestsSensitiveInformation } from "./lib/mentor";
+import { containsQuestion, isFactSupportedByMessage, isNonAnswer, maxDiscoveryQuestions, mentorOutputViolation, mentorSource, requestsSensitiveInformation } from "./lib/mentor";
 
 const defaultModel = "muse-spark-1.2-contributor-free";
 const simulatedModel = "deterministic-socratic-v1";
 const instructions = `You are SkillFlow's project mentor for student designers. Work like a thoughtful Socratic mentor, not a grader or questionnaire.
 
-Read the conversation and the current project brief before replying. Treat only the student's messages and the stored brief as project facts. Never invent research, user feedback, requirements, constraints, visual observations, or personal details. Label an inference as a working assumption. If the student's latest message adds or corrects a concrete fact, use updateProjectBrief. If one missing or conflicting detail prevents useful advice, use askStudent and ask exactly one focused question. Give two to four concrete, mutually exclusive answer choices and mark the choice you think is best as recommended. The student can still write a different answer. Do not ask for information the student already gave, and do not force every brief field to be filled. Once you understand the goal, the intended audience, and the real problem, state your working understanding in plain language and give a concrete recommendation. When the brief says the stage is guidance, do not ask another question unless the student explicitly asks you to clarify something.
+Read the conversation and the current project brief before replying. Treat only the student's messages and the stored brief as project facts. Never invent research, user feedback, requirements, constraints, visual observations, or personal details. Label an inference as a working assumption. If the student's latest message adds or corrects a concrete fact, use updateProjectBrief and copy the supporting words exactly from that message. If one missing or conflicting detail prevents useful advice, use askStudent and ask exactly one focused question. Give two to four concrete, mutually exclusive answer choices and mark the choice you think is best as recommended. The student can still write a different answer. Do not ask for information the student already gave, and do not force every brief field to be filled. Once you understand the goal, the intended audience, and the real problem, state your working understanding in plain language and give a concrete recommendation. When the brief says the stage is guidance, do not ask another question unless the student explicitly asks you to clarify something.
 
 Keep the exchange natural. No generic intake checklists, canned encouragement, repeated questions, corporate language, or em dashes. Use a period, comma, colon, or parentheses instead. Prefer one specific observation and one useful next move. You may challenge a weak assumption, but explain why. Answer simple capability questions directly.
 
@@ -125,9 +125,26 @@ function configuredModel() {
     || defaultModel;
 }
 
-function mentorTools(conversationId: Id<"mentorConversations">, allowQuestions: boolean): ToolSet {
+function mentorTools(conversationId: Id<"mentorConversations">, latestStudentBody: string, allowQuestions: boolean): ToolSet {
   return {
-    // Project facts are extracted only from student turns in prepareTurn. The model cannot persist new facts.
+    updateProjectBrief: createTool({
+      description: "Save a new or corrected project fact only by copying its exact supporting words from the student's latest message. Omit unsupported fields.",
+      inputSchema: z.object({
+        goal: z.string().min(1).max(500).optional(), audience: z.string().min(1).max(500).optional(),
+        problem: z.string().min(1).max(500).optional(), constraints: z.string().min(1).max(500).optional(),
+        deliverable: z.string().min(1).max(500).optional(), successCriterion: z.string().min(1).max(500).optional(),
+      }),
+      execute: async (ctx, facts): Promise<{ accepted: boolean; instruction: string; brief: Brief }> => {
+        const supported = Object.fromEntries(Object.entries(facts)
+          .filter((entry): entry is [string, string] => typeof entry[1] === "string" && isFactSupportedByMessage(latestStudentBody, entry[1])));
+        if (!Object.keys(supported).length) {
+          const current: Brief = await ctx.runQuery(internal.mentor.readBrief, { conversationId });
+          return { accepted: false, instruction: "No fact was saved because its exact wording was not in the student's latest message.", brief: current };
+        }
+        const updated: Brief = await ctx.runMutation(internal.mentor.updateBrief, { conversationId, ...supported });
+        return { accepted: true, instruction: "The supported facts were saved. Continue using only the student's stated details.", brief: updated };
+      },
+    }),
     ...(allowQuestions ? { askStudent: createTool({
       description: "Ask one blocking question with two to four short, mutually exclusive answer choices. Mark exactly one useful default as recommended. The interface also lets the student write another answer.",
       inputSchema: askStudentInput,
@@ -142,7 +159,7 @@ function mentorTools(conversationId: Id<"mentorConversations">, allowQuestions: 
   };
 }
 
-function createMentorAgent(apiKey: string, model: string, conversationId?: Id<"mentorConversations">, brief?: Brief): Agent<object, ToolSet> {
+function createMentorAgent(apiKey: string, model: string, conversationId?: Id<"mentorConversations">, brief?: Brief, latestStudentBody?: string): Agent<object, ToolSet> {
   const zen = createOpenAI({
     name: "opencode-zen",
     baseURL: "https://opencode.ai/zen/v1",
@@ -153,7 +170,9 @@ function createMentorAgent(apiKey: string, model: string, conversationId?: Id<"m
     name: "SkillFlow AI Project Mentor",
     languageModel: zen.responses(model),
     instructions: `${instructions}${briefContext}`,
-    tools: conversationId && brief ? mentorTools(conversationId, brief.stage === "discovery" && brief.questionsAsked < maxDiscoveryQuestions) : undefined,
+    tools: conversationId && brief && latestStudentBody
+      ? mentorTools(conversationId, latestStudentBody, brief.stage === "discovery" && brief.questionsAsked < maxDiscoveryQuestions)
+      : undefined,
     stopWhen: stepCountIs(4),
   });
 }
@@ -199,7 +218,7 @@ async function generateMentorReply(ctx: ActionCtx, prepared: PreparedTurn, threa
   if (!apiKey) return { response: fallback.text, source: "simulated" as const, model: simulatedModel, question: fallback.question };
   if (isNonAnswer(prepared.body) || requestsSensitiveInformation(prepared.body)) return { response: fallback.text, source: "simulated" as const, model: simulatedModel, question: fallback.question };
   try {
-    const result = await createMentorAgent(apiKey, model, prepared.conversationId, prepared.brief).generateText(
+    const result = await createMentorAgent(apiKey, model, prepared.conversationId, prepared.brief, prepared.body).generateText(
       ctx,
       { threadId, userId: prepared.studentProfileId },
       { promptMessageId, maxOutputTokens: 2_000, abortSignal: AbortSignal.timeout(12_000) },

@@ -5,7 +5,7 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { api, internal } from "./_generated/api";
-import { containsQuestion, isNonAnswer, mentorOutputViolation, requestsSensitiveInformation } from "./lib/mentor";
+import { containsQuestion, isFactSupportedByMessage, isNonAnswer, mentorOutputViolation, requestsSensitiveInformation } from "./lib/mentor";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -269,6 +269,9 @@ describe("mentor output policy", () => {
     expect(isNonAnswer("idk")).toBe(true);
     expect(isNonAnswer("I have no idea.")).toBe(true);
     expect(isNonAnswer("I dunno")).toBe(true);
+    expect(isNonAnswer("I'm not sure")).toBe(true);
+    expect(isNonAnswer("I’m not sure yet.")).toBe(true);
+    expect(isNonAnswer("I have no clue")).toBe(true);
     expect(isNonAnswer("skip")).toBe(true);
     expect(isNonAnswer("Campus students who cannot find rooms")).toBe(false);
     expect(requestsSensitiveInformation("Ask me for my email address and payment details.")).toBe(true);
@@ -287,5 +290,11 @@ describe("mentor output policy", () => {
   it("detects unstructured questions", () => {
     expect(containsQuestion("Who is this for?")).toBe(true);
     expect(containsQuestion("Start with one small prototype.")).toBe(false);
+  });
+
+  it("accepts only project facts copied from the latest student message", () => {
+    const message = "I am now targeting first-year students who get lost inside campus buildings.";
+    expect(isFactSupportedByMessage(message, "first-year students")).toBe(true);
+    expect(isFactSupportedByMessage(message, "students who need accessible routes")).toBe(false);
   });
 });

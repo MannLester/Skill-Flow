@@ -17,8 +17,14 @@ export const coreMentorTopics: MentorQuestionTopic[] = ["goal", "audience", "pro
 export const maxDiscoveryQuestions = 4;
 
 export function isNonAnswer(text: string) {
-  const normalized = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
-  return /^(?:i (?:do not|don't) know|i (?:have no idea|dunno)|idk|dunno|not sure|unsure|no idea|skip|pass|you decide|what do you mean|can you explain)(?:\s+(?:yet|that|this|please))?$/.test(normalized);
+  const normalized = text.trim().toLowerCase().replace(/’/g, "'").replace(/[.!?]+$/g, "");
+  return /^(?:i (?:do not|don't) know|i (?:have )?no (?:idea|clue)|i dunno|idk|dunno|(?:(?:i am|i'm) )?(?:not sure|unsure|not certain)|no (?:idea|clue)|skip|pass|you decide|beats me|what do you mean|can you explain)(?:\s+(?:yet|that|this|please))?$/.test(normalized);
+}
+
+export function isFactSupportedByMessage(message: string, fact: string) {
+  const normalize = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+  const normalizedFact = normalize(fact);
+  return Boolean(normalizedFact && normalize(message).includes(normalizedFact));
 }
 
 export function requestsSensitiveInformation(text: string) {
