@@ -9,7 +9,7 @@ import { SessionProvider, useSession } from '@/context/session';
 const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn(), replace: (...args: unknown[]) => mockReplace(...args) },
+  router: { back: jest.fn(), canGoBack: jest.fn(() => false), push: jest.fn(), replace: (...args: unknown[]) => mockReplace(...args) },
 }));
 
 function RoleHarness() {
@@ -35,7 +35,7 @@ describe('AI Mentor role guard', () => {
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/client-home'));
     expect(screen.queryByText('AI Project Mentor')).toBeNull();
-    expect(screen.queryByPlaceholderText('Ask about a project or portfolio…')).toBeNull();
+    expect(screen.queryByPlaceholderText('Message your AI mentor…')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send mentor question' })).toBeNull();
   });
 
@@ -50,19 +50,23 @@ describe('AI Mentor role guard', () => {
     expect(screen.queryByText('AI Project Mentor')).toBeNull();
   });
 
-  it('preserves the Student prompts and deterministic mentor exchange', async () => {
+  it('discloses Zen data handling and preserves the simulated fallback exchange', async () => {
     const screen = render(<SessionProvider><RoleHarness /></SessionProvider>);
     fireEvent.press(screen.getByText('Use Student'));
-    await waitFor(() => expect(screen.getByText('Improve my project idea')).toBeTruthy());
-    expect(screen.getByText(/responses are deterministic and do not contact an external AI service/i)).toBeTruthy();
-    expect(screen.getByText(/Prompts and conversation history are stored in Convex Cloud/i)).toBeTruthy();
-    expect(screen.queryByText(/responses are deterministic, local/i)).toBeNull();
+    await waitFor(() => expect(screen.getByText('Improve an idea')).toBeTruthy());
+    expect(screen.getByText(/don't share sensitive information/i)).toBeTruthy();
+    expect(screen.queryByText(/temporary OpenCode Zen models may retain prompts/i)).toBeNull();
 
-    fireEvent.press(screen.getByText('Suggest color combinations'));
-    fireEvent.press(screen.getByRole('button', { name: 'Send mentor question' }));
+    fireEvent.press(screen.getByText(/don't share sensitive information/i));
+    expect(screen.getByText(/temporary OpenCode Zen models may retain prompts/i)).toBeTruthy();
+    expect(screen.getByText(/A simulated response is used when Zen is unavailable/i)).toBeTruthy();
 
-    expect(screen.getByText('Suggest color combinations')).toBeTruthy();
-    expect(screen.getByText(/Start with one primary color/)).toBeTruthy();
+    fireEvent.press(screen.getByText('Build a palette'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Suggest a color palette for my project.').length).toBeGreaterThan(0);
+      expect(screen.getByText(/Start with one primary color/)).toBeTruthy();
+    });
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });

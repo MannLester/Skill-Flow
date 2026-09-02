@@ -100,6 +100,15 @@ Use `cloud-development` for Expo Go on a physical phone, an emulator, or web dur
 Convex admin key, Clerk secret key, or deploy key in an `EXPO_PUBLIC_*`
 variable: Expo bundles those variables into the application.
 
+The AI Mentor uses deterministic simulated guidance unless the selected Convex
+development deployment has an `OPENCODE_ZEN_API_KEY`. Configure that secret on
+the server with `npx convex env set OPENCODE_ZEN_API_KEY`; never place it in an
+`EXPO_PUBLIC_*` variable. The optional `OPENCODE_ZEN_CHAT_MODEL` defaults to
+`muse-spark-1.2-contributor-free`. Temporary free Zen models can change or disappear, so the app
+keeps its simulated fallback and labels every response source. Prompts sent to
+those models may be retained or used by the provider; do not include personal,
+confidential, payment, identity, or client information.
+
 Image uploads use the phone gallery or camera, are normalized to JPEG with a
 maximum 2000 px edge and 5 MB processed size, and are stored in Convex File
 Storage. Real student IDs remain prohibited; verification accepts fictional
@@ -229,7 +238,7 @@ does not replace this device interaction.
 - Client proposal comparison and accepted-proposal booking conversion
 - Computed Career Readiness Score with a transparent 100-point breakdown
 - Advanced marketplace filters and saved-service views
-- Persisted deterministic AI Mentor conversations labeled as simulated
+- Persisted AI Mentor conversations with per-reply Zen or simulated source labels
 - Demo wallet, password change, preferences, Help, Terms, and Privacy utilities
 - AI Project Mentor
 - Notifications
@@ -237,7 +246,7 @@ does not replace this device interaction.
 
 Marketplace items now open ID-based service details and privacy-safe public student profiles. Saved services, demo accounts, profiles, verification, portfolios, certifications, managed services, project posts, proposals, project requests, messages, notifications, simulated ledger entries, and reviews use persistent local state. A client can either request a student service or accept a proposal on an open project; both routes enter the same simulated funding, work, delivery, revision, approval, release, review, and portfolio lifecycle. Student Career Readiness is calculated live from those persisted records rather than stored as an editable score.
 
-The remaining demonstration utilities are local-only. Marketplace filters cover budget, rating, delivery, category, search, and saved status. AI Mentor responses use deterministic topic rules without an external AI service. Demo Wallet displays only the simulated hold/release ledger and never accepts payment credentials.
+Marketplace filters remain client-side and cover budget, rating, delivery, category, search, and saved status. AI Mentor responses use OpenCode Zen when its server-side development key is configured and fall back to deterministic topic rules when it is not. Demo Wallet displays only the simulated hold/release ledger and never accepts payment credentials.
 
 Login role selection routes to the corresponding dashboard. Browse/Find Designers opens the marketplace, a service opens its details and booking form, bells open Notifications, and dashboard menus open Settings.
 

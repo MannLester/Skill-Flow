@@ -1,0 +1,9 @@
+# Allow optional external AI mentoring through OpenCode Zen
+
+Status: Accepted
+
+SkillFlow may send AI Project Mentor prompts to OpenCode Zen from a Convex action when a development deployment has a server-side API key. The development default is `muse-spark-1.2-contributor-free` through Zen's OpenAI-compatible Responses API. `OPENCODE_ZEN_MODEL` can override that choice; the older `OPENCODE_ZEN_CHAT_MODEL` variable remains a compatibility fallback. Temporary free models can change without notice and may retain prompts or use them for model improvement, so the mentor warns users not to submit personal, confidential, or client information. Every reply records whether it came from Zen or the deterministic simulator, and the simulator remains available when no key is configured or Zen fails.
+
+Each mentor conversation owns a durable Agent thread and a structured project brief in Convex. The brief records what the mentor currently understands about the student's goal, audience, problem, constraints, intended output, and measure of success. The Agent can update that brief or record one focused question when a missing detail blocks useful advice. It asks a discovery topic at most once, asks no more than four discovery questions, and cannot use the question tool after the brief reaches guidance. Skips and uncertainty are not stored as project facts. Model output that requests sensitive information, claims unseen visual inspection or unsupported evidence, guarantees outcomes, asks without the structured tool, or asks multiple questions is replaced with grounded deterministic guidance. The deterministic fallback follows the same discovery-to-guidance loop.
+
+This decision amends the external-AI restriction in ADR 0001 and ADR 0002; payment, verification, and earnings remain simulated.

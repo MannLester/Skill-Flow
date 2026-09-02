@@ -1,6 +1,8 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { mentorQuestion, mentorQuestionTopic } from "./lib/mentor";
+
 export const role = v.union(v.literal("student"), v.literal("client"));
 export const serviceStatus = v.union(v.literal("draft"), v.literal("published"), v.literal("archived"));
 export const postStatus = v.union(v.literal("draft"), v.literal("open"), v.literal("closed"), v.literal("archived"));
@@ -133,8 +135,27 @@ export default defineSchema({
     submittedAt: v.optional(v.number()), reviewedAt: v.optional(v.number()), updatedAt: v.number(), ...seedFields,
   }).index("by_student", ["studentProfileId"]).index("by_status", ["status"]).index("by_seed", ["seedNamespace", "seedKey"]),
 
-  mentorMessages: defineTable({ studentProfileId: v.id("profiles"), turnId: v.string(), role: v.union(v.literal("user"), v.literal("mentor")), sequence: v.union(v.literal(0), v.literal(1)), body: v.string(), turnKey: v.string(), ruleVersion: v.optional(v.string()), isSimulated: v.optional(v.literal(true)), createdAt: v.number(), ...seedFields })
+  mentorThreads: defineTable({ studentProfileId: v.id("profiles"), agentThreadId: v.string(), createdAt: v.number(), updatedAt: v.number() })
+    .index("by_student", ["studentProfileId"]).index("by_agent_thread", ["agentThreadId"]),
+
+  mentorConversations: defineTable({ studentProfileId: v.id("profiles"), title: v.string(), agentThreadId: v.optional(v.string()), createdAt: v.number(), updatedAt: v.number() })
+    .index("by_student_updated", ["studentProfileId", "updatedAt"]),
+
+  mentorBriefs: defineTable({
+    conversationId: v.id("mentorConversations"), studentProfileId: v.id("profiles"), summary: v.string(),
+    goal: v.optional(v.string()), audience: v.optional(v.string()), problem: v.optional(v.string()),
+    constraints: v.optional(v.string()), deliverable: v.optional(v.string()), successCriterion: v.optional(v.string()),
+    openQuestion: v.optional(v.string()), openQuestionTopic: v.optional(v.union(
+      v.literal("goal"), v.literal("audience"), v.literal("problem"), v.literal("constraints"),
+      v.literal("deliverable"), v.literal("successCriterion"),
+    )),
+    questionsAsked: v.optional(v.number()), askedTopics: v.optional(v.array(mentorQuestionTopic)),
+    stage: v.union(v.literal("discovery"), v.literal("guidance")), createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_conversation", ["conversationId"]).index("by_student_updated", ["studentProfileId", "updatedAt"]),
+
+  mentorMessages: defineTable({ studentProfileId: v.id("profiles"), conversationId: v.optional(v.id("mentorConversations")), turnId: v.string(), role: v.union(v.literal("user"), v.literal("mentor")), sequence: v.union(v.literal(0), v.literal(1)), body: v.string(), turnKey: v.string(), question: v.optional(mentorQuestion), ruleVersion: v.optional(v.string()), source: v.optional(v.union(v.literal("simulated"), v.literal("opencode_zen"))), model: v.optional(v.string()), isSimulated: v.optional(v.literal(true)), createdAt: v.number(), ...seedFields })
     .index("by_student", ["studentProfileId", "createdAt"]).index("by_student_turn_key", ["studentProfileId", "turnKey"])
+    .index("by_conversation", ["conversationId", "createdAt"])
     .index("by_turn", ["turnId", "sequence"]).index("by_seed", ["seedNamespace", "seedKey"]),
 
   preferences: defineTable({ profileId: v.id("profiles"), notificationBadgesEnabled: v.boolean(), language: v.literal("en"), settingsDarkMode: v.boolean(), schemaVersion: v.number(), revision: v.number(), createdAt: v.number(), updatedAt: v.number(), ...seedFields })

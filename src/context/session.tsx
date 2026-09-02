@@ -69,7 +69,10 @@ export type Proposal = {
   createdAt: string;
 };
 
-export type MentorMessage = { id: string; accountId: string; role: 'user' | 'mentor'; body: string; createdAt: string };
+export type MentorConversation = { id: string; accountId: string; title: string; createdAt: string; updatedAt: string };
+export type MentorQuestionOption = { label: string; description?: string; recommended: boolean };
+export type MentorQuestion = { text: string; topic: 'goal' | 'audience' | 'problem' | 'constraints' | 'deliverable' | 'successCriterion'; options: MentorQuestionOption[] };
+export type MentorMessage = { id: string; accountId: string; conversationId?: string; role: 'user' | 'mentor'; body: string; createdAt: string; source?: 'simulated' | 'opencode_zen'; turnKey?: string; question?: MentorQuestion };
 export type DemoPreferences = { notificationsEnabled: boolean; darkMode: boolean; language: 'English' };
 
 export type ProjectMessage = {
@@ -175,6 +178,7 @@ type PersistedDemoState = {
   portfolioItems: PortfolioItem[];
   certifications: Certification[];
   savedServiceIds: string[];
+  mentorConversations: MentorConversation[];
   mentorMessages: MentorMessage[];
   preferences: DemoPreferences;
 };
@@ -183,6 +187,7 @@ type CreateBookingInput = Pick<ProjectBooking, 'serviceId' | 'studentId' | 'titl
 type RegisterAccountInput = Pick<DemoAccount, 'name' | 'email' | 'password' | 'role'>;
 type AuthResult = { ok: true; account: DemoAccount } | { ok: false; message: string };
 export type StoreResult = { ok: true } | { ok: false; message: string };
+export type MentorConversationResult = { ok: true; conversationId: string } | { ok: false; message: string };
 
 type ProjectActionPayload = { note?: string; rating?: number; comment?: string; deliveryImages?: MediaInput[] };
 type ProfileInput = Omit<UserProfile, 'accountId'> & { name: string; avatar?: MediaInput[] };
@@ -216,6 +221,7 @@ type SessionValue = {
   portfolioItems: PortfolioItem[];
   certifications: Certification[];
   savedServiceIds: string[];
+  mentorConversations: MentorConversation[];
   mentorMessages: MentorMessage[];
   preferences: DemoPreferences;
   mediaAttachments?: MediaAttachment[];
@@ -244,7 +250,10 @@ type SessionValue = {
   withdrawProposal: (proposalId: string) => StoreResult;
   decideProposal: (proposalId: string, accept: boolean) => ProposalDecisionResult;
   toggleSavedService: (serviceId: string) => void;
-  sendMentorMessage: (body: string) => StoreResult;
+  ensureMentorConversation: () => MentorConversationResult;
+  createMentorConversation: () => MentorConversationResult;
+  deleteMentorConversation: (conversationId: string) => StoreResult;
+  sendMentorMessage: (body: string, turnKey?: string, conversationId?: string) => StoreResult;
   clearMentorConversation: () => void;
   updatePreferences: (input: Partial<DemoPreferences>) => void;
   changePassword: (currentPassword: string, newPassword: string) => StoreResult;
@@ -285,6 +294,7 @@ const createSeedState = (): PersistedDemoState => ({
   portfolioItems: [{ id: 'portfolio-alex-logo', studentId: 'student-alex', title: 'Coffee Shop Brand Study', description: 'A sample identity study demonstrating logo exploration and presentation.', category: 'Graphics & Design', createdAt: '2026-08-01T00:00:00.000Z' }],
   certifications: [{ id: 'cert-alex-design', studentId: 'student-alex', name: 'Introduction to Graphic Design', issuer: 'SkillFlow Demo Academy', year: 2026, createdAt: '2026-08-01T00:00:00.000Z' }],
   savedServiceIds: ['logo'],
+  mentorConversations: [],
   mentorMessages: [],
   preferences: { notificationsEnabled: true, darkMode: false, language: 'English' },
 });
@@ -294,12 +304,23 @@ const migratedProfiles = (candidate: Partial<PersistedDemoState>, seed: Persiste
 const migratedVerifications = (candidate: Partial<PersistedDemoState>, seed: PersistedDemoState): StudentVerification[] => arrayOr<StudentVerification>(candidate.verifications, candidate.accounts!.filter((account) => account.role === 'student').map((account): StudentVerification => seed.verifications.find((verification) => verification.studentId === account.id) ?? { studentId: account.id, status: account.verified ? 'verified' : 'not_submitted', school: '', studentNumberMasked: '', program: '', gradeLevel: '' }));
 const migratedPreferences = (value: unknown, seed: DemoPreferences): DemoPreferences => value && typeof value === 'object' ? { ...seed, ...value } : seed;
 
+function migratedMentorHistory(candidate: Partial<PersistedDemoState>) {
+  const messages = arrayOr<MentorMessage>(candidate.mentorMessages, []);
+  const conversations = arrayOr<MentorConversation>(candidate.mentorConversations, []);
+  if (conversations.length || !messages.length) return { conversations, messages };
+  const conversationId = 'mentor-conversation-legacy';
+  const first = messages.find((message) => message.role === 'user');
+  const conversation: MentorConversation = { id: conversationId, accountId: first?.accountId ?? '', title: first?.body.slice(0, 48) || 'Previous chat', createdAt: messages[0].createdAt, updatedAt: messages.at(-1)?.createdAt ?? messages[0].createdAt };
+  return { conversations: [conversation], messages: messages.map((message) => ({ ...message, conversationId })) };
+}
+
 const migrateState = (value: unknown): PersistedDemoState | null => {
   if (!value || typeof value !== 'object') return null;
   const candidate = value as Partial<PersistedDemoState> & { version?: number };
   if (!Array.isArray(candidate.accounts) || !Array.isArray(candidate.services) || !Array.isArray(candidate.bookings) || !Array.isArray(candidate.savedServiceIds)) return null;
   const now = new Date().toISOString();
   const seed = createSeedState();
+  const mentor = migratedMentorHistory(candidate);
   return {
     version: 5,
     currentAccountId: candidate.currentAccountId ?? null,
@@ -317,7 +338,8 @@ const migrateState = (value: unknown): PersistedDemoState | null => {
     portfolioItems: arrayOr(candidate.portfolioItems, seed.portfolioItems),
     certifications: arrayOr(candidate.certifications, seed.certifications),
     savedServiceIds: candidate.savedServiceIds,
-    mentorMessages: arrayOr(candidate.mentorMessages, []),
+    mentorConversations: mentor.conversations,
+    mentorMessages: mentor.messages,
     preferences: migratedPreferences(candidate.preferences, seed.preferences),
   };
 };
@@ -806,17 +828,51 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const markProjectMessagesRead = useCallback((projectId: string) => {
     if (currentAccountId) setState((current) => markProjectMessagesReadState(current, projectId, currentAccountId));
   }, [currentAccountId, setState]);
-  const sendMentorMessage = useCallback((body: string): StoreResult => {
+  const createMentorConversation = useCallback((): MentorConversationResult => {
+    if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'The AI Project Mentor is available to Student Designers.' };
+    const now = new Date().toISOString();
+    const conversation: MentorConversation = { id: makeId('mentor-conversation'), accountId: currentAccount.id, title: 'New chat', createdAt: now, updatedAt: now };
+    setState((current) => ({ ...current, mentorConversations: [...current.mentorConversations, conversation] }));
+    return { ok: true, conversationId: conversation.id };
+  }, [currentAccount, setState]);
+  const ensureMentorConversation = useCallback((): MentorConversationResult => {
+    if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'The AI Project Mentor is available to Student Designers.' };
+    const existing = state.mentorConversations.filter((item) => item.accountId === currentAccount.id).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    if (existing) return { ok: true, conversationId: existing.id };
+    return createMentorConversation();
+  }, [createMentorConversation, currentAccount, state.mentorConversations]);
+  const deleteMentorConversation = useCallback((conversationId: string): StoreResult => {
+    if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'The AI Project Mentor is available to Student Designers.' };
+    const owned = state.mentorConversations.some((item) => item.id === conversationId && item.accountId === currentAccount.id);
+    if (!owned) return { ok: false, message: 'Mentor conversation not found.' };
+    setState((current) => ({
+      ...current,
+      mentorConversations: current.mentorConversations.filter((item) => item.id !== conversationId),
+      mentorMessages: current.mentorMessages.filter((item) => item.conversationId !== conversationId),
+    }));
+    return { ok: true };
+  }, [currentAccount, setState, state.mentorConversations]);
+  const sendMentorMessage = useCallback((body: string, turnKey?: string, conversationId?: string): StoreResult => {
     if (!currentAccount || currentAccount.role !== 'student') return { ok: false, message: 'The AI Project Mentor is available to Student Designers.' };
     const trimmed = body.trim();
     if (!trimmed) return { ok: false, message: 'Enter a mentor question first.' };
     const now = new Date().toISOString();
-    const userMessage: MentorMessage = { id: makeId('mentor-user'), accountId: currentAccount.id, role: 'user', body: trimmed, createdAt: now };
-    const reply: MentorMessage = { id: makeId('mentor-reply'), accountId: currentAccount.id, role: 'mentor', body: mentorResponse(trimmed), createdAt: new Date(Date.now() + 1).toISOString() };
-    setState((current) => ({ ...current, mentorMessages: [...current.mentorMessages, userMessage, reply] }));
+    const selected = state.mentorConversations.find((item) => item.id === conversationId && item.accountId === currentAccount.id)
+      ?? state.mentorConversations.find((item) => item.accountId === currentAccount.id);
+    const selectedId = conversationId ?? selected?.id ?? makeId('mentor-conversation');
+    const userMessage: MentorMessage = { id: makeId('mentor-user'), accountId: currentAccount.id, conversationId: selectedId, role: 'user', body: trimmed, createdAt: now, turnKey };
+    const replyAt = new Date(Date.now() + 1).toISOString();
+    const reply: MentorMessage = { id: makeId('mentor-reply'), accountId: currentAccount.id, conversationId: selectedId, role: 'mentor', body: mentorResponse(trimmed), createdAt: replyAt, source: 'simulated', turnKey };
+    setState((current) => {
+      const hasConversation = current.mentorConversations.some((item) => item.id === selectedId);
+      const conversations = hasConversation
+        ? current.mentorConversations.map((item) => item.id === selectedId ? { ...item, title: item.title === 'New chat' ? trimmed.slice(0, 48) : item.title, updatedAt: replyAt } : item)
+        : [...current.mentorConversations, { id: selectedId, accountId: currentAccount.id, title: trimmed.slice(0, 48), createdAt: now, updatedAt: replyAt }];
+      return { ...current, mentorConversations: conversations, mentorMessages: [...current.mentorMessages, userMessage, reply] };
+    });
     return { ok: true };
-  }, [currentAccount, setState]);
-  const clearMentorConversation = useCallback(() => { if (currentAccount) setState((current) => ({ ...current, mentorMessages: current.mentorMessages.filter((item) => item.accountId !== currentAccount.id) })); }, [currentAccount, setState]);
+  }, [currentAccount, setState, state.mentorConversations]);
+  const clearMentorConversation = useCallback(() => { if (currentAccount) setState((current) => ({ ...current, mentorConversations: current.mentorConversations.filter((item) => item.accountId !== currentAccount.id), mentorMessages: current.mentorMessages.filter((item) => item.accountId !== currentAccount.id) })); }, [currentAccount, setState]);
   const updatePreferences = useCallback((input: Partial<DemoPreferences>) => setState((current) => ({ ...current, preferences: { ...current.preferences, ...input, language: 'English' } })), [setState]);
   const changePassword = useCallback((currentPassword: string, newPassword: string): StoreResult => {
     if (!currentAccount || currentAccount.password !== currentPassword) return { ok: false, message: 'Current password is incorrect.' };
@@ -848,11 +904,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     homeRoute: role === 'student' ? '/student-home' : '/client-home', currentAccount,
     accounts: state.accounts, services: state.services, bookings: state.bookings, projectPosts: state.projectPosts, proposals: state.proposals, messages: state.messages,
     notifications: state.notifications, ledger: state.ledger, reviews: state.reviews, profiles: state.profiles,
-    verifications: state.verifications, portfolioItems: state.portfolioItems, certifications: state.certifications, savedServiceIds: state.savedServiceIds, mentorMessages: state.mentorMessages, preferences: state.preferences,
+    verifications: state.verifications, portfolioItems: state.portfolioItems, certifications: state.certifications, savedServiceIds: state.savedServiceIds, mentorConversations: state.mentorConversations, mentorMessages: state.mentorMessages, preferences: state.preferences,
     unreadCount, getCareerReadiness, createBooking, actOnProject, sendMessage, markNotificationRead, markProjectMessagesRead,
     updateProfile, submitVerification, simulateVerificationReview, addPortfolioItem, addCertification, addCompletedProjectToPortfolio,
-    saveService, setServiceStatus, saveProjectPost, setProjectPostStatus, submitProposal, withdrawProposal, decideProposal, toggleSavedService, sendMentorMessage, clearMentorConversation, updatePreferences, changePassword, resetDemoData,
-  }), [actOnProject, addCertification, addCompletedProjectToPortfolio, addPortfolioItem, changePassword, clearMentorConversation, createBooking, currentAccount, decideProposal, getCareerReadiness, hydrated, login, loginAsRole, logout, markNotificationRead, markProjectMessagesRead, registerAccount, resetDemoData, role, saveProjectPost, saveService, sendMentorMessage, sendMessage, setProjectPostStatus, setServiceStatus, simulateVerificationReview, state, submitProposal, submitVerification, toggleSavedService, unreadCount, updatePreferences, updateProfile, withdrawProposal]);
+    saveService, setServiceStatus, saveProjectPost, setProjectPostStatus, submitProposal, withdrawProposal, decideProposal, toggleSavedService, ensureMentorConversation, createMentorConversation, deleteMentorConversation, sendMentorMessage, clearMentorConversation, updatePreferences, changePassword, resetDemoData,
+  }), [actOnProject, addCertification, addCompletedProjectToPortfolio, addPortfolioItem, changePassword, clearMentorConversation, createBooking, createMentorConversation, currentAccount, decideProposal, deleteMentorConversation, ensureMentorConversation, getCareerReadiness, hydrated, login, loginAsRole, logout, markNotificationRead, markProjectMessagesRead, registerAccount, resetDemoData, role, saveProjectPost, saveService, sendMentorMessage, sendMessage, setProjectPostStatus, setServiceStatus, simulateVerificationReview, state, submitProposal, submitVerification, toggleSavedService, unreadCount, updatePreferences, updateProfile, withdrawProposal]);
 
   const messageUnread = Boolean(currentAccount && state.messages.some((message) => message.senderId !== currentAccount.id && !message.readBy.includes(currentAccount.id)));
   const navigationValue = useMemo<NavigationSessionValue>(() => ({ currentAccount, role, messageUnread }), [currentAccount, messageUnread, role]);
