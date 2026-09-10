@@ -1,6 +1,6 @@
 "use node";
 
-import { Agent, createThread, createTool, mockModel, saveMessage } from "@convex-dev/agent";
+import { Agent, createThread, createTool, extractText, listMessages, mockModel, saveMessage } from "@convex-dev/agent";
 import { createOpenAI } from "@ai-sdk/openai";
 import { stepCountIs } from "ai";
 import type { ToolSet } from "ai";
@@ -210,24 +210,29 @@ async function generateMentorReply(ctx: ActionCtx, prepared: PreparedTurn, threa
   }
 }
 
+async function stagePromptOnce(ctx: ActionCtx, threadId: string, studentProfileId: Id<"profiles">, body: string): Promise<string> {
+  const history = await listMessages(ctx, components.agent, { threadId, paginationOpts: { numItems: 5, cursor: null } });
+  const staged = [...history.page].reverse().find((message) => message.message?.role === "user");
+  if (staged?.message && extractText(staged.message) === body) return staged._id;
+  const prompt = await saveMessage(ctx, components.agent, { threadId, userId: studentProfileId, prompt: body });
+  return prompt.messageId;
+}
+
 export const sendMentorMessage = action({
   args: { body: v.string(), turnKey: v.string(), conversationId: v.optional(v.id("mentorConversations")) },
   returns: v.object({ source: mentorSource, model: v.string() }),
-  handler: async (ctx, args): Promise<{ source: "simulated" | "opencode_zen"; model: string }> => {
-    const prepared = await ctx.runMutation(internal.mentor.prepareTurn, args);
-    if (prepared.kind === "duplicate") return { source: "opencode_zen" as const, model: configuredModel() };
-    // Check before staging anything: a failure past this point leaves the
-    // Agent thread and the saved prompt behind, and the component API offers
-    // no message deletion, so retrying would stack another prompt.
+  handler: async (ctx, args): Promise<{ source: "opencode_zen"; model: string }> => {
+    // Refuse before touching any state: prepareTurn ingests brief facts and
+    // the thread/prompt staging below cannot be rolled back.
     requireZenApiKey();
-    if (requestsSensitiveInformation(prepared.body)) {
+    if (requestsSensitiveInformation(args.body)) {
       throw new Error("I do not need your email address or payment details to mentor this project. Share only the project goal and constraints that affect the work.");
     }
+    const prepared = await ctx.runMutation(internal.mentor.prepareTurn, args);
+    if (prepared.kind === "duplicate") return { source: "opencode_zen" as const, model: configuredModel() };
     const threadId = await ensureAgentThread(ctx, prepared);
-    const prompt = await saveMessage(ctx, components.agent, {
-      threadId, userId: prepared.studentProfileId, prompt: prepared.body,
-    });
-    const reply: MentorReply = await generateMentorReply(ctx, prepared, threadId, prompt.messageId);
+    const promptMessageId = await stagePromptOnce(ctx, threadId, prepared.studentProfileId, prepared.body);
+    const reply: MentorReply = await generateMentorReply(ctx, prepared, threadId, promptMessageId);
     await ctx.runMutation(internal.mentor.commitTurn, {
       conversationId: prepared.conversationId,
       body: prepared.body,

@@ -37,6 +37,7 @@ async function onboardStudent(t: ReturnType<typeof mentorTest>, subject: string,
 
 describe("AI Project Mentor", () => {
   it("allows only Student Designers", async () => {
+    process.env.OPENCODE_ZEN_API_KEY = "test-key";
     const t = mentorTest();
     const client = t.withIdentity(identity("mentor-client"));
     await client.mutation(api.profiles.completeOnboarding, { role: "client", name: "Mentor Client" });
@@ -55,6 +56,7 @@ describe("AI Project Mentor", () => {
     })).rejects.toThrow("not set up");
     const snapshot = await student.query(api.snapshot.get, {});
     expect(snapshot?.mentorMessages).toHaveLength(0);
+    expect(snapshot?.mentorBriefs).toHaveLength(0);
   });
 
   it("commits an AI turn and persists the reply", async () => {
@@ -112,6 +114,25 @@ describe("AI Project Mentor", () => {
     })).rejects.toThrow("email address or payment details");
     const snapshot = await student.query(api.snapshot.get, {});
     expect(snapshot?.mentorMessages).toHaveLength(0);
+  });
+
+  it("retries after a provider failure without losing the turn", async () => {
+    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.MENTOR_MOCK_FAILURE = "1";
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-retry");
+    const conversationId = await student.mutation(api.mentor.ensureConversation, {});
+    await expect(student.action(api.mentorActions.sendMentorMessage, {
+      body: "Review my portfolio", turnKey: "retry-turn", conversationId,
+    })).rejects.toThrow("unavailable");
+    process.env.MENTOR_MOCK_FAILURE = "0";
+    process.env.MENTOR_MOCK_REPLY = "Start with the smallest useful version and test it with one intended user.";
+    const result = await student.action(api.mentorActions.sendMentorMessage, {
+      body: "Review my portfolio", turnKey: "retry-turn", conversationId,
+    });
+    expect(result.source).toBe("opencode_zen");
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorMessages).toHaveLength(2);
   });
 
   it("treats a repeated turn key as a duplicate without doubling messages", async () => {

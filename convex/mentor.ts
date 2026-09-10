@@ -333,8 +333,6 @@ export const commitTurn = internalMutation({
     await ctx.db.insert("mentorMessages", {
       studentProfileId: student._id, conversationId: conversation._id, turnId, role: "mentor", sequence: 1,
       body: args.response, turnKey: args.turnKey, question: args.question, source: args.source, model: args.model,
-      ruleVersion: args.source === "simulated" ? "deterministic-socratic-v1" : undefined,
-      isSimulated: args.source === "simulated" ? true : undefined,
       createdAt: now + 1,
     });
     await ctx.db.patch(conversation._id, { title: conversation.title === newChatTitle ? titleFromBody(args.body) : conversation.title, updatedAt: now + 1 });
