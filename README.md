@@ -100,14 +100,14 @@ Use `cloud-development` for Expo Go on a physical phone, an emulator, or web dur
 Convex admin key, Clerk secret key, or deploy key in an `EXPO_PUBLIC_*`
 variable: Expo bundles those variables into the application.
 
-The AI Mentor uses deterministic simulated guidance unless the selected Convex
-development deployment has an `OPENCODE_ZEN_API_KEY`. Configure that secret on
+The AI Mentor answers only through OpenCode Zen, so the selected Convex
+development deployment needs an `OPENCODE_ZEN_API_KEY`. Configure that secret on
 the server with `npx convex env set OPENCODE_ZEN_API_KEY`; never place it in an
 `EXPO_PUBLIC_*` variable. The optional `OPENCODE_ZEN_CHAT_MODEL` defaults to
-`muse-spark-1.2-contributor-free`. Temporary free Zen models can change or disappear, so the app
-keeps its simulated fallback and labels every response source. Prompts sent to
-those models may be retained or used by the provider; do not include personal,
-confidential, payment, identity, or client information.
+`muse-spark-1.2-contributor-free`. Temporary free Zen models can change or disappear; when Zen
+is unavailable, the mentor is unavailable and unsent messages can be retried.
+Prompts sent to those models may be retained or used by the provider; do not
+include personal, confidential, payment, identity, or client information.
 
 Image uploads use the phone gallery or camera, are normalized to JPEG with a
 maximum 2000 px edge and 5 MB processed size, and are stored in Convex File
@@ -238,7 +238,7 @@ does not replace this device interaction.
 - Client proposal comparison and accepted-proposal booking conversion
 - Computed Career Readiness Score with a transparent 100-point breakdown
 - Advanced marketplace filters and saved-service views
-- Persisted AI Mentor conversations with per-reply Zen or simulated source labels
+- Persisted AI Mentor conversations with per-reply Zen source labels
 - Demo wallet, password change, preferences, Help, Terms, and Privacy utilities
 - AI Project Mentor
 - Notifications
