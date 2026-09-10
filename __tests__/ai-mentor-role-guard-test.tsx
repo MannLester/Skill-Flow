@@ -50,7 +50,7 @@ describe('AI Mentor role guard', () => {
     expect(screen.queryByText('AI Project Mentor')).toBeNull();
   });
 
-  it('discloses Zen data handling and preserves the simulated fallback exchange', async () => {
+  it('discloses Zen data handling and the offline exchange', async () => {
     const screen = render(<SessionProvider><RoleHarness /></SessionProvider>);
     fireEvent.press(screen.getByText('Use Student'));
     await waitFor(() => expect(screen.getByText('Improve an idea')).toBeTruthy());
@@ -59,7 +59,7 @@ describe('AI Mentor role guard', () => {
 
     fireEvent.press(screen.getByText(/don't share sensitive information/i));
     expect(screen.getByText(/temporary OpenCode Zen models may retain prompts/i)).toBeTruthy();
-    expect(screen.getByText(/A simulated response is used when Zen is unavailable/i)).toBeTruthy();
+    expect(screen.getByText(/when Zen is unavailable, the mentor is unavailable and unsent messages can be retried/i)).toBeTruthy();
 
     fireEvent.press(screen.getByText('Build a palette'));
 

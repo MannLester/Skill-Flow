@@ -95,7 +95,7 @@ function PrivacyNotice() {
     <Ionicons name="shield-outline" size={17} color={colors.muted} />
     <View style={styles.noticeCopy}>
       <AppText weight="medium" style={styles.noticeTitle}>Don&apos;t share sensitive information</AppText>
-      {expanded ? <AppText style={styles.noticeDetail}>Temporary OpenCode Zen models may retain prompts or use them for improvement. Prompts are stored in Convex Cloud. A simulated response is used when Zen is unavailable.</AppText> : null}
+      {expanded ? <AppText style={styles.noticeDetail}>Temporary OpenCode Zen models may retain prompts or use them for improvement. Prompts are stored in Convex Cloud. When Zen is unavailable, the mentor is unavailable and unsent messages can be retried.</AppText> : null}
     </View>
     <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
   </Pressable>;

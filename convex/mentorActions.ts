@@ -10,10 +10,9 @@ import { z } from "zod";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, type ActionCtx } from "./_generated/server";
-import { containsQuestion, isFactSupportedByMessage, isNonAnswer, maxDiscoveryQuestions, mentorOutputViolation, mentorSource, requestsSensitiveInformation } from "./lib/mentor";
+import { containsQuestion, isFactSupportedByMessage, maxDiscoveryQuestions, mentorOutputViolation, mentorSource } from "./lib/mentor";
 
 const defaultModel = "muse-spark-1.2-contributor-free";
-const simulatedModel = "deterministic-socratic-v1";
 const instructions = `You are SkillFlow's project mentor for student designers. Work like a thoughtful Socratic mentor, not a grader or questionnaire.
 
 Read the conversation and the current project brief before replying. Treat only the student's messages and the stored brief as project facts. Never invent research, user feedback, requirements, constraints, visual observations, or personal details. Label an inference as a working assumption. If the student's latest message adds or corrects a concrete fact, use updateProjectBrief and copy the supporting words exactly from that message. If one missing or conflicting detail prevents useful advice, use askStudent and ask exactly one focused question. Give two to four concrete, mutually exclusive answer choices and mark the choice you think is best as recommended. The student can still write a different answer. Do not ask for information the student already gave, and do not force every brief field to be filled. Once you understand the goal, the intended audience, and the real problem, state your working understanding in plain language and give a concrete recommendation. When the brief says the stage is guidance, do not ask another question unless the student explicitly asks you to clarify something.
@@ -31,56 +30,11 @@ type Brief = {
 type QuestionTopic = "goal" | "audience" | "problem" | "constraints" | "deliverable" | "successCriterion";
 type QuestionOption = { label: string; description?: string; recommended: boolean };
 type Question = { topic: QuestionTopic; text: string; options: QuestionOption[] };
-type MentorReply = { response: string; source: "simulated" | "opencode_zen"; model: string; question: Question | null };
+type MentorReply = { response: string; source: "opencode_zen"; model: string; question: Question | null };
 type PreparedTurn = {
   kind: "ready"; body: string; studentProfileId: Id<"profiles">;
   conversationId: Id<"mentorConversations">; agentThreadId: string | null; brief: Brief;
 };
-
-function capabilityQuestion(body: string) {
-  return /\b(what can (you|u) do|how can (you|u) help|who are you)\b/i.test(body);
-}
-
-function unsupportedVisualRequest(body: string) {
-  return /\b(?:uploaded|attached|shared)\b.{0,80}\b(?:image|screenshot|design|mockup|file)\b|\b(?:image|screenshot|design|mockup|screen)\b.{0,80}\b(?:see|visible)\b/i.test(body);
-}
-
-function nextQuestion(brief: Brief): Question | null {
-  if (brief.stage === "guidance" || brief.questionsAsked >= maxDiscoveryQuestions) return null;
-  if (!brief.goal && !brief.askedTopics.includes("goal")) return { topic: "goal", text: "What would you like to work on?", options: recommendedOptions("Build something", "Research something", "Plan something") };
-  if (!brief.audience && !brief.askedTopics.includes("audience")) return { topic: "audience", text: "Who should get value from this first?", options: recommendedOptions("New or first-time users", "Existing users", "Clients or decision-makers") };
-  if (!brief.problem && !brief.askedTopics.includes("problem")) return { topic: "problem", text: "What is the main problem you want to solve for them?", options: recommendedOptions("Save them time", "Reduce confusion", "Prevent mistakes") };
-  return null;
-}
-
-function recommendedOptions(...labels: string[]): QuestionOption[] {
-  return labels.map((label, index) => ({ label, recommended: index === 0 }));
-}
-
-function firstMove(brief: Brief) {
-  const context = `${brief.goal ?? ""} ${brief.problem ?? ""}`.toLowerCase();
-  if (context.includes("open source") || context.includes("workflow")) return "Write one real example that goes from input to useful output. Put it in a small public repo with a short README, setup steps, and the limitation you most want contributors to tackle.";
-  if (context.includes("portfolio") || context.includes("case study")) return "Pick one project and write the problem, your key decision, and the result before touching the layout. That story will tell you what visuals the case study actually needs.";
-  if (context.includes("design") || context.includes("interface")) return "Choose the single action the user must notice first, then test whether hierarchy, spacing, and contrast all point to it.";
-  return "Define the smallest result that would prove the idea is useful, then build only enough to put that result in front of one intended user.";
-}
-
-function deterministicResponse(body: string, brief: Brief) {
-  if (requestsSensitiveInformation(body)) {
-    return { text: "I do not need your email address or payment details to mentor this project. Keep personal and financial information out of the chat. Share only the project goal and constraints that affect the work.", question: null };
-  }
-  if (unsupportedVisualRequest(body)) {
-    return { text: "I cannot inspect a screenshot from this message because no image is attached in this chat. Describe the screen and the action you want users to take, and I can help review the hierarchy, spacing, contrast, and flow from your description.", question: null };
-  }
-  if (capabilityQuestion(body)) {
-    return { text: "I can help you turn a rough idea into a workable plan, challenge weak assumptions, review a design decision, or shape a portfolio story. Bring me the messy version. We can figure out what matters before jumping to solutions.", question: null };
-  }
-  const question = nextQuestion(brief);
-  if (question) return { text: question.text, question };
-  const known = [brief.goal ? `the goal is ${brief.goal}` : null, brief.audience ? `the first users are ${brief.audience}` : null, brief.problem ? `the current problem is ${brief.problem}` : null].filter(Boolean);
-  const understanding = known.length ? `My working read is that ${known.join(", and ")}.` : "I do not have enough detail to make project-specific claims yet.";
-  return { text: `${understanding}\n\n${firstMove(brief)} If I have the problem wrong, correct that before you build anything.`, question: null };
-}
 
 function cleanMentorVoice(text: string) {
   return text
@@ -194,29 +148,31 @@ function recordedQuestion(question: Question | null, brief: Brief) {
   return Boolean(question && brief.stage === "discovery" && brief.openQuestionTopic === question.topic);
 }
 
-function generatedReplyNeedsFallback(generated: string, question: Question | null, acceptedQuestion: boolean) {
-  const questionMarks = generated.match(/\?/g)?.length ?? 0;
-  return Boolean(mentorOutputViolation(generated))
-    || Boolean(question && !acceptedQuestion)
-    || (containsQuestion(generated) && !acceptedQuestion)
-    || questionMarks > 1;
+const withheldReplyMessage = "The mentor withheld an unsafe reply. Try rephrasing your message.";
+
+function replyViolation(generated: string, question: Question | null, acceptedQuestion: boolean): string | null {
+  const violation = mentorOutputViolation(generated);
+  if (violation) return violation;
+  if (question && !acceptedQuestion) return "unaccepted question";
+  if (containsQuestion(generated) && !acceptedQuestion) return "unaccepted question";
+  if ((generated.match(/\?/g)?.length ?? 0) > 1) return "too many questions";
+  return null;
 }
 
-function finalizeGeneratedReply(generated: string, question: Question | null, brief: Brief, body: string, model: string): MentorReply {
+function assertReplyAllowed(generated: string, question: Question | null, acceptedQuestion: boolean) {
+  if (replyViolation(generated, question, acceptedQuestion)) throw new Error(withheldReplyMessage);
+}
+
+function finalizeGeneratedReply(generated: string, question: Question | null, brief: Brief, model: string): MentorReply {
   const acceptedQuestion = recordedQuestion(question, brief);
-  if (generatedReplyNeedsFallback(generated, question, acceptedQuestion)) {
-    const safe = deterministicResponse(body, brief);
-    return { response: safe.text, source: "simulated", model: simulatedModel, question: safe.question };
-  }
+  assertReplyAllowed(generated, question, acceptedQuestion);
   return { response: generated, source: "opencode_zen", model, question: question && acceptedQuestion ? question : null };
 }
 
 async function generateMentorReply(ctx: ActionCtx, prepared: PreparedTurn, threadId: string, promptMessageId: string): Promise<MentorReply> {
-  const fallback = deterministicResponse(prepared.body, prepared.brief);
   const apiKey = env.OPENCODE_ZEN_API_KEY?.trim();
   const model = configuredModel();
-  if (!apiKey) return { response: fallback.text, source: "simulated" as const, model: simulatedModel, question: fallback.question };
-  if (isNonAnswer(prepared.body) || requestsSensitiveInformation(prepared.body)) return { response: fallback.text, source: "simulated" as const, model: simulatedModel, question: fallback.question };
+  if (!apiKey) throw new Error("The AI mentor is not set up yet. Please try again later.");
   try {
     const result = await createMentorAgent(apiKey, model, prepared.conversationId, prepared.brief, prepared.body).generateText(
       ctx,
@@ -230,24 +186,13 @@ async function generateMentorReply(ctx: ActionCtx, prepared: PreparedTurn, threa
     }
     const currentBrief: Brief = await ctx.runQuery(internal.mentor.readBrief, { conversationId: prepared.conversationId });
     const question = questionFromToolCalls(result.toolCalls);
-    return finalizeGeneratedReply(generated, question, currentBrief, prepared.body, model);
+    return finalizeGeneratedReply(generated, question, currentBrief, model);
   } catch (error) {
+    if (error instanceof Error && error.message === withheldReplyMessage) throw error;
     const reason = error instanceof Error ? error.message : "Unknown provider error";
-    console.warn(`OpenCode Zen mentor request failed; using the simulated response. ${reason}`);
-    return { response: fallback.text, source: "simulated" as const, model: simulatedModel, question: fallback.question };
+    console.warn(`OpenCode Zen mentor request failed. ${reason}`);
+    throw new Error("The AI mentor is unavailable right now. Your message was not sent, so you can try again.");
   }
-}
-
-async function saveFallbackReply(ctx: ActionCtx, prepared: PreparedTurn, threadId: string, promptMessageId: string, response: string, question: Question | null) {
-  if (question) {
-    await ctx.runMutation(internal.mentor.recordQuestion, {
-      conversationId: prepared.conversationId, topic: question.topic, question: question.text,
-    });
-  }
-  await saveMessage(ctx, components.agent, {
-    threadId, userId: prepared.studentProfileId, promptMessageId, agentName: "Simulated Mentor",
-    message: { role: "assistant", content: response },
-  });
 }
 
 export const sendMentorMessage = action({
@@ -255,13 +200,12 @@ export const sendMentorMessage = action({
   returns: v.object({ source: mentorSource, model: v.string() }),
   handler: async (ctx, args): Promise<{ source: "simulated" | "opencode_zen"; model: string }> => {
     const prepared = await ctx.runMutation(internal.mentor.prepareTurn, args);
-    if (prepared.kind === "duplicate") return { source: "simulated" as const, model: simulatedModel };
+    if (prepared.kind === "duplicate") return { source: "opencode_zen" as const, model: configuredModel() };
     const threadId = await ensureAgentThread(ctx, prepared);
     const prompt = await saveMessage(ctx, components.agent, {
       threadId, userId: prepared.studentProfileId, prompt: prepared.body,
     });
     const reply: MentorReply = await generateMentorReply(ctx, prepared, threadId, prompt.messageId);
-    if (reply.source === "simulated") await saveFallbackReply(ctx, prepared, threadId, prompt.messageId, reply.response, reply.question);
     await ctx.runMutation(internal.mentor.commitTurn, {
       conversationId: prepared.conversationId,
       body: prepared.body,
