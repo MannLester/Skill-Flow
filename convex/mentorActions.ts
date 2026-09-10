@@ -1,6 +1,6 @@
 "use node";
 
-import { Agent, createThread, createTool, saveMessage } from "@convex-dev/agent";
+import { Agent, createThread, createTool, mockModel, saveMessage } from "@convex-dev/agent";
 import { createOpenAI } from "@ai-sdk/openai";
 import { stepCountIs } from "ai";
 import type { ToolSet } from "ai";
@@ -10,7 +10,7 @@ import { z } from "zod";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, type ActionCtx } from "./_generated/server";
-import { containsQuestion, isFactSupportedByMessage, maxDiscoveryQuestions, mentorOutputViolation, mentorSource } from "./lib/mentor";
+import { containsQuestion, isFactSupportedByMessage, maxDiscoveryQuestions, mentorOutputViolation, mentorSource, requestsSensitiveInformation } from "./lib/mentor";
 
 const defaultModel = "muse-spark-1.2-contributor-free";
 const instructions = `You are SkillFlow's project mentor for student designers. Work like a thoughtful Socratic mentor, not a grader or questionnaire.
@@ -113,16 +113,32 @@ function mentorTools(conversationId: Id<"mentorConversations">, latestStudentBod
   };
 }
 
-function createMentorAgent(apiKey: string, model: string, conversationId?: Id<"mentorConversations">, brief?: Brief, latestStudentBody?: string): Agent<object, ToolSet> {
-  const zen = createOpenAI({
+function requireZenApiKey(): string {
+  const apiKey = env.OPENCODE_ZEN_API_KEY?.trim();
+  if (!apiKey) throw new Error("The AI mentor is not set up yet. Please try again later.");
+  return apiKey;
+}
+
+// Test-only seam: MENTOR_MOCK_REPLY answers with canned text and
+// MENTOR_MOCK_FAILURE answers with a provider failure so automated tests can
+// exercise the success, policy, and failure paths without network access.
+function mentorLanguageModel(apiKey: string, model: string) {
+  const mockReply = env.MENTOR_MOCK_REPLY;
+  if (mockReply !== undefined) return mockModel({ content: [{ type: "text", text: mockReply }] });
+  if (env.MENTOR_MOCK_FAILURE === "1") return mockModel({ fail: { error: "Mock Zen failure" } });
+  return createOpenAI({
     name: "opencode-zen",
     baseURL: "https://opencode.ai/zen/v1",
     apiKey,
-  });
+  }).responses(model);
+}
+
+function createMentorAgent(apiKey: string, model: string, conversationId?: Id<"mentorConversations">, brief?: Brief, latestStudentBody?: string): Agent<object, ToolSet> {
+  const languageModel = mentorLanguageModel(apiKey, model);
   const briefContext = brief ? `\n\nCurrent project brief stored by SkillFlow:\n${brief.summary}\nOpen question: ${brief.openQuestion ?? "none"}` : "";
   return new Agent(components.agent, {
     name: "SkillFlow AI Project Mentor",
-    languageModel: zen.responses(model),
+    languageModel,
     instructions: `${instructions}${briefContext}`,
     tools: conversationId && brief && latestStudentBody
       ? mentorTools(conversationId, latestStudentBody, brief.stage === "discovery" && brief.questionsAsked < maxDiscoveryQuestions)
@@ -170,9 +186,8 @@ function finalizeGeneratedReply(generated: string, question: Question | null, br
 }
 
 async function generateMentorReply(ctx: ActionCtx, prepared: PreparedTurn, threadId: string, promptMessageId: string): Promise<MentorReply> {
-  const apiKey = env.OPENCODE_ZEN_API_KEY?.trim();
+  const apiKey = requireZenApiKey();
   const model = configuredModel();
-  if (!apiKey) throw new Error("The AI mentor is not set up yet. Please try again later.");
   try {
     const result = await createMentorAgent(apiKey, model, prepared.conversationId, prepared.brief, prepared.body).generateText(
       ctx,
@@ -201,6 +216,13 @@ export const sendMentorMessage = action({
   handler: async (ctx, args): Promise<{ source: "simulated" | "opencode_zen"; model: string }> => {
     const prepared = await ctx.runMutation(internal.mentor.prepareTurn, args);
     if (prepared.kind === "duplicate") return { source: "opencode_zen" as const, model: configuredModel() };
+    // Check before staging anything: a failure past this point leaves the
+    // Agent thread and the saved prompt behind, and the component API offers
+    // no message deletion, so retrying would stack another prompt.
+    requireZenApiKey();
+    if (requestsSensitiveInformation(prepared.body)) {
+      throw new Error("I do not need your email address or payment details to mentor this project. Share only the project goal and constraints that affect the work.");
+    }
     const threadId = await ensureAgentThread(ctx, prepared);
     const prompt = await saveMessage(ctx, components.agent, {
       threadId, userId: prepared.studentProfileId, prompt: prepared.body,

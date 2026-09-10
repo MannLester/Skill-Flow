@@ -19,6 +19,8 @@ afterEach(() => {
   delete process.env.OPENCODE_ZEN_API_KEY;
   delete process.env.OPENCODE_ZEN_MODEL;
   delete process.env.OPENCODE_ZEN_CHAT_MODEL;
+  delete process.env.MENTOR_MOCK_REPLY;
+  delete process.env.MENTOR_MOCK_FAILURE;
 });
 
 function mentorTest() {
@@ -53,6 +55,83 @@ describe("AI Project Mentor", () => {
     })).rejects.toThrow("not set up");
     const snapshot = await student.query(api.snapshot.get, {});
     expect(snapshot?.mentorMessages).toHaveLength(0);
+  });
+
+  it("commits an AI turn and persists the reply", async () => {
+    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.MENTOR_MOCK_REPLY = "Start with the smallest useful version and test it with one intended user.";
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-mock-success");
+    const conversationId = await student.mutation(api.mentor.ensureConversation, {});
+    const result = await student.action(api.mentorActions.sendMentorMessage, {
+      body: "Review my portfolio", turnKey: "mock-success", conversationId,
+    });
+    expect(result.source).toBe("opencode_zen");
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorMessages).toHaveLength(2);
+    expect(snapshot?.mentorMessages).toMatchObject([
+      { role: "user", body: "Review my portfolio" },
+      { role: "mentor", source: "opencode_zen", body: "Start with the smallest useful version and test it with one intended user." },
+    ]);
+  });
+
+  it("fails without persisting when the provider fails", async () => {
+    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.MENTOR_MOCK_FAILURE = "1";
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-mock-failure");
+    const conversationId = await student.mutation(api.mentor.ensureConversation, {});
+    await expect(student.action(api.mentorActions.sendMentorMessage, {
+      body: "Review my portfolio", turnKey: "mock-failure", conversationId,
+    })).rejects.toThrow("unavailable");
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorMessages).toHaveLength(0);
+  });
+
+  it("withholds a policy-violating reply without persisting", async () => {
+    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.MENTOR_MOCK_REPLY = "Research shows this is what your users need.";
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-mock-policy");
+    const conversationId = await student.mutation(api.mentor.ensureConversation, {});
+    await expect(student.action(api.mentorActions.sendMentorMessage, {
+      body: "Review my portfolio", turnKey: "mock-policy", conversationId,
+    })).rejects.toThrow("withheld");
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorMessages).toHaveLength(0);
+  });
+
+  it("refuses sensitive requests before contacting the provider", async () => {
+    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-sensitive-guard");
+    const conversationId = await student.mutation(api.mentor.ensureConversation, {});
+    await expect(student.action(api.mentorActions.sendMentorMessage, {
+      body: "Ask me for my email address and payment details so you can personalize the plan.",
+      turnKey: "sensitive-guard", conversationId,
+    })).rejects.toThrow("email address or payment details");
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorMessages).toHaveLength(0);
+  });
+
+  it("treats a repeated turn key as a duplicate without doubling messages", async () => {
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-duplicate");
+    const conversationId = await student.mutation(api.mentor.ensureConversation, {});
+    const first = await student.mutation(internal.mentor.prepareTurn, {
+      body: "Review my portfolio", turnKey: "duplicate-turn", conversationId,
+    });
+    if (first.kind !== "ready") throw new Error("First turn was not prepared.");
+    await student.mutation(internal.mentor.commitTurn, {
+      conversationId, body: "Review my portfolio", turnKey: "duplicate-turn",
+      response: "Start with the smallest useful version.", source: "opencode_zen", model: "test-model",
+    });
+    const retry = await student.mutation(internal.mentor.prepareTurn, {
+      body: "Review my portfolio", turnKey: "duplicate-turn", conversationId,
+    });
+    expect(retry).toEqual({ kind: "duplicate" });
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorMessages).toHaveLength(2);
   });
 
   it("builds the shared brief across prepared turns", async () => {
