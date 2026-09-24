@@ -63,7 +63,11 @@ function PreferenceAppearance({ children }: PropsWithChildren) {
   const { currentAccount, preferences } = useSession();
   const pathname = usePathname();
   const signedIn = Boolean(currentAccount);
-  useEffect(() => { Appearance.setColorScheme(colorSchemeForRoute(pathname, signedIn, preferences.darkMode)); }, [pathname, signedIn, preferences.darkMode]);
+  useEffect(() => {
+    if (typeof Appearance.setColorScheme === 'function') {
+      Appearance.setColorScheme(colorSchemeForRoute(pathname, signedIn, preferences.darkMode));
+    }
+  }, [pathname, signedIn, preferences.darkMode]);
   return <LocalizationProvider language={preferences.language}>{children}</LocalizationProvider>;
 }
 
