@@ -37,7 +37,6 @@ export default function ClientHomeScreen() {
           <View style={styles.quickRow}>
             <QuickAction icon="add-circle" label={'Post a\nProject'} onPress={() => router.push('/project-posts/new')} />
             <QuickAction icon="briefcase" label={'My\nProjects'} onPress={() => router.push('/projects')} />
-            <QuickAction icon="mail" label="Messages" onPress={() => router.push('/messages')} />
             <QuickAction icon="search" label={'Find\nTalents'} onPress={() => router.push('/marketplace')} />
             <QuickAction icon="bookmark" label="Saved" onPress={() => router.push({ pathname: '/marketplace', params: { saved: 'true' } })} />
           </View>
