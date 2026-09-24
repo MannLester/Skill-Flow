@@ -72,8 +72,8 @@ export type Proposal = {
 export type MentorConversation = { id: string; accountId: string; title: string; createdAt: string; updatedAt: string };
 export type MentorQuestionOption = { label: string; description?: string; recommended: boolean };
 export type MentorQuestion = { text: string; topic: 'goal' | 'audience' | 'problem' | 'constraints' | 'deliverable' | 'successCriterion'; options: MentorQuestionOption[] };
-export type MentorMessage = { id: string; accountId: string; conversationId?: string; role: 'user' | 'mentor'; body: string; createdAt: string; source?: 'simulated' | 'opencode_zen'; turnKey?: string; question?: MentorQuestion };
-export type DemoPreferences = { notificationsEnabled: boolean; darkMode: boolean; language: 'English' };
+export type MentorMessage = { id: string; accountId: string; conversationId?: string; role: 'user' | 'mentor'; body: string; createdAt: string; source?: 'simulated' | 'opencode_zen' | 'opencode_go'; turnKey?: string; question?: MentorQuestion };
+export type DemoPreferences = { notificationsEnabled: boolean; darkMode: boolean; language: 'English' | 'Filipino' };
 
 export type ProjectMessage = {
   id: string;
@@ -96,11 +96,13 @@ export type DemoNotification = {
   read: boolean;
 };
 
+export type DemoPaymentMethod = 'demo_wallet' | 'demo_bank' | 'demo_cash';
 export type DemoLedgerEntry = {
   id: string;
   userId: string;
   projectId: string;
-  type: 'hold' | 'release';
+  type: 'hold' | 'refund' | 'release';
+  demoPaymentMethod?: DemoPaymentMethod;
   amount: number;
   createdAt: string;
 };
@@ -189,7 +191,7 @@ type AuthResult = { ok: true; account: DemoAccount } | { ok: false; message: str
 export type StoreResult = { ok: true } | { ok: false; message: string };
 export type MentorConversationResult = { ok: true; conversationId: string } | { ok: false; message: string };
 
-type ProjectActionPayload = { note?: string; rating?: number; comment?: string; deliveryImages?: MediaInput[] };
+type ProjectActionPayload = { note?: string; rating?: number; comment?: string; demoPaymentMethod?: DemoPaymentMethod; deliveryImages?: MediaInput[] };
 type ProfileInput = Omit<UserProfile, 'accountId'> & { name: string; avatar?: MediaInput[] };
 type VerificationInput = Pick<StudentVerification, 'school' | 'program' | 'gradeLevel' | 'graduationYear' | 'sampleDocumentName'> & { studentNumber: string; evidenceImage?: MediaInput[] };
 type PortfolioInput = Pick<PortfolioItem, 'title' | 'description' | 'category' | 'sourceProjectId'> & { evidenceImages?: MediaInput[] };
@@ -507,13 +509,18 @@ function basicAction(context: ProjectActionContext, role: UserRole, statuses: Pr
 
 const acceptProject: ProjectActionHandler = (context) => basicAction(context, 'student', ['requested'], 'accepted', context.booking.clientId, 'Request accepted');
 const declineProject: ProjectActionHandler = (context) => basicAction(context, 'student', ['requested'], 'declined', context.booking.clientId, 'Request declined');
-const cancelProject: ProjectActionHandler = (context) => basicAction(context, 'client', ['requested', 'accepted'], 'cancelled', context.booking.studentId, 'Request cancelled');
+const cancelProject: ProjectActionHandler = (context) => {
+  const result = basicAction(context, 'client', ['requested', 'accepted', 'demo_funded'], 'cancelled', context.booking.studentId, 'Request cancelled');
+  if ('ok' in result || context.booking.status !== 'demo_funded') return result;
+  return { ...result, ledgerEntry: { id: makeId('ledger'), userId: context.booking.clientId, projectId: context.booking.id, type: 'refund', amount: context.booking.budget, createdAt: context.now } };
+};
 const startProject: ProjectActionHandler = (context) => basicAction(context, 'student', ['demo_funded'], 'in_progress', context.booking.clientId, 'Work started');
 
 const fundProject: ProjectActionHandler = (context) => {
   if (!actionAllowed(context, 'client', ['accepted'])) return failure('This action is not available for the current account or project status.');
+  if (!context.payload.demoPaymentMethod) return failure('Choose a simulated payment method.');
   const booking = context.booking;
-  return { status: 'demo_funded', notification: makeNotification(booking.studentId, 'Demo funds reserved', booking.title, 'payment', booking.id, context.now), deliveryNote: booking.deliveryNote, revisionNote: booking.revisionNote, completedAt: booking.completedAt, ledgerEntry: { id: makeId('ledger'), userId: booking.clientId, projectId: booking.id, type: 'hold', amount: booking.budget, createdAt: context.now } };
+  return { status: 'demo_funded', notification: makeNotification(booking.studentId, 'Demo funds reserved', booking.title, 'payment', booking.id, context.now), deliveryNote: booking.deliveryNote, revisionNote: booking.revisionNote, completedAt: booking.completedAt, ledgerEntry: { id: makeId('ledger'), userId: booking.clientId, projectId: booking.id, type: 'hold', amount: booking.budget, demoPaymentMethod: context.payload.demoPaymentMethod, createdAt: context.now } };
 };
 
 const submitProject: ProjectActionHandler = (context) => {
@@ -873,7 +880,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return { ok: true };
   }, [currentAccount, setState, state.mentorConversations]);
   const clearMentorConversation = useCallback(() => { if (currentAccount) setState((current) => ({ ...current, mentorConversations: current.mentorConversations.filter((item) => item.accountId !== currentAccount.id), mentorMessages: current.mentorMessages.filter((item) => item.accountId !== currentAccount.id) })); }, [currentAccount, setState]);
-  const updatePreferences = useCallback((input: Partial<DemoPreferences>) => setState((current) => ({ ...current, preferences: { ...current.preferences, ...input, language: 'English' } })), [setState]);
+  const updatePreferences = useCallback((input: Partial<DemoPreferences>) => setState((current) => ({ ...current, preferences: { ...current.preferences, ...input } })), [setState]);
   const changePassword = useCallback((currentPassword: string, newPassword: string): StoreResult => {
     if (!currentAccount || currentAccount.password !== currentPassword) return { ok: false, message: 'Current password is incorrect.' };
     if (newPassword.length < 6) return { ok: false, message: 'New password must contain at least 6 characters.' };

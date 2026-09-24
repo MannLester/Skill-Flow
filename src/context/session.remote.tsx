@@ -7,7 +7,7 @@ import { services as bundledServices, Service } from '@/data/fixtures';
 import { calculateCareerReadiness, CareerReadinessBreakdown } from '@/domain/career-readiness';
 import type { MediaAttachment, MediaInput } from '@/media/types';
 import type {
-  Certification, DemoAccount, DemoLedgerEntry, DemoNotification, DemoPreferences, MentorConversation, MentorConversationResult, MentorMessage, PortfolioItem,
+  Certification, DemoAccount, DemoLedgerEntry, DemoPaymentMethod, DemoNotification, DemoPreferences, MentorConversation, MentorConversationResult, MentorMessage, PortfolioItem,
   ProjectAction, ProjectBooking as LegacyProjectBooking, ProjectMessage, ProjectPost, ProjectPostInput, ProjectPostStatus,
   ProjectReview, Proposal, ProposalInput, ServiceInput, StoreResult, StudentVerification, UserProfile, UserRole,
 } from './session';
@@ -15,7 +15,7 @@ import type {
 export type ProjectStatus = Exclude<LegacyProjectBooking['status'], 'approved'>;
 export type ProjectBooking = Omit<LegacyProjectBooking, 'status'> & { status: ProjectStatus };
 export type CreateBookingInput = Pick<ProjectBooking, 'serviceId' | 'studentId' | 'title' | 'description' | 'deliveryDays' | 'budget'> & { referenceImages?: MediaInput[] };
-export type ProjectActionPayload = { note?: string; rating?: number; comment?: string; deliveryImages?: MediaInput[] };
+export type ProjectActionPayload = { note?: string; rating?: number; comment?: string; demoPaymentMethod?: DemoPaymentMethod; deliveryImages?: MediaInput[] };
 export type ProfileInput = Omit<UserProfile, 'accountId'> & { name: string; avatar?: MediaInput[] };
 export type VerificationInput = Pick<StudentVerification, 'school' | 'program' | 'gradeLevel' | 'graduationYear' | 'sampleDocumentName'> & { studentNumber: string; evidenceImage?: MediaInput[] };
 export type PortfolioInput = Pick<PortfolioItem, 'title' | 'description' | 'category' | 'sourceProjectId'> & { evidenceImages?: MediaInput[] };
@@ -36,7 +36,7 @@ type RemoteSessionValue = {
   actOnProject: (id: string, action: ProjectAction, payload?: ProjectActionPayload) => AsyncResult<StoreResult>;
   sendMessage: (id: string, body: string, image?: MediaInput) => AsyncResult<StoreResult>; markNotificationRead: (id: string) => AsyncResult<void>;
   markProjectMessagesRead: (id: string) => AsyncResult<void>; updateProfile: (input: ProfileInput) => AsyncResult<StoreResult>;
-  submitVerification: (input: VerificationInput) => AsyncResult<StoreResult>; simulateVerificationReview: (approved: boolean, reason?: string) => AsyncResult<StoreResult>;
+  submitVerification: (input: VerificationInput) => AsyncResult<StoreResult>; ensureDemoVerificationCheck: () => AsyncResult<StoreResult>;
   addPortfolioItem: (input: PortfolioInput) => AsyncResult<StoreResult>; addCertification: (input: CertificationInput) => AsyncResult<StoreResult>;
   addCompletedProjectToPortfolio: (id: string) => AsyncResult<StoreResult>; saveService: (input: ServiceInput, publish: boolean, id?: string) => AsyncResult<ServiceResult>;
   setServiceStatus: (id: string, status: Service['status']) => AsyncResult<StoreResult>; saveProjectPost: (input: ProjectPostInput, publish: boolean, id?: string) => AsyncResult<ProjectPostResult>;
@@ -76,7 +76,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const ensureMentorMutation = useMutation(api.mentor.ensureConversation);
   const createMentorMutation = useMutation(api.mentor.createConversation);
   const submitVerificationMutation = useMutation(api.growth.submitVerification);
-  const reviewVerificationMutation = useMutation(api.growth.simulateVerificationReview);
+  const ensureDemoVerificationCheckMutation = useMutation(api.growth.ensureDemoVerificationCheck);
   const addPortfolioMutation = useMutation(api.growth.addPortfolio);
   const addCertificationMutation = useMutation(api.growth.addCertification);
   const updatePreferencesMutation = useMutation(api.growth.updatePreferences);
@@ -86,7 +86,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const updateProfile = useCallback(async (input: ProfileInput): Promise<StoreResult> => runStore(() => updateProfileMutation(input as never)), [updateProfileMutation]);
   const submitVerification = useCallback(async (input: VerificationInput): Promise<StoreResult> => runStore(() => submitVerificationMutation({ ...input, evidenceImage: input.evidenceImage ?? [] } as never)), [submitVerificationMutation]);
-  const simulateVerificationReview = useCallback(async (approved: boolean, rejectionReason?: string): Promise<StoreResult> => runStore(() => reviewVerificationMutation({ approved, rejectionReason })), [reviewVerificationMutation]);
+  const ensureDemoVerificationCheck = useCallback(async (): Promise<StoreResult> => runStore(() => ensureDemoVerificationCheckMutation({})), [ensureDemoVerificationCheckMutation]);
   const saveService = useCallback(async (input: ServiceInput, publish: boolean, serviceId?: string): Promise<ServiceResult> => {
     try { const id = await saveServiceMutation({ ...input, publish, serviceId: serviceId as never } as never); return { ok: true, service: { ...input, id, provider: currentAccount?.name ?? '', providerId: currentAccount?.id ?? '', rating: 0, reviews: 0, status: publish ? 'published' : 'draft', crop: bundledServices[0].crop } }; }
     catch (error) { return errorResult(error); }
@@ -131,11 +131,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     ...mapped, hydrated: snapshot !== undefined, role: currentAccount?.role ?? 'student', homeRoute: currentAccount?.role === 'client' ? '/client-home' : '/student-home', currentAccount,
     getCareerReadiness: (studentId) => calculateCareerReadiness(studentId, mapped), logout: () => signOut(), createBooking, actOnProject, sendMessage,
     markNotificationRead: async (id) => { await markNotificationReadMutation({ notificationId: id as never }); }, markProjectMessagesRead: async (id) => { await markThreadReadMutation({ bookingId: id as never }); },
-    updateProfile, submitVerification, simulateVerificationReview, addPortfolioItem, addCertification, addCompletedProjectToPortfolio,
+    updateProfile, submitVerification, ensureDemoVerificationCheck, addPortfolioItem, addCertification, addCompletedProjectToPortfolio,
     saveService, setServiceStatus, saveProjectPost, setProjectPostStatus, submitProposal, withdrawProposal, decideProposal,
     toggleSavedService: async (id) => { await toggleSavedMutation({ serviceId: id as never }); }, ensureMentorConversation, createMentorConversation, deleteMentorConversation, sendMentorMessage,
-    clearMentorConversation: async () => { await clearMentorAction({}); }, updatePreferences: async (input) => { await updatePreferencesMutation({ notificationBadgesEnabled: input.notificationsEnabled, settingsDarkMode: input.darkMode }); },
-  }), [actOnProject, addCertification, addCompletedProjectToPortfolio, addPortfolioItem, clearMentorAction, createBooking, createMentorConversation, currentAccount, decideProposal, deleteMentorConversation, ensureMentorConversation, mapped, markNotificationReadMutation, markThreadReadMutation, saveProjectPost, saveService, sendMentorMessage, sendMessage, setProjectPostStatus, setServiceStatus, signOut, simulateVerificationReview, snapshot, submitProposal, submitVerification, toggleSavedMutation, updatePreferencesMutation, updateProfile, withdrawProposal]);
+    clearMentorConversation: async () => { await clearMentorAction({}); }, updatePreferences: async (input) => { await updatePreferencesMutation({ notificationBadgesEnabled: input.notificationsEnabled, settingsDarkMode: input.darkMode, language: input.language === 'Filipino' ? 'fil' : input.language === 'English' ? 'en' : undefined }); },
+  }), [actOnProject, addCertification, addCompletedProjectToPortfolio, addPortfolioItem, clearMentorAction, createBooking, createMentorConversation, currentAccount, decideProposal, deleteMentorConversation, ensureDemoVerificationCheck, ensureMentorConversation, mapped, markNotificationReadMutation, markThreadReadMutation, saveProjectPost, saveService, sendMentorMessage, sendMessage, setProjectPostStatus, setServiceStatus, signOut, snapshot, submitProposal, submitVerification, toggleSavedMutation, updatePreferencesMutation, updateProfile, withdrawProposal]);
   return <RemoteSessionContext.Provider value={value}>{children}</RemoteSessionContext.Provider>;
 }
 
@@ -156,7 +156,7 @@ function mapSnapshot(snapshot: Raw | null | undefined) {
     services: rows(snapshot, 'services').map((item) => mapService(item, accounts, rows(snapshot, 'reviews'))),
     bookings: rows(snapshot, 'bookings').map(mapBooking), projectPosts: rows(snapshot, 'projectPosts').map(mapPost),
     proposals: rows(snapshot, 'proposals').map(mapProposal), messages: rows(snapshot, 'messages').map(mapMessage),
-    ledger: rows(snapshot, 'ledger').filter((item) => item.type !== 'refund').map(mapLedger),
+    ledger: rows(snapshot, 'ledger').map(mapLedger),
     portfolioItems: rows(snapshot, 'portfolioItems').filter((item) => !item.archivedAt).map(mapPortfolio),
     certifications: rows(snapshot, 'certifications').map(mapCertification), mentorConversations: rows(snapshot, 'mentorConversations').map(mapMentorConversation), mentorMessages: rows(snapshot, 'mentorMessages').map(mapMentorMessage),
     savedServiceIds: rows(snapshot, 'savedServices').filter((item) => item.profileId === currentAccount?.id).map((item) => item.serviceId),
@@ -174,14 +174,14 @@ const mapPost = (item: Raw): ProjectPost => ({ id: item._id, clientId: item.clie
 const mapProposal = (item: Raw): Proposal => ({ id: item._id, projectPostId: item.projectPostId, studentId: item.studentProfileId, coverLetter: item.coverLetter, amount: item.amount, deliveryDays: item.deliveryDays, status: item.status, createdAt: iso(item.createdAt)! });
 const mapMessage = (item: Raw): ProjectMessage => ({ id: item._id, projectId: item.bookingId, senderId: item.senderProfileId, body: item.body, createdAt: iso(item.createdAt)!, readBy: item.readAt ? [item.senderProfileId, item.recipientProfileId] : [item.senderProfileId] });
 const mapNotification = (item: Raw): DemoNotification => ({ id: item._id, userId: item.recipientProfileId, title: item.title, detail: item.detail, kind: item.kind, projectId: item.bookingId, projectPostId: item.projectPostId, createdAt: iso(item.createdAt)!, read: Boolean(item.readAt) });
-const mapLedger = (item: Raw): DemoLedgerEntry => ({ id: item._id, userId: item.ownerProfileId, projectId: item.bookingId, type: item.type, amount: item.amount, createdAt: iso(item.createdAt)! });
+const mapLedger = (item: Raw): DemoLedgerEntry => ({ id: item._id, userId: item.ownerProfileId, projectId: item.bookingId, type: item.type, amount: item.amount, demoPaymentMethod: item.demoPaymentMethod, createdAt: iso(item.createdAt)! });
 const mapReview = (item: Raw): ProjectReview => ({ id: item._id, projectId: item.bookingId, clientId: item.clientProfileId, studentId: item.studentProfileId, rating: item.rating, comment: item.comment, createdAt: iso(item.createdAt)! });
 const mapPortfolio = (item: Raw): PortfolioItem => ({ id: item._id, studentId: item.studentProfileId, title: item.title, description: item.description, category: item.category, sourceProjectId: item.sourceBookingId, createdAt: iso(item.createdAt)! });
 const mapCertification = (item: Raw): Certification => ({ id: item._id, studentId: item.studentProfileId, name: item.name, issuer: item.issuer, year: item.year, createdAt: iso(item.createdAt)! });
 const mapMentorConversation = (item: Raw): MentorConversation => ({ id: item._id, accountId: item.studentProfileId, title: item.title, createdAt: iso(item.createdAt)!, updatedAt: iso(item.updatedAt)! });
 const mapMentorMessage = (item: Raw): MentorMessage => ({ id: item._id, accountId: item.studentProfileId, conversationId: item.conversationId, role: item.role, body: item.body, createdAt: iso(item.createdAt)!, source: item.source ?? (item.role === 'mentor' ? 'simulated' : undefined), turnKey: item.turnKey, question: item.question });
 const mapMediaAttachment = (item: Raw): MediaAttachment => ({ id: item._id, targetType: item.targetType, targetId: item.targetId, purpose: item.purpose, position: item.position, altText: item.altText, visibility: item.visibility, publicUrl: item.publicUrl ?? undefined });
-function mapPreferences(items: Raw[], account: DemoAccount | null): DemoPreferences { const own = items.find((item) => item.profileId === account?.id); return { notificationsEnabled: own?.notificationBadgesEnabled ?? true, darkMode: own?.settingsDarkMode ?? false, language: 'English' }; }
+function mapPreferences(items: Raw[], account: DemoAccount | null): DemoPreferences { const own = items.find((item) => item.profileId === account?.id); return { notificationsEnabled: own?.notificationBadgesEnabled ?? true, darkMode: own?.settingsDarkMode ?? false, language: own?.language === 'fil' ? 'Filipino' : 'English' }; }
 function unreadNotifications(preferences: DemoPreferences, notifications: DemoNotification[], account: DemoAccount | null) { return preferences.notificationsEnabled ? notifications.filter((item) => item.userId === account?.id && !item.read).length : 0; }
 
 function ratingFor(studentId: string, reviews: any[]) { const own = reviews.filter((review) => review.studentProfileId === studentId); return own.length ? own.reduce((sum, review) => sum + review.rating, 0) / own.length : 0; }

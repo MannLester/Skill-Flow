@@ -28,7 +28,7 @@ import {
   RoleSelector,
   TopCornerDecor,
 } from "@/components/ui";
-import { colors, contentPadding } from "@/constants/theme";
+import { authColors, colors, contentPadding } from "@/constants/theme";
 import type { UserRole } from "@/context/session";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -129,7 +129,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <MobilePage>
+    <MobilePage backgroundColor={authColors.background}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -142,7 +142,7 @@ export default function RegisterScreen() {
           ]}
         >
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={colors.burgundy} />
+            <Ionicons name="arrow-back" size={24} color={authColors.accent} />
           </Pressable>
           <AppText weight="semibold" style={styles.headerTitle}>
             {verification ? "Verify Email" : "Create Account"}
@@ -157,7 +157,7 @@ export default function RegisterScreen() {
         >
           <TopCornerDecor />
           <BottomWaveDecor />
-          <AppLogo compact />
+          <AppLogo compact light />
           {verification ? (
             <VerificationForm
               email={form.email}
@@ -172,16 +172,18 @@ export default function RegisterScreen() {
           ) : (
             <>
               <View style={{ marginTop: 22 }}>
-                <RoleSelector value={role} onChange={setRole} />
+                <RoleSelector value={role} onChange={setRole} light />
               </View>
               <View style={styles.form}>
                 <FormField
+                  light
                   icon="person-outline"
                   placeholder="Full Name"
                   value={form.name}
                   onChangeText={update("name")}
                 />
                 <FormField
+                  light
                   icon="mail-outline"
                   placeholder="Email Address"
                   value={form.email}
@@ -190,6 +192,7 @@ export default function RegisterScreen() {
                   autoCapitalize="none"
                 />
                 <FormField
+                  light
                   icon="lock-closed-outline"
                   placeholder="Password"
                   value={form.password}
@@ -197,6 +200,7 @@ export default function RegisterScreen() {
                   secureTextEntry
                 />
                 <FormField
+                  light
                   icon="lock-closed-outline"
                   placeholder="Confirm Password"
                   value={form.confirm}
@@ -256,6 +260,7 @@ function VerificationForm({
         Enter the email verification code sent to {email}.
       </AppText>
       <FormField
+        light
         icon="key-outline"
         placeholder="Verification Code"
         value={code}
@@ -407,11 +412,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: contentPadding,
   },
-  headerTitle: { flex: 1, textAlign: "center", fontSize: 15 },
+  headerTitle: { flex: 1, textAlign: "center", color: authColors.text, fontSize: 15 },
   content: { flexGrow: 1, paddingHorizontal: contentPadding, paddingTop: 12, paddingBottom: 40, justifyContent: "center", overflow: "hidden" },
   form: { gap: 11, marginTop: 16 },
   verify: { gap: 16, marginTop: 30 },
-  verifyCopy: { color: colors.muted, textAlign: "center", fontSize: 11 },
+  verifyCopy: { color: authColors.muted, textAlign: "center", fontSize: 11 },
   terms: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -429,8 +434,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxActive: { backgroundColor: colors.red, borderColor: colors.red },
-  termsText: { fontSize: 9 },
-  termsLink: { color: colors.red, fontSize: 9 },
+  termsText: { color: authColors.muted, fontSize: 9 },
+  termsLink: { color: authColors.accent, fontSize: 9 },
   error: {
     color: colors.red,
     fontSize: 10,
@@ -439,20 +444,20 @@ const styles = StyleSheet.create({
   },
   socialBlock: { gap: 10, marginTop: 16 },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  divider: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { color: colors.muted, fontSize: 10 },
+  divider: { flex: 1, height: 1, backgroundColor: authColors.border },
+  dividerText: { color: authColors.muted, fontSize: 10 },
   socialButton: {
     minHeight: 48,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderColor: authColors.border,
+    backgroundColor: authColors.field,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
   },
-  socialText: { fontSize: 13 },
+  socialText: { color: authColors.text, fontSize: 13 },
   disabled: { opacity: 0.55 },
   pressed: { opacity: 0.85 },
 });

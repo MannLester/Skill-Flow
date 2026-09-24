@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { AppHeader, AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
+import { AppHeader, AppText, FormField, MobilePage, PrimaryButton, LocalizedTextInput } from '@/components/ui';
 import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { useSession } from '@/context/session.remote';
@@ -41,7 +41,7 @@ export default function NewPortfolioItemScreen() {
   return <MobilePage><StatusBar style="light" /><AppHeader title="Add Portfolio Item" onBack={() => router.back()} /><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
     <Label text="Project Title" /><FormField icon="images-outline" value={title} onChangeText={(value) => { setTitle(value); clearError('title'); }} placeholder="Project Title" accessibilityLabel="Project title" accessibilityHint={errors.title ?? 'Required. Enter a project title.'} style={errors.title ? styles.fieldError : undefined} /><FieldError message={errors.title} />
     <Label text="Category" /><FormField icon="grid-outline" value={category} onChangeText={(value) => { setCategory(value); clearError('category'); }} placeholder="e.g. Graphics & Design" accessibilityLabel="Portfolio category" accessibilityHint={errors.category ?? 'Required. Enter a category.'} style={errors.category ? styles.fieldError : undefined} /><FieldError message={errors.category} />
-    <Label text="Description" /><TextInput value={description} onChangeText={(value) => { setDescription(value); clearError('description'); }} placeholder="Describe the work, skills, and outcome…" placeholderTextColor={colors.muted} multiline accessibilityLabel="Portfolio description" accessibilityHint={errors.description ?? 'Required. Describe the work, skills, and outcome.'} style={[styles.textArea, errors.description ? styles.textAreaError : undefined]} /><FieldError message={errors.description} />
+    <Label text="Description" /><LocalizedTextInput value={description} onChangeText={(value) => { setDescription(value); clearError('description'); }} placeholder="Describe the work, skills, and outcome…" placeholderTextColor={colors.muted} multiline accessibilityLabel="Portfolio description" accessibilityHint={errors.description ?? 'Required. Describe the work, skills, and outcome.'} style={[styles.textArea, errors.description ? styles.textAreaError : undefined]} /><FieldError message={errors.description} />
     <ImageUploader purpose="portfolio_evidence" value={images} onChange={setImages} max={5} required label="Portfolio Images" defaultAltText={title ? `${title} work sample` : 'Portfolio work sample'} />
     <AppText style={styles.note}>Use only work you are allowed to share. Images are public on your profile.</AppText><PortfolioErrorSummary errors={errors} /><PrimaryButton title="Add to Portfolio" onPress={save} style={{ marginTop: 22 }} />
   </ScrollView></MobilePage>;

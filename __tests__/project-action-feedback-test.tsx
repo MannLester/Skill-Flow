@@ -96,6 +96,21 @@ describe('project lifecycle action feedback', () => {
     expect(mockActOnProject).toHaveBeenLastCalledWith('booking-test', 'review', { rating: 4, comment: 'Excellent work and communication.' });
   });
 
+  it('requires a demo method before confirming and sends only the fictional choice', () => {
+    mockCurrentAccount = mockClient;
+    mockStatus = 'accepted';
+    mockActOnProject.mockReturnValue({ ok: true });
+    const screen = render(<ProjectDetailsScreen />);
+
+    fireEvent.press(screen.getByText('Confirm Simulated Payment'));
+    expectFeedback(screen, 'Choose a simulated payment method.');
+    expect(mockActOnProject).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole('radio', { name: 'Demo e-wallet' }));
+    fireEvent.press(screen.getByText('Confirm Simulated Payment'));
+    expect(mockActOnProject).toHaveBeenCalledWith('booking-test', 'fund', { demoPaymentMethod: 'demo_wallet' });
+  });
+
   it('keeps every role action unavailable while the session has no current account', () => {
     mockCurrentAccount = null;
     mockStatus = 'submitted';

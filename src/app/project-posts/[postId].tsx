@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, FormField, MobilePage, PrimaryButton } from '@/components/ui';
+import { AppText, FormField, MobilePage, PrimaryButton, LocalizedTextInput } from '@/components/ui';
 import { ImageUploader } from '@/components/image-uploader';
 import { MediaGallery } from '@/components/media-gallery';
 import { colors, contentPadding, font, shadow } from '@/constants/theme';
@@ -328,7 +328,7 @@ function ProposalForm({ post, verification, submitProposal }: { post: ProjectPos
   return (
     <>
       <AppText style={styles.hint}>{verificationRequired ? 'Simulated student verification is required before submission.' : 'Your verified status will be shown to the client.'}</AppText>
-      <TextInput
+      <LocalizedTextInput
         accessibilityLabel="Proposal cover letter"
         value={coverLetter}
         onChangeText={(value) => { setCoverLetter(value); clearFeedback(); }}
@@ -391,16 +391,16 @@ const styles = StyleSheet.create({
   heroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 8 },
   heroTitle: { color: colors.white, fontSize: 26, lineHeight: 34, flex: 1, marginRight: 12 },
   heroBudget: { color: colors.white, fontSize: 20 },
-  clientCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 14, ...shadow },
+  clientCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 14, ...shadow },
   clientAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.white },
   clientInfo: { flex: 1 },
   clientName: { fontSize: 15 },
   clientCategory: { color: colors.muted, fontSize: 11, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.border },
   description: { color: colors.ink, fontSize: 13, lineHeight: 24 },
-  aboutCard: { backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 17, ...shadow },
+  aboutCard: { backgroundColor: colors.background, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 17, ...shadow },
   sectionHeading: { fontSize: 18, marginBottom: 12 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 14, ...shadow },
+  infoRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, marginHorizontal: contentPadding, marginTop: 16, borderRadius: 14, padding: 14, ...shadow },
   infoHalf: { flex: 1, alignItems: 'center', gap: 4 },
   infoDivider: { width: 1, height: 40, backgroundColor: colors.border },
   infoLabel: { color: colors.muted, fontSize: 10 },
@@ -409,17 +409,17 @@ const styles = StyleSheet.create({
   skill: { backgroundColor: colors.blush, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   skillText: { color: colors.burgundy, fontSize: 11 },
   bookingButton: { marginHorizontal: contentPadding, marginTop: 20 },
-  manageBottomWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingBottom: 12, paddingHorizontal: 12, ...shadow },
+  manageBottomWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingBottom: 12, paddingHorizontal: 12, ...shadow },
   manageBottomBar: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.red, borderRadius: 14, padding: 16 },
   manageBottomBarText: { color: colors.white, fontSize: 15, textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalContainer: { backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+  modalContainer: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: contentPadding, paddingTop: 20, paddingBottom: 12 },
   modalTitle: { fontSize: 18 },
   modalClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   modalBody: { padding: contentPadding, paddingBottom: 36, gap: 10 },
   controlGroup: { gap: 10 },
-  panel: { backgroundColor: colors.white, marginHorizontal: contentPadding, marginTop: 20, borderRadius: 14, padding: 17, gap: 10, ...shadow },
+  panel: { backgroundColor: colors.background, marginHorizontal: contentPadding, marginTop: 20, borderRadius: 14, padding: 17, gap: 10, ...shadow },
   panelTitle: { fontSize: 17, marginBottom: 3 },
   controlRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 10 },
   controlText: { flex: 1, color: colors.ink, fontSize: 13 },
