@@ -56,6 +56,7 @@ export const apply = mutation({
   returns: v.object({ namespace: v.string(), version: v.string(), records: v.number() }),
   handler: async (ctx, args) => {
     await requireDevelopmentOperator(ctx);
+    await deleteSeededMentorMessages(ctx);
     const student = await ctx.db.get(args.studentProfileId);
     const client = await ctx.db.get(args.clientProfileId);
     if (!student || student.role !== "student" || student.seedNamespace) throw new Error("Choose a live Student Designer profile.");
@@ -164,8 +165,6 @@ export const apply = mutation({
       upsertMessage(ctx, activeBooking, student._id, client._id, "message-active-2", "Noted. I will send two logo directions before preparing the final preview.", time("2026-08-25T11:05:00.000Z")),
       upsertMessage(ctx, reviewedBooking, student._id, client._id, "message-reviewed-1", "Final logo files and a short usage note are ready for review.", time("2026-08-12T15:05:00.000Z"), time("2026-08-14T09:30:00.000Z")),
       upsertPortfolio(ctx, student._id, "portfolio-menu-polish", "Mini Menu Logo Polish", "Completed simulated client work with final files, usage notes, and review evidence.", "Completed Client Project", reviewedBooking, "logo", now),
-      upsertMentor(ctx, student._id, "mentor-portfolio", "How can I present this logo project in my portfolio?", "Show the goal, two design decisions, and the final outcome. Add the client constraint and one lesson learned.", time("2026-08-26T08:30:00.000Z")),
-      upsertMentor(ctx, student._id, "mentor-colors", "Can you review my color direction?", "Check contrast first, then test the palette on the logo, menu board, and small avatar before finalizing.", time("2026-08-26T08:34:00.000Z")),
       upsertPreference(ctx, client._id, "preference-client", now),
       upsertPreference(ctx, student._id, "preference-student", now),
     ]);
@@ -212,6 +211,15 @@ export const reset = mutation({
     const profiles = await seeded(ctx, "profiles");
     for (const profile of profiles) await ctx.db.delete(profile._id);
     return { namespace, deleted: groups.reduce((total, rows) => total + rows.length, 0) + verifications.length + profiles.length + mediaAttachments.length + mediaFiles.length };
+  },
+});
+
+export const clearMentorSamples = mutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    await requireDevelopmentOperator(ctx);
+    return await deleteSeededMentorMessages(ctx);
   },
 });
 
@@ -379,12 +387,10 @@ async function upsertCertification(ctx: MutationCtx, studentProfileId: Id<"profi
   else await ctx.db.insert("certifications", { ...fields, createdAt: now });
 }
 
-async function upsertMentor(ctx: MutationCtx, studentProfileId: Id<"profiles">, key: string, question: string, answer: string, createdAt: number) {
-  const turnId = `${studentProfileId}:${key}`;
-  const existing = await ctx.db.query("mentorMessages").withIndex("by_student_turn_key", (q) => q.eq("studentProfileId", studentProfileId).eq("turnKey", key)).first();
-  if (existing) return;
-  await ctx.db.insert("mentorMessages", { studentProfileId, turnId, role: "user", sequence: 0, body: question, turnKey: key, isSimulated: true, createdAt, ...seedFields(`${key}-user`) });
-  await ctx.db.insert("mentorMessages", { studentProfileId, turnId, role: "mentor", sequence: 1, body: answer, turnKey: key, ruleVersion: "deterministic-v1", isSimulated: true, createdAt: createdAt + 1, ...seedFields(`${key}-mentor`) });
+async function deleteSeededMentorMessages(ctx: MutationCtx) {
+  const messages = await seeded(ctx, "mentorMessages");
+  for (const message of messages) await ctx.db.delete(message._id);
+  return messages.length;
 }
 
 async function upsertPreference(ctx: MutationCtx, profileId: Id<"profiles">, key: string, now: number) {

@@ -3,8 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const [command = 'preview', studentProfileId, clientProfileId] = process.argv.slice(2);
-const allowed = new Set(['preview', 'candidates', 'apply', 'reset']);
-if (!allowed.has(command)) fail('Use preview, candidates, apply, or reset.');
+const allowed = new Set(['preview', 'candidates', 'apply', 'reset', 'clearMentorSamples']);
+if (!allowed.has(command)) fail('Use preview, candidates, apply, reset, or clearMentorSamples.');
 
 let args = {};
 if (command === 'apply') {

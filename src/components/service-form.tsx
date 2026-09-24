@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText, FormField, PrimaryButton } from '@/components/ui';
+import { AppText, FormField, PrimaryButton, LocalizedTextInput } from '@/components/ui';
 import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { ServiceInput, StoreResult, useSession } from '@/context/session.remote';
@@ -75,7 +75,7 @@ function ServiceFormContent({ state, media, isVerified, hasExisting, onSave, onA
 }
 
 function ServiceVerificationBanner({ isVerified }: { isVerified: boolean }) {
-  if (isVerified) return <View style={styles.verified}><Ionicons name="checkmark-circle" size={20} color={colors.green} /><AppText weight="medium" style={styles.verifiedText}>Verified Student — publishing enabled</AppText></View>;
+  if (isVerified) return <View style={styles.verified}><Ionicons name="checkmark-circle" size={20} color={colors.green} /><AppText weight="medium" style={styles.verifiedText}>Demo Verified Student — publishing enabled</AppText></View>;
   return <Pressable onPress={() => router.push('/verification')} style={styles.warning}><Ionicons name="shield-outline" size={23} color={colors.burgundy} /><View style={{ flex: 1 }}><AppText weight="semibold" style={{ fontSize: 12 }}>Verification required to publish</AppText><AppText style={styles.warningText}>You may save a draft now or complete the simulated verification.</AppText></View><Ionicons name="chevron-forward" size={20} color={colors.burgundy} /></Pressable>;
 }
 
@@ -84,7 +84,7 @@ function ServiceFields({ state }: { state: ServiceFormState }) {
     <Label text="Service Title" /><FormField icon="briefcase-outline" value={state.title} onChangeText={state.setTitle} placeholder="Service Title" />
     <Label text="Short Description" /><FormField icon="text-outline" value={state.subtitle} onChangeText={state.setSubtitle} placeholder="Short Description" />
     <Label text="Category" /><FormField icon="grid-outline" value={state.category} onChangeText={state.setCategory} placeholder="Category" />
-    <Label text="Full Description" /><TextInput value={state.description} onChangeText={state.setDescription} placeholder="Describe what the client will receive…" placeholderTextColor={colors.muted} multiline style={styles.textArea} />
+    <Label text="Full Description" /><LocalizedTextInput value={state.description} onChangeText={state.setDescription} placeholder="Describe what the client will receive…" placeholderTextColor={colors.muted} multiline style={styles.textArea} />
     <Label text="Starting Price" /><FormField icon="cash-outline" value={state.price} onChangeText={state.setPrice} placeholder="Starting Price" keyboardType="number-pad" />
     <Label text="Delivery Days" /><FormField icon="alarm-outline" value={state.deliveryDays} onChangeText={state.setDeliveryDays} placeholder="Delivery Days" keyboardType="number-pad" />
     <Label text="Revisions" /><FormField icon="refresh-outline" value={state.revisions} onChangeText={state.setRevisions} placeholder="e.g. 2 revisions" />

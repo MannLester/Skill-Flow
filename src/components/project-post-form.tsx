@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import { ComponentProps, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, TextInputProps, View } from 'react-native';
 
-import { AppText, FormField, PrimaryButton } from '@/components/ui';
+import { AppText, FormField, PrimaryButton, LocalizedTextInput } from '@/components/ui';
 import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { ProjectPost, ProjectPostInput, useSession } from '@/context/session.remote';
@@ -44,7 +44,7 @@ export function ProjectPostForm({ postId }: { postId?: string }) {
     consumeResult(saveProjectPost(form.input, publish, existing?.id), (result) => {
       if (!result.ok) return form.showErrors(result.message);
       form.clearErrors();
-      Alert.alert(publish ? 'Project published' : 'Draft saved', publish ? 'Verified Student Designers can now submit proposals.' : 'You can return and publish this project later.');
+      Alert.alert(publish ? 'Project published' : 'Draft saved', publish ? 'Demo verified Student Designers can now submit proposals.' : 'You can return and publish this project later.');
       router.replace({ pathname: '/project-posts/[postId]', params: { postId: result.projectPost.id } });
     });
   };
@@ -112,7 +112,7 @@ function ProjectFormField({ form, field, label, icon, value, setter, placeholder
 }
 function ProjectDescriptionField({ form, value, setter }: { form: ReturnType<typeof useProjectPostValues>; value: string; setter: (value: string) => void }) {
   const error = form.errors.description;
-  return <><Label text="Project Description" /><TextInput value={value} onChangeText={(next) => form.update('description', next, setter)} placeholder="Describe the goal, deliverables, and expectations…" placeholderTextColor={colors.muted} multiline accessibilityLabel="Project description" accessibilityHint={error ?? 'Required. Describe the project goal, deliverables, and expectations.'} style={[styles.textArea, error ? styles.textAreaError : undefined]} /><FieldError message={error} /></>;
+  return <><Label text="Project Description" /><LocalizedTextInput value={value} onChangeText={(next) => form.update('description', next, setter)} placeholder="Describe the goal, deliverables, and expectations…" placeholderTextColor={colors.muted} multiline accessibilityLabel="Project description" accessibilityHint={error ?? 'Required. Describe the project goal, deliverables, and expectations.'} style={[styles.textArea, error ? styles.textAreaError : undefined]} /><FieldError message={error} /></>;
 }
 function Label({ text }: { text: string }) { return <AppText weight="semibold" style={styles.label}>{text}</AppText>; }
 function FieldError({ message }: { message?: string }) { return message ? <AppText accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{message}</AppText> : null; }

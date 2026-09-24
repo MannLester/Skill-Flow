@@ -1,9 +1,11 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useSSO } from '@clerk/expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
 
 import LoginScreen from '@/app/index';
 import { SessionProvider } from '@/context/session';
+import { authColors } from '@/constants/theme';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -46,6 +48,19 @@ describe('login navigation', () => {
     const screen = render(<SafeAreaProvider><SessionProvider><LoginScreen /></SessionProvider></SafeAreaProvider>);
     fireEvent.press(screen.getByText('Forgot Password?'));
     expect(mockPush).toHaveBeenCalledWith('/forgot-password');
+  });
+
+  it('uses neutral login text, burgundy links, and a white email field', () => {
+    const screen = render(<SafeAreaProvider><SessionProvider><LoginScreen /></SessionProvider></SafeAreaProvider>);
+    expect(StyleSheet.flatten(screen.getByText('Skill Flow').props.style).color).toBe(authColors.text);
+    expect(StyleSheet.flatten(screen.getByText('Welcome back!').props.style).color).toBe(authColors.text);
+    expect(StyleSheet.flatten(screen.getByText('Sign in to continue').props.style).color).toBe(authColors.muted);
+    expect(StyleSheet.flatten(screen.getByText('Continue with Google').props.style).color).toBe(authColors.text);
+    expect(StyleSheet.flatten(screen.getByText('Forgot Password?').props.style).color).toBe(authColors.accent);
+    const email = screen.getByPlaceholderText('Email');
+    expect(email.props.placeholderTextColor).toBe(authColors.muted);
+    expect(StyleSheet.flatten(email.props.style).backgroundColor).toBe(authColors.field);
+    expect(StyleSheet.flatten(email.parent?.props.style).backgroundColor).toBe(authColors.field);
   });
 
   it('starts Google OAuth sign-in and lets the auth gate choose the route', async () => {

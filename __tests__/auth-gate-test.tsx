@@ -4,6 +4,11 @@ import OAuthNativeCallbackScreen from '@/app/oauth-native-callback';
 import { resolveAuthGateState } from '@/auth/auth-gate';
 import { AuthRecoveryState } from '@/providers/app-providers';
 
+jest.mock('@clerk/expo/legacy', () => ({
+  useSignIn: () => ({ isLoaded: false, signIn: null, setActive: null }),
+  useSignUp: () => ({ isLoaded: false, signUp: null }),
+}));
+
 describe('authentication gate', () => {
   it.each([
     ['loading', { isClerkLoaded: false, isSignedIn: undefined, isConvexLoading: false, isAuthenticated: false, profile: undefined }],

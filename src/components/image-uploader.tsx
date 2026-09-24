@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Image, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/ui';
+import { AppText, LocalizedTextInput } from '@/components/ui';
 import { colors, font } from '@/constants/theme';
 import type { MediaPurpose, UploadedImage } from '@/media/types';
 import { useMediaUpload } from '@/providers/media-upload-provider';
@@ -105,7 +105,7 @@ export function ImageUploader({ purpose, value, onChange, max, label, required, 
     <View style={styles.heading}><AppText weight="semibold" style={styles.label}>{label}{required ? ' *' : ''}</AppText><AppText style={styles.count}>{value.length}/{max}</AppText></View>
     {value.map((image, index) => <View key={image.uploadedFileId} style={styles.previewRow}>
       <Image source={{ uri: image.uri }} accessibilityLabel={image.altText} style={styles.preview} />
-      <View style={styles.details}><TextInput accessibilityLabel={`Alternative text for image ${index + 1}`} value={image.altText} onChangeText={(altText) => emitChange(value.map((item, position) => position === index ? { ...item, altText } : item))} placeholder="Describe this image" placeholderTextColor={colors.muted} style={styles.altInput} />
+      <View style={styles.details}><LocalizedTextInput accessibilityLabel={`Alternative text for image ${index + 1}`} value={image.altText} onChangeText={(altText) => emitChange(value.map((item, position) => position === index ? { ...item, altText } : item))} placeholder="Describe this image" placeholderTextColor={colors.muted} style={styles.altInput} />
         <View style={styles.row}><SmallAction label="Move earlier" icon="arrow-up" disabled={index === 0} onPress={() => move(index, -1)} /><SmallAction label="Move later" icon="arrow-down" disabled={index === value.length - 1} onPress={() => move(index, 1)} /><SmallAction label="Remove image" icon="trash-outline" onPress={() => void remove(index)} /></View>
       </View>
     </View>)}

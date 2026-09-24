@@ -1,12 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ServiceArtwork } from '@/components/optimized-artwork';
-import { AppHeader, AppText, MobilePage, PrimaryButton } from '@/components/ui';
+import { AppHeader, AppText, MobilePage, PrimaryButton, LocalizedTextInput } from '@/components/ui';
 import { ImageUploader } from '@/components/image-uploader';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
@@ -65,7 +65,7 @@ export default function BookServiceScreen() {
             <View><AppText weight="semibold" style={styles.title}>{service.title}</AppText><AppText style={styles.byline}>by {service.provider}</AppText><AppText weight="bold" style={styles.price}>{formatPeso(service.price)}</AppText></View>
           </View>
           <AppText weight="semibold" style={styles.label}>Project Details</AppText>
-          <View style={[styles.textArea, descriptionError && styles.textAreaError]}><TextInput value={description} onChangeText={(next) => { setDescription(next); setDescriptionError(undefined); }} placeholder="Describe your project…" placeholderTextColor={colors.muted} multiline maxLength={500} accessibilityLabel="Project details" accessibilityHint={descriptionError ?? 'Describe the work you want the Student Designer to complete.'} style={styles.multiline} /><AppText style={styles.counter}>{description.length}/500</AppText></View>
+          <View style={[styles.textArea, descriptionError && styles.textAreaError]}><LocalizedTextInput value={description} onChangeText={(next) => { setDescription(next); setDescriptionError(undefined); }} placeholder="Describe your project…" placeholderTextColor={colors.muted} multiline maxLength={500} accessibilityLabel="Project details" accessibilityHint={descriptionError ?? 'Describe the work you want the Student Designer to complete.'} style={styles.multiline} /><AppText style={styles.counter}>{description.length}/500</AppText></View>
           {descriptionError ? <AppText accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.fieldError}>{descriptionError}</AppText> : null}
           <ImageUploader purpose="booking_reference" value={images} onChange={setImages} max={5} label="Reference Images" defaultAltText="Service request reference image" />
           <AppText weight="semibold" style={styles.label}>Delivery Time</AppText>
@@ -183,5 +183,5 @@ function SelectRow({ testID, label, value, selectedValue, options, isOpen, onTog
 
 const styles = StyleSheet.create({
   scroll: { padding: contentPadding }, summary: { flexDirection: 'row', alignItems: 'center', gap: 17, marginBottom: 22 }, thumb: { width: 112, aspectRatio: 90 / 91, borderRadius: 12 }, title: { fontSize: 21 }, byline: { color: colors.muted, fontSize: 14, marginTop: 3 }, price: { fontSize: 21, marginTop: 7 }, label: { fontSize: 17, marginTop: 19, marginBottom: 10 },
-  textArea: { minHeight: 160, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14 }, textAreaError: { borderColor: colors.red, backgroundColor: colors.blush }, multiline: { flex: 1, textAlignVertical: 'top', fontFamily: font.regular, color: colors.ink, fontSize: 14 }, counter: { alignSelf: 'flex-end', color: colors.muted, fontSize: 12 }, fieldError: { color: colors.red, fontSize: 11, lineHeight: 17, marginTop: 6 }, selectorGroup: { gap: 8 }, select: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, selectOpen: { borderColor: colors.red, backgroundColor: colors.blush }, optionList: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, padding: 6, gap: 4, backgroundColor: colors.white }, option: { minHeight: 48, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, optionSelected: { backgroundColor: colors.blush }, demoNote: { color: colors.muted, fontSize: 11, marginTop: 14 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center' },
+  textArea: { minHeight: 160, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14 }, textAreaError: { borderColor: colors.red, backgroundColor: colors.blush }, multiline: { flex: 1, textAlignVertical: 'top', fontFamily: font.regular, color: colors.ink, fontSize: 14 }, counter: { alignSelf: 'flex-end', color: colors.muted, fontSize: 12 }, fieldError: { color: colors.red, fontSize: 11, lineHeight: 17, marginTop: 6 }, selectorGroup: { gap: 8 }, select: { minHeight: 58, borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, selectOpen: { borderColor: colors.red, backgroundColor: colors.blush }, optionList: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, padding: 6, gap: 4, backgroundColor: colors.background }, option: { minHeight: 48, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, optionSelected: { backgroundColor: colors.blush }, demoNote: { color: colors.muted, fontSize: 11, marginTop: 14 }, missing: { flex: 1, padding: contentPadding, justifyContent: 'center' },
 });

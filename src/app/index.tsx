@@ -27,7 +27,7 @@ import {
   PrimaryButton,
   TopCornerDecor,
 } from "@/components/ui";
-import { colors, contentPadding } from "@/constants/theme";
+import { authColors, colors, contentPadding } from "@/constants/theme";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -91,7 +91,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <MobilePage>
+    <MobilePage backgroundColor={authColors.background}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         style={styles.flex}
@@ -108,7 +108,7 @@ export default function LoginScreen() {
         >
           <TopCornerDecor />
           <BottomWaveDecor />
-          <AppLogo />
+          <AppLogo light />
           <View style={styles.welcome}>
             <AppText weight="bold" style={styles.welcomeTitle}>
               Welcome back!
@@ -117,6 +117,7 @@ export default function LoginScreen() {
           </View>
           <View style={styles.form}>
             <FormField
+              light
               icon="mail-outline"
               placeholder="Email"
               value={email}
@@ -128,6 +129,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
             />
             <FormField
+              light
               icon="lock-closed-outline"
               placeholder="Password"
               value={password}
@@ -262,11 +264,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   welcome: { alignItems: "center", marginTop: 31, marginBottom: 18 },
-  welcomeTitle: { fontSize: 18 },
-  subtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  welcomeTitle: { color: authColors.text, fontSize: 18 },
+  subtitle: { color: authColors.muted, fontSize: 11, marginTop: 2 },
   form: { gap: 10 },
   forgot: { alignSelf: "flex-end" },
-  forgotText: { color: colors.burgundy, fontSize: 10 },
+  forgotText: { color: authColors.accent, fontSize: 10 },
   error: {
     color: colors.red,
     fontSize: 10,
@@ -275,23 +277,23 @@ const styles = StyleSheet.create({
   },
   socialBlock: { gap: 10, marginTop: 16 },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  divider: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { color: colors.muted, fontSize: 10 },
+  divider: { flex: 1, height: 1, backgroundColor: authColors.border },
+  dividerText: { color: authColors.muted, fontSize: 10 },
   socialButton: {
     minHeight: 48,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderColor: authColors.border,
+    backgroundColor: authColors.field,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
   },
-  socialText: { fontSize: 13 },
+  socialText: { color: authColors.text, fontSize: 13 },
   disabled: { opacity: 0.55 },
   pressed: { opacity: 0.85 },
   signupRow: { flexDirection: "row", justifyContent: "center", marginTop: 24 },
-  signupText: { fontSize: 10 },
-  signupLink: { fontSize: 10, color: colors.red },
+  signupText: { color: authColors.muted, fontSize: 10 },
+  signupLink: { fontSize: 10, color: authColors.accent },
 });

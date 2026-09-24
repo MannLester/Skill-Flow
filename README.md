@@ -100,12 +100,18 @@ Use `cloud-development` for Expo Go on a physical phone, an emulator, or web dur
 Convex admin key, Clerk secret key, or deploy key in an `EXPO_PUBLIC_*`
 variable: Expo bundles those variables into the application.
 
-The AI Mentor answers only through OpenCode Zen, so the selected Convex
-development deployment needs an `OPENCODE_ZEN_API_KEY`. Configure that secret on
-the server with `npx convex env set OPENCODE_ZEN_API_KEY`; never place it in an
-`EXPO_PUBLIC_*` variable. The optional `OPENCODE_ZEN_CHAT_MODEL` defaults to
-`muse-spark-1.2-contributor-free`. Temporary free Zen models can change or disappear; when Zen
-is unavailable, the mentor is unavailable and unsent messages can be retried.
+The AI Mentor answers through OpenCode Go, so the selected Convex development
+deployment needs an `OPENCODE_GO_API_KEY` from a Go subscription. Configure it
+on the server with `npx convex env set OPENCODE_GO_API_KEY`; never place it in an
+`EXPO_PUBLIC_*` variable. `OPENCODE_GO_MODEL` can override the default
+`gpt-5.6-luna`. The backend sends Go's required stable session header for each
+Mentor conversation. When Go is unavailable,
+the mentor shows an error and the unsent message can be retried; it never sends
+a simulated replacement. The seed routine no longer inserts Mentor replies.
+With `SKILLFLOW_DEPLOYMENT_CLASS=cloud-development` set on the development
+deployment for seed operations, run
+`node scripts/convex-cloud-seed.mjs clearMentorSamples` to remove only old
+seeded Mentor messages. Remove that flag again when the cleanup is complete.
 Prompts sent to those models may be retained or used by the provider; do not
 include personal, confidential, payment, identity, or client information.
 
@@ -231,22 +237,24 @@ does not replace this device interaction.
 - Shared project list and role-specific project lifecycle
 - Project messaging
 - Student and client profiles
-- Simulated student verification and public verified badges
+- Automatic simulated student verification and public demo badges
 - Student portfolios and certifications
 - Student service creation, drafts, publishing, editing, and archiving
 - Client project posts, student discovery and verification-gated proposals
 - Client proposal comparison and accepted-proposal booking conversion
 - Computed Career Readiness Score with a transparent 100-point breakdown
 - Advanced marketplace filters and saved-service views
-- Persisted AI Mentor conversations with per-reply Zen source labels
+- Persisted AI Mentor conversations with per-reply OpenCode source labels
 - Demo wallet, password change, preferences, Help, Terms, and Privacy utilities
 - AI Project Mentor
 - Notifications
 - Settings
 
-Marketplace items now open ID-based service details and privacy-safe public student profiles. Saved services, demo accounts, profiles, verification, portfolios, certifications, managed services, project posts, proposals, project requests, messages, notifications, simulated ledger entries, and reviews use persistent local state. A client can either request a student service or accept a proposal on an open project; both routes enter the same simulated funding, work, delivery, revision, approval, release, review, and portfolio lifecycle. Student Career Readiness is calculated live from those persisted records rather than stored as an editable score.
+Marketplace items now open ID-based service details and privacy-safe public student profiles. The production app uses Convex for profiles, verification, portfolios, certifications, managed services, project posts, proposals, project requests, messages, notifications, simulated ledger entries, and reviews. The local seeded session remains a Jest adapter. A client can either request a student service or accept a proposal on an open project; both routes enter the same simulated funding, work, delivery, revision, approval, release, review, and portfolio lifecycle. Student Career Readiness is calculated live from those records rather than stored as an editable score.
 
-Marketplace filters remain client-side and cover budget, rating, delivery, category, search, and saved status. AI Mentor responses use OpenCode Zen when its server-side development key is configured and fall back to deterministic topic rules when it is not. Demo Wallet displays only the simulated hold/release ledger and never accepts payment credentials.
+Marketplace filters remain client-side and cover budget, rating, delivery, category, search, and saved status. AI Mentor responses use OpenCode Go when its server-side development key and a supported model are configured; otherwise the app shows an error and keeps the unsent message available to retry. Demo Checkout offers fictional e-wallet, bank transfer, and cash choices without contacting a payment provider. Confirmation creates a simulated hold and receipt; cancellation before work starts records a simulated refund. Demo Wallet displays holds, refunds, and earnings releases and never accepts payment credentials.
+
+Settings stores language, dark mode, and notification-badge preferences in Convex for the signed-in account. English and Filipino are available. Filipino covers shared navigation, actions, forms, Help, Terms, and Privacy content. Dark mode changes the native appearance on authenticated Android screens except Login, Register, Reset Password, the Google sign-in callback, and Change Password; these account access screens always stay light. Account access screens use fixed warm-white backgrounds, charcoal primary text, muted-gray supporting text, white fields, and burgundy links so stale Android theme resources cannot turn text white or fields black. Red remains on the primary action and brand decoration. The preference is restored on the next sign-in. Android uses app-owned light and dark color resources generated by `plugins/with-skillflow-colors.cjs`; changes to those resources require a new native build.
 
 Login role selection routes to the corresponding dashboard. Browse/Find Designers opens the marketplace, a service opens its details and booking form, bells open Notifications, and dashboard menus open Settings.
 

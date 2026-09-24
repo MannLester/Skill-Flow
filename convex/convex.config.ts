@@ -4,9 +4,8 @@ import agent from "@convex-dev/agent/convex.config";
 
 const app = defineApp({
   env: {
-    OPENCODE_ZEN_API_KEY: v.optional(v.string()),
-    OPENCODE_ZEN_MODEL: v.optional(v.string()),
-    OPENCODE_ZEN_CHAT_MODEL: v.optional(v.string()),
+    OPENCODE_GO_API_KEY: v.optional(v.string()),
+    OPENCODE_GO_MODEL: v.optional(v.string()),
     MENTOR_MOCK_REPLY: v.optional(v.string()),
     MENTOR_MOCK_FAILURE: v.optional(v.string()),
   },

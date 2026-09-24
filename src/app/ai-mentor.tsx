@@ -2,10 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppHeader, AppText, MobilePage } from '@/components/ui';
+import { AppHeader, AppText, MobilePage, LocalizedTextInput } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { MentorConversation, MentorMessage, useSession } from '@/context/session.remote';
 
@@ -95,7 +95,7 @@ function PrivacyNotice() {
     <Ionicons name="shield-outline" size={17} color={colors.muted} />
     <View style={styles.noticeCopy}>
       <AppText weight="medium" style={styles.noticeTitle}>Don&apos;t share sensitive information</AppText>
-      {expanded ? <AppText style={styles.noticeDetail}>Temporary OpenCode Zen models may retain prompts or use them for improvement. Prompts are stored in Convex Cloud. When Zen is unavailable, the mentor is unavailable and unsent messages can be retried.</AppText> : null}
+      {expanded ? <AppText style={styles.noticeDetail}>Prompts are stored in Convex Cloud and sent to OpenCode Go. Do not share private or client information. If the AI service is unavailable, your unsent message can be retried.</AppText> : null}
     </View>
     <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
   </Pressable>;
@@ -161,7 +161,7 @@ function MentorComposer({ bottom, busy, ready, message, onChange, onSend }: { bo
   const disabled = busy || !ready || !message.trim();
   return <View style={[styles.composerWrap, { paddingBottom: Math.max(bottom, 10) }]}>
     <View style={styles.composer}>
-      <TextInput value={message} onChangeText={onChange} placeholder={busy ? 'You can type your next message…' : 'Message your AI mentor…'} placeholderTextColor={colors.muted} style={styles.input} multiline returnKeyType="send" blurOnSubmit={false} onSubmitEditing={onSend} />
+      <LocalizedTextInput value={message} onChangeText={onChange} placeholder={busy ? 'You can type your next message…' : 'Message your AI mentor…'} placeholderTextColor={colors.muted} style={styles.input} multiline returnKeyType="send" blurOnSubmit={false} onSubmitEditing={onSend} />
       <Pressable accessibilityRole="button" accessibilityLabel={busy ? 'Waiting for mentor reply' : 'Send mentor question'} disabled={disabled} onPress={onSend} style={[styles.send, disabled && styles.sendDisabled]}>
         <Ionicons name="arrow-up" size={21} color={colors.white} />
       </Pressable>
@@ -303,17 +303,17 @@ const styles = StyleSheet.create({
   noticeCopy: { flex: 1 }, noticeTitle: { color: colors.muted, fontSize: 9, lineHeight: 14 }, noticeDetail: { color: colors.muted, fontSize: 8, lineHeight: 13, marginTop: 3 },
   emptyChat: { alignItems: 'center', paddingBottom: 20 }, mentorAvatar: { width: 52, height: 52, borderRadius: 16, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   emptyTitle: { color: colors.ink, fontSize: 17, textAlign: 'center' }, emptySubtitle: { color: colors.muted, fontSize: 10, lineHeight: 16, textAlign: 'center', maxWidth: 310, marginTop: 6 },
-  templateGrid: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 22 }, templateCard: { width: '48.5%', minHeight: 82, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 13, backgroundColor: colors.white },
+  templateGrid: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 22 }, templateCard: { width: '48.5%', minHeight: 82, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 13, backgroundColor: colors.background },
   templateTitle: { color: colors.ink, fontSize: 10, lineHeight: 15, marginTop: 9, paddingRight: 16 }, templateArrow: { position: 'absolute', right: 11, bottom: 11 },
   bubble: { maxWidth: '86%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 10 }, userBubble: { alignSelf: 'flex-end', backgroundColor: colors.red, borderBottomRightRadius: 5 }, mentorBubble: { alignSelf: 'flex-start', backgroundColor: colors.blush, borderBottomLeftRadius: 5 },
-  questionBubble: { maxWidth: '96%', width: '96%' }, questionChoices: { marginTop: 12, gap: 7 }, questionChoice: { minHeight: 48, paddingVertical: 8, paddingHorizontal: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  questionBubble: { maxWidth: '96%', width: '96%' }, questionChoices: { marginTop: 12, gap: 7 }, questionChoice: { minHeight: 48, paddingVertical: 8, paddingHorizontal: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.background, flexDirection: 'row', alignItems: 'center', gap: 10 },
   choiceNumber: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }, choiceNumberText: { color: colors.ink, fontSize: 10 }, choiceCopy: { flex: 1 }, choiceLabel: { color: colors.ink, fontSize: 10, lineHeight: 15 }, choiceDescription: { color: colors.muted, fontSize: 8, lineHeight: 13, marginTop: 2 }, customAnswerHint: { color: colors.muted, fontSize: 8, marginTop: 3, paddingHorizontal: 4 },
   messageText: { color: colors.ink, fontSize: 11, lineHeight: 18 }, userMessageText: { color: colors.white }, thinkingBubble: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10 }, thinkingText: { color: colors.muted, fontSize: 9 },
   failedBubble: { borderWidth: 1, borderColor: colors.blushStrong }, errorText: { color: colors.burgundy, fontSize: 9, lineHeight: 15 }, retryButton: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8 }, retryText: { color: colors.burgundy, fontSize: 9 },
-  composerWrap: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 10, backgroundColor: colors.white }, composer: { minHeight: 52, maxHeight: 120, borderWidth: 1, borderColor: colors.border, borderRadius: 26, flexDirection: 'row', alignItems: 'flex-end', paddingLeft: 16, paddingRight: 5, paddingVertical: 4 },
+  composerWrap: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 10, backgroundColor: colors.background }, composer: { minHeight: 52, maxHeight: 120, borderWidth: 1, borderColor: colors.border, borderRadius: 26, flexDirection: 'row', alignItems: 'flex-end', paddingLeft: 16, paddingRight: 5, paddingVertical: 4 },
   input: { flex: 1, maxHeight: 100, minHeight: 42, paddingTop: 10, paddingBottom: 8, fontFamily: font.regular, color: colors.ink, fontSize: 11 }, send: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.red }, sendDisabled: { backgroundColor: '#f39a9a' },
-  historyPage: { flex: 1, backgroundColor: colors.white, paddingHorizontal: contentPadding, paddingTop: 18 },
+  historyPage: { flex: 1, backgroundColor: colors.background, paddingHorizontal: contentPadding, paddingTop: 18 },
   newChatButton: { minHeight: 48, borderRadius: 14, backgroundColor: colors.red, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, newChatText: { color: colors.white, fontSize: 10 },
   historyList: { marginTop: 14 }, historyListContent: { paddingBottom: 24 }, historyRow: { minHeight: 52, borderRadius: 12, paddingLeft: 12, paddingRight: 5, flexDirection: 'row', alignItems: 'center' }, historyRowActive: { backgroundColor: colors.blush }, historyRowMain: { minHeight: 52, flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }, historyRowTitle: { flex: 1, fontSize: 10, color: colors.ink }, deleteChatButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21 },
-  deleteConfirmation: { marginTop: 6, marginBottom: 10, marginHorizontal: 6, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.blushStrong, backgroundColor: colors.blush }, deleteConfirmationTitle: { fontSize: 12, color: colors.ink }, deleteConfirmationCopy: { marginTop: 4, fontSize: 9, lineHeight: 15, color: colors.muted }, deleteConfirmationActions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }, cancelDeleteButton: { minWidth: 72, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white }, confirmDeleteButton: { minWidth: 80, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.red }, confirmDeleteText: { color: colors.white },
+  deleteConfirmation: { marginTop: 6, marginBottom: 10, marginHorizontal: 6, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.blushStrong, backgroundColor: colors.blush }, deleteConfirmationTitle: { fontSize: 12, color: colors.ink }, deleteConfirmationCopy: { marginTop: 4, fontSize: 9, lineHeight: 15, color: colors.muted }, deleteConfirmationActions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }, cancelDeleteButton: { minWidth: 72, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background }, confirmDeleteButton: { minWidth: 80, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.red }, confirmDeleteText: { color: colors.white },
 });

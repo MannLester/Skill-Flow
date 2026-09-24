@@ -1,9 +1,4 @@
 {
-  "src/app/settings.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/domain/career-readiness.ts": {
     "complexity": {
       "count": 1

@@ -23,7 +23,7 @@ export default function RuntimeConfigurationScreen() {
 }
 
 const styles = StyleSheet.create({
-  ready: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.white },
+  ready: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.background },
   readyTitle: { fontSize: 22, color: colors.burgundy },
   readyBody: { marginTop: 12, fontSize: 13, lineHeight: 20, color: colors.ink },
 });

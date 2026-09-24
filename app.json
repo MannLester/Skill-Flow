@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "skillflow",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png"
     },
@@ -27,6 +27,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/with-skillflow-colors.cjs",
       "@clerk/expo",
       "expo-secure-store",
       [

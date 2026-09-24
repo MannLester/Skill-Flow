@@ -21,7 +21,7 @@ export function RuntimeConfigurationState({ result, children }: { result: Runtim
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, justifyContent: 'center', padding: contentPadding, backgroundColor: colors.white },
+  page: { flex: 1, justifyContent: 'center', padding: contentPadding, backgroundColor: colors.background },
   title: { fontSize: 22, color: colors.burgundy },
   body: { marginTop: 12, fontSize: 13, lineHeight: 20 },
   issues: { marginTop: 16, gap: 8 },

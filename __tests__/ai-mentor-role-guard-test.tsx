@@ -50,16 +50,16 @@ describe('AI Mentor role guard', () => {
     expect(screen.queryByText('AI Project Mentor')).toBeNull();
   });
 
-  it('discloses Zen data handling and the offline exchange', async () => {
+  it('discloses Go data handling and the offline test exchange', async () => {
     const screen = render(<SessionProvider><RoleHarness /></SessionProvider>);
     fireEvent.press(screen.getByText('Use Student'));
     await waitFor(() => expect(screen.getByText('Improve an idea')).toBeTruthy());
     expect(screen.getByText(/don't share sensitive information/i)).toBeTruthy();
-    expect(screen.queryByText(/temporary OpenCode Zen models may retain prompts/i)).toBeNull();
+    expect(screen.queryByText(/Prompts are stored in Convex Cloud and sent to OpenCode Go/i)).toBeNull();
 
     fireEvent.press(screen.getByText(/don't share sensitive information/i));
-    expect(screen.getByText(/temporary OpenCode Zen models may retain prompts/i)).toBeTruthy();
-    expect(screen.getByText(/when Zen is unavailable, the mentor is unavailable and unsent messages can be retried/i)).toBeTruthy();
+    expect(screen.getByText(/Prompts are stored in Convex Cloud and sent to OpenCode Go/i)).toBeTruthy();
+    expect(screen.getByText(/If the AI service is unavailable, your unsent message can be retried/i)).toBeTruthy();
 
     fireEvent.press(screen.getByText('Build a palette'));
 

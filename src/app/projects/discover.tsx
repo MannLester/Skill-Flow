@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { memo, useCallback, useMemo, useState } from 'react';
-import { FlatList, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { AppHeader, AppText, MobilePage } from '@/components/ui';
+import { AppHeader, AppText, MobilePage, LocalizedTextInput } from '@/components/ui';
 import { colors, contentPadding, font } from '@/constants/theme';
 import { formatPeso } from '@/data/fixtures';
 import { ProjectPost, useSession } from '@/context/session.remote';
@@ -22,7 +22,7 @@ export default function DiscoverProjectsScreen() {
   }), [category, normalizedQuery, projectPosts]);
   const renderItem = useCallback(({ item }: { item: ProjectPost }) => <PostRow post={item} />, []);
   return <MobilePage><StatusBar style="light" /><AppHeader title="Discover Projects" onBack={() => router.back()} />
-    <View style={styles.search}><Ionicons name="search" size={20} color={colors.muted} /><TextInput accessibilityLabel="Search projects" value={query} onChangeText={setQuery} placeholder="Search title, category, or skill" placeholderTextColor={colors.muted} style={styles.input} /></View>
+    <View style={styles.search}><Ionicons name="search" size={20} color={colors.muted} /><LocalizedTextInput accessibilityLabel="Search projects" value={query} onChangeText={setQuery} placeholder="Search title, category, or skill" placeholderTextColor={colors.muted} style={styles.input} /></View>
     <View style={styles.filterRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{categories.map((item) => <Pressable key={item} onPress={() => setCategory(item)} style={[styles.chip, category === item && styles.chipActive]}><AppText weight="medium" style={[styles.chipText, category === item && styles.chipTextActive]}>{item}</AppText></Pressable>)}</ScrollView></View>
     <FlatList data={visible} keyExtractor={postKeyExtractor} renderItem={renderItem} initialNumToRender={6} maxToRenderPerBatch={6} windowSize={5} removeClippedSubviews={Platform.OS === 'android'} contentContainerStyle={styles.list} ListEmptyComponent={DiscoverEmptyState} />
   </MobilePage>;

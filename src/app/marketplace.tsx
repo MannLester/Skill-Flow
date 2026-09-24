@@ -1,13 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { memo, useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ServiceArtwork } from '@/components/optimized-artwork';
 import { MediaCover } from '@/components/media-gallery';
-import { AppText, BottomNav, MobilePage } from '@/components/ui';
+import { AppText, BottomNav, MobilePage, LocalizedTextInput } from '@/components/ui';
 import { colors, font, shadow } from '@/constants/theme';
 import { formatPeso, Service } from '@/data/fixtures';
 import { useSession } from '@/context/session.remote';
@@ -70,7 +70,7 @@ function MarketplaceHeader({ insetsTop, query, filtersOpen, onQueryChange, onTog
   return <View style={[styles.header, { paddingTop: insetsTop + 8 }]}>
     <View style={styles.titleRow}><AppText weight="semibold" style={styles.title}>Marketplace</AppText></View>
     <View style={styles.searchRow}>
-      <View style={styles.search}><Ionicons name="search-outline" size={22} color={colors.muted} /><TextInput accessibilityLabel="Search marketplace services" value={query} onChangeText={onQueryChange} placeholder="Search services…" placeholderTextColor="#858585" style={styles.searchInput} /></View>
+      <View style={styles.search}><Ionicons name="search-outline" size={22} color={colors.muted} /><LocalizedTextInput accessibilityLabel="Search marketplace services" value={query} onChangeText={onQueryChange} placeholder="Search services…" placeholderTextColor="#858585" style={styles.searchInput} /></View>
       <Pressable accessibilityRole="button" accessibilityLabel="Open marketplace filters" onPress={onToggleFilters} style={[styles.filter, filtersOpen && styles.filterActive]}><Ionicons name="funnel-outline" size={25} color={filtersOpen ? colors.white : colors.burgundy} /></Pressable>
     </View>
   </View>;
@@ -110,8 +110,8 @@ const ServiceRow = memo(function ServiceRow({ service, favorite, onToggleFavorit
 
 const styles = StyleSheet.create({
   header: { backgroundColor: colors.red, paddingHorizontal: 17, paddingBottom: 12 }, titleRow: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }, title: { color: colors.white, fontSize: 20 },
-  searchRow: { flexDirection: 'row', gap: 9 }, search: { flex: 1, height: 50, borderRadius: 8, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13 }, searchInput: { flex: 1, fontFamily: font.regular, fontSize: 13, color: colors.ink }, filter: { width: 50, height: 50, borderRadius: 8, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }, filterActive: { backgroundColor: colors.burgundy }, filterPanel: { paddingHorizontal: 17, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white, gap: 10 }, filterHeading: { flexDirection: 'row', justifyContent: 'space-between' }, clear: { color: colors.burgundy, fontSize: 11 }, filterLabel: { fontSize: 10, marginBottom: 5 }, options: { flexDirection: 'row', gap: 6 }, option: { flex: 1, minHeight: 34, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }, optionActive: { backgroundColor: colors.red, borderColor: colors.red }, optionText: { fontSize: 9 }, savedFilter: { minHeight: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  categories: { backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border }, categoryContent: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 }, chip: { paddingHorizontal: 15, height: 38, borderRadius: 8, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }, chipActive: { backgroundColor: colors.red, ...shadow }, chipText: { fontSize: 12 },
+  searchRow: { flexDirection: 'row', gap: 9 }, search: { flex: 1, height: 50, borderRadius: 8, backgroundColor: colors.background, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13 }, searchInput: { flex: 1, fontFamily: font.regular, fontSize: 13, color: colors.ink }, filter: { width: 50, height: 50, borderRadius: 8, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }, filterActive: { backgroundColor: colors.deepRed }, filterPanel: { paddingHorizontal: 17, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background, gap: 10 }, filterHeading: { flexDirection: 'row', justifyContent: 'space-between' }, clear: { color: colors.burgundy, fontSize: 11 }, filterLabel: { fontSize: 10, marginBottom: 5 }, options: { flexDirection: 'row', gap: 6 }, option: { flex: 1, minHeight: 34, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }, optionActive: { backgroundColor: colors.red, borderColor: colors.red }, optionText: { fontSize: 9 }, savedFilter: { minHeight: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  categories: { backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }, categoryContent: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 }, chip: { paddingHorizontal: 15, height: 38, borderRadius: 8, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }, chipActive: { backgroundColor: colors.red, ...shadow }, chipText: { fontSize: 12 },
   listContainer: { flex: 1 }, list: { paddingHorizontal: 17, paddingBottom: 30 }, results: { color: colors.muted, fontSize: 9, marginTop: 14 }, serviceRow: { minHeight: 140, flexDirection: 'row', alignItems: 'center', gap: 13, borderBottomWidth: 1, borderBottomColor: colors.border }, thumb: { width: 82, aspectRatio: 90 / 91, borderRadius: 8 }, serviceTitle: { fontSize: 17 }, serviceSubtitle: { color: colors.muted, fontSize: 10, marginTop: 3 }, provider: { fontSize: 12, marginTop: 7, color: colors.burgundy }, serviceRight: { width: 105, alignItems: 'flex-end', justifyContent: 'space-between', minHeight: 98 }, rating: { flexDirection: 'row', alignItems: 'center', gap: 5 },   empty: { textAlign: 'center', color: colors.muted, marginTop: 40 },
 });
 

@@ -6,13 +6,14 @@ import { ProjectAction, useSession, SessionProvider } from '@/context/session';
 function LifecycleHarness() {
   const { actOnProject, addCompletedProjectToPortfolio, bookings, createBooking, ledger, loginAsRole, messages, notifications, portfolioItems, reviews, sendMessage } = useSession();
   const project = bookings[0];
-  const act = (action: ProjectAction, payload?: { note?: string; rating?: number; comment?: string }) => project && actOnProject(project.id, action, payload);
+  const act = (action: ProjectAction, payload?: { note?: string; rating?: number; comment?: string; demoPaymentMethod?: 'demo_wallet' }) => project && actOnProject(project.id, action, payload);
   return (
     <View>
       <Text>Status: {project?.status ?? 'none'}</Text>
       <Text>Notifications: {notifications.length}</Text>
       <Text>Messages: {messages.length}</Text>
       <Text>Holds: {ledger.filter((entry) => entry.type === 'hold').length}</Text>
+      <Text>Refunds: {ledger.filter((entry) => entry.type === 'refund').length}</Text>
       <Text>Releases: {ledger.filter((entry) => entry.type === 'release').length}</Text>
       <Text>Reviews: {reviews.length}</Text>
       <Text>Portfolio: {portfolioItems.length}</Text>
@@ -23,7 +24,7 @@ function LifecycleHarness() {
       <Pressable onPress={() => act('accept')}><Text>Accept</Text></Pressable>
       <Pressable onPress={() => act('decline')}><Text>Decline</Text></Pressable>
       <Pressable onPress={() => act('cancel')}><Text>Cancel</Text></Pressable>
-      <Pressable onPress={() => act('fund')}><Text>Fund</Text></Pressable>
+      <Pressable onPress={() => act('fund', { demoPaymentMethod: 'demo_wallet' })}><Text>Fund</Text></Pressable>
       <Pressable onPress={() => act('start')}><Text>Start</Text></Pressable>
       <Pressable onPress={() => project && sendMessage(project.id, 'The first concept is ready.')}><Text>Message</Text></Pressable>
       <Pressable onPress={() => act('submit', { note: 'Logo files and preview submitted.' })}><Text>Submit</Text></Pressable>
@@ -102,6 +103,21 @@ describe('direct booking closed loop', () => {
     fireEvent.press(screen.getByText('Cancel'));
     expect(screen.getByText('Status: cancelled')).toBeTruthy();
     expect(screen.getByText('Holds: 0')).toBeTruthy();
+  });
+
+  it('records a demo refund when the client cancels before work starts', () => {
+    const screen = render(<SessionProvider><LifecycleHarness /></SessionProvider>);
+    fireEvent.press(screen.getByText('Use Mark'));
+    fireEvent.press(screen.getByText('Create'));
+    fireEvent.press(screen.getByText('Use Alex'));
+    fireEvent.press(screen.getByText('Accept'));
+    fireEvent.press(screen.getByText('Use Mark'));
+    fireEvent.press(screen.getByText('Fund'));
+    fireEvent.press(screen.getByText('Cancel'));
+    expect(screen.getByText('Status: cancelled')).toBeTruthy();
+    expect(screen.getByText('Holds: 1')).toBeTruthy();
+    expect(screen.getByText('Refunds: 1')).toBeTruthy();
+    expect(screen.getByText('Releases: 0')).toBeTruthy();
   });
 
   it('does not mutate lifecycle state for blank action payloads and applies valid transitions once', () => {

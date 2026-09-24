@@ -16,9 +16,9 @@ const identity = (subject: string) => ({
 });
 
 afterEach(() => {
-  delete process.env.OPENCODE_ZEN_API_KEY;
-  delete process.env.OPENCODE_ZEN_MODEL;
-  delete process.env.OPENCODE_ZEN_CHAT_MODEL;
+  delete process.env.OPENCODE_GO_API_KEY;
+  delete process.env.OPENCODE_GO_MODEL;
+  delete process.env.OPENCODE_GO_CHAT_MODEL;
   delete process.env.MENTOR_MOCK_REPLY;
   delete process.env.MENTOR_MOCK_FAILURE;
 });
@@ -37,7 +37,7 @@ async function onboardStudent(t: ReturnType<typeof mentorTest>, subject: string,
 
 describe("AI Project Mentor", () => {
   it("allows only Student Designers", async () => {
-    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.OPENCODE_GO_API_KEY = "test-key";
     const t = mentorTest();
     const client = t.withIdentity(identity("mentor-client"));
     await client.mutation(api.profiles.completeOnboarding, { role: "client", name: "Mentor Client" });
@@ -60,7 +60,7 @@ describe("AI Project Mentor", () => {
   });
 
   it("commits an AI turn and persists the reply", async () => {
-    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.OPENCODE_GO_API_KEY = "test-key";
     process.env.MENTOR_MOCK_REPLY = "Start with the smallest useful version and test it with one intended user.";
     const t = mentorTest();
     const student = await onboardStudent(t, "mentor-mock-success");
@@ -68,17 +68,17 @@ describe("AI Project Mentor", () => {
     const result = await student.action(api.mentorActions.sendMentorMessage, {
       body: "Review my portfolio", turnKey: "mock-success", conversationId,
     });
-    expect(result.source).toBe("opencode_zen");
+    expect(result.source).toBe("opencode_go");
     const snapshot = await student.query(api.snapshot.get, {});
     expect(snapshot?.mentorMessages).toHaveLength(2);
     expect(snapshot?.mentorMessages).toMatchObject([
       { role: "user", body: "Review my portfolio" },
-      { role: "mentor", source: "opencode_zen", body: "Start with the smallest useful version and test it with one intended user." },
+      { role: "mentor", source: "opencode_go", body: "Start with the smallest useful version and test it with one intended user." },
     ]);
   });
 
   it("fails without persisting when the provider fails", async () => {
-    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.OPENCODE_GO_API_KEY = "test-key";
     process.env.MENTOR_MOCK_FAILURE = "1";
     const t = mentorTest();
     const student = await onboardStudent(t, "mentor-mock-failure");
@@ -90,8 +90,21 @@ describe("AI Project Mentor", () => {
     expect(snapshot?.mentorMessages).toHaveLength(0);
   });
 
+  it("explains missing provider credits without saving a fake reply", async () => {
+    process.env.OPENCODE_GO_API_KEY = "test-key";
+    process.env.MENTOR_MOCK_FAILURE = "Insufficient account funds";
+    const t = mentorTest();
+    const student = await onboardStudent(t, "mentor-no-credits");
+    const conversationId = await student.mutation(api.mentor.ensureConversation, {});
+    await expect(student.action(api.mentorActions.sendMentorMessage, {
+      body: "Review my portfolio", turnKey: "no-credits", conversationId,
+    })).rejects.toThrow("no available usage");
+    const snapshot = await student.query(api.snapshot.get, {});
+    expect(snapshot?.mentorMessages).toHaveLength(0);
+  });
+
   it("withholds a policy-violating reply without persisting", async () => {
-    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.OPENCODE_GO_API_KEY = "test-key";
     process.env.MENTOR_MOCK_REPLY = "Research shows this is what your users need.";
     const t = mentorTest();
     const student = await onboardStudent(t, "mentor-mock-policy");
@@ -104,7 +117,7 @@ describe("AI Project Mentor", () => {
   });
 
   it("refuses sensitive requests before contacting the provider", async () => {
-    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.OPENCODE_GO_API_KEY = "test-key";
     const t = mentorTest();
     const student = await onboardStudent(t, "mentor-sensitive-guard");
     const conversationId = await student.mutation(api.mentor.ensureConversation, {});
@@ -117,7 +130,7 @@ describe("AI Project Mentor", () => {
   });
 
   it("retries after a provider failure without losing the turn", async () => {
-    process.env.OPENCODE_ZEN_API_KEY = "test-key";
+    process.env.OPENCODE_GO_API_KEY = "test-key";
     process.env.MENTOR_MOCK_FAILURE = "1";
     const t = mentorTest();
     const student = await onboardStudent(t, "mentor-retry");
@@ -130,7 +143,7 @@ describe("AI Project Mentor", () => {
     const result = await student.action(api.mentorActions.sendMentorMessage, {
       body: "Review my portfolio", turnKey: "retry-turn", conversationId,
     });
-    expect(result.source).toBe("opencode_zen");
+    expect(result.source).toBe("opencode_go");
     const snapshot = await student.query(api.snapshot.get, {});
     expect(snapshot?.mentorMessages).toHaveLength(2);
   });

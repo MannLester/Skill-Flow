@@ -57,9 +57,30 @@ describe("development seed data", () => {
     expect(clientSnapshot.bookings.length).toBeGreaterThanOrEqual(2);
 
     const studentSnapshot = requireSnapshot(await student.query(api.snapshot.get, {}));
-    expect(studentSnapshot.mentorMessages).toHaveLength(4);
+    expect(studentSnapshot.mentorMessages).toHaveLength(0);
     expect(studentSnapshot.ledger.some((entry: { type: string }) => entry.type === "release")).toBe(true);
     expect(studentSnapshot.reviews.some((review: { rating: number }) => review.rating === 5)).toBe(true);
+  });
+
+  it("removes only seeded Mentor messages", async () => {
+    const t = convexTest(schema, modules);
+    const operator = t.withIdentity(operatorIdentity);
+    const student = t.withIdentity(identity("mentor-cleanup-student"));
+    const studentProfileId = await student.mutation(api.profiles.completeOnboarding, { role: "student", name: "Mentor Student" });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("mentorMessages", {
+        studentProfileId, turnId: "seeded-turn", role: "mentor", sequence: 1,
+        body: "Old sample reply", turnKey: "seeded-turn", createdAt: 1,
+        seedNamespace: "skillflow-foundation", seedVersion: "v1", seedKey: "mentor-sample",
+      });
+      await ctx.db.insert("mentorMessages", {
+        studentProfileId, turnId: "live-turn", role: "mentor", sequence: 1,
+        body: "Real provider reply", turnKey: "live-turn", source: "opencode_zen", model: "muse-spark-1.2", createdAt: 2,
+      });
+    });
+    expect(await operator.mutation(api.devSeed.clearMentorSamples, {})).toBe(1);
+    const snapshot = requireSnapshot(await student.query(api.snapshot.get, {}));
+    expect(snapshot.mentorMessages.map((message: { body: string }) => message.body)).toEqual(["Real provider reply"]);
   });
 
   it("resets only seed-owned rows and restores the live student verification state", async () => {

@@ -5,18 +5,20 @@ import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexReactClient, useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router, Stack, useGlobalSearchParams, usePathname } from 'expo-router';
 import { memo, PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Appearance, Pressable, StyleSheet, View } from 'react-native';
 
 import { api } from '../../convex/_generated/api';
 import { resolveAuthGateState, type AuthGateState } from '@/auth/auth-gate';
 import { AppText, FormField, MobilePage, PrimaryButton, RoleSelector } from '@/components/ui';
 import { readRuntimeConfiguration, RuntimeConfiguration } from '@/config/runtime';
 import { colors, contentPadding, MAX_PHONE_WIDTH } from '@/constants/theme';
+import { colorSchemeForRoute } from '@/constants/appearance';
 import { SessionProvider, useSession } from '@/context/session.remote';
 import { MediaUploadProvider } from '@/providers/media-upload-provider';
 import type { UserRole } from '@/context/session';
 import { primaryNavActiveForPath, PrimaryBottomNav } from '@/navigation/primary-navigation';
 import { blurActiveWebElement } from '@/utils/web-focus';
+import { LocalizationProvider } from '@/localization';
 
 const publicPaths = new Set(['/', '/register', '/forgot-password', '/terms', '/privacy-policy', '/oauth-native-callback']);
 const legacyDemoStorageKeys = ['skillflow.demo-state', 'skillflow.demo-state.v1'];
@@ -29,17 +31,40 @@ export function AppProviders({ children }: PropsWithChildren) {
 
 function ConfiguredProviders({ children, configuration }: PropsWithChildren<{ configuration: RuntimeConfiguration }>) {
   const convex = useMemo(() => new ConvexReactClient(configuration.convexUrl, { unsavedChangesWarning: false }), [configuration.convexUrl]);
+  const [clerkAttempt, setClerkAttempt] = useState(0);
   const [authAttempt, setAuthAttempt] = useState(0);
   return (
-    <ClerkProvider publishableKey={configuration.clerkPublishableKey} tokenCache={tokenCache} __experimental_disableNativeClientSync>
-      <ClerkLoading><LoadingState message="Restoring your secure session…" /></ClerkLoading>
+    <ClerkProvider key={clerkAttempt} publishableKey={configuration.clerkPublishableKey} tokenCache={tokenCache} __experimental_disableNativeClientSync>
+      <ClerkLoading><ClerkLoadingState onRetry={() => setClerkAttempt((attempt) => attempt + 1)} /></ClerkLoading>
       <ClerkLoaded>
         <ConvexProviderWithClerk key={authAttempt} client={convex} useAuth={useAuth}>
-          <MediaUploadProvider><SessionProvider><AuthProfileGate onRetry={() => setAuthAttempt((attempt) => attempt + 1)}>{children}</AuthProfileGate></SessionProvider></MediaUploadProvider>
+          <MediaUploadProvider><SessionProvider><PreferenceAppearance><AuthProfileGate onRetry={() => setAuthAttempt((attempt) => attempt + 1)}>{children}</AuthProfileGate></PreferenceAppearance></SessionProvider></MediaUploadProvider>
         </ConvexProviderWithClerk>
       </ClerkLoaded>
     </ClerkProvider>
   );
+}
+
+function ClerkLoadingState({ onRetry }: { onRetry: () => void }) {
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setExpired(true), 15000);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!expired) return <LoadingState message="Restoring your secure session…" />;
+  return <MobilePage><View style={styles.recovery}>
+    <AppText weight="bold" style={styles.title}>Sign-in is taking too long</AppText>
+    <AppText style={styles.copy}>SkillFlow could not restore your Clerk session. Check your connection and try again.</AppText>
+    <PrimaryButton title="Retry sign-in" onPress={onRetry} />
+  </View></MobilePage>;
+}
+
+function PreferenceAppearance({ children }: PropsWithChildren) {
+  const { currentAccount, preferences } = useSession();
+  const pathname = usePathname();
+  const signedIn = Boolean(currentAccount);
+  useEffect(() => { Appearance.setColorScheme(colorSchemeForRoute(pathname, signedIn, preferences.darkMode)); }, [pathname, signedIn, preferences.darkMode]);
+  return <LocalizationProvider language={preferences.language}>{children}</LocalizationProvider>;
 }
 
 export function AuthProfileGate({ children, onRetry }: PropsWithChildren<{ onRetry: () => void }>) {
@@ -53,11 +78,22 @@ export function AuthProfileGate({ children, onRetry }: PropsWithChildren<{ onRet
   useEffect(() => {
     if (isAuthenticated && profile) void AsyncStorage.multiRemove(legacyDemoStorageKeys);
   }, [isAuthenticated, profile]);
-  if (state === 'loading') return <LoadingState message="Connecting securely to SkillFlow…" />;
+  if (state === 'loading') return <BackendLoadingState signedIn={Boolean(isSignedIn)} onRetry={onRetry} onSignOut={async () => { await signOut(); router.replace('/'); }} />;
   if (state === 'signed-out') return children;
   if (state === 'backend-recovery') return <AuthRecoveryState onRetry={onRetry} onSignOut={async () => { await signOut(); router.replace('/'); }} />;
   if (state === 'profile-onboarding') return <ProfileOnboarding />;
   return <AuthenticatedNavigationShell>{children}</AuthenticatedNavigationShell>;
+}
+
+function BackendLoadingState({ signedIn, onRetry, onSignOut }: { signedIn: boolean; onRetry: () => void; onSignOut: () => Promise<void> }) {
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    if (!signedIn) return;
+    const timer = setTimeout(() => setExpired(true), 15000);
+    return () => clearTimeout(timer);
+  }, [signedIn]);
+  return expired ? <AuthRecoveryState onRetry={onRetry} onSignOut={onSignOut} />
+    : <LoadingState message="Connecting securely to SkillFlow…" />;
 }
 
 function useAuthProfileRedirect(state: AuthGateState, pathname: string, profile: { role?: string } | null | undefined) {
@@ -143,5 +179,5 @@ const styles = StyleSheet.create({
   recovery: { flex: 1, justifyContent: 'center', gap: 16, paddingHorizontal: contentPadding },
   title: { fontSize: 20, textAlign: 'center' }, copy: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' }, error: { color: colors.red, fontSize: 11, textAlign: 'center' },
   signOut: { minHeight: 48, alignItems: 'center', justifyContent: 'center' }, signOutText: { color: colors.burgundy, fontSize: 13 },
-  shell: { flex: 1 }, stack: { flex: 1, overflow: 'hidden' }, navOuter: { alignItems: 'center', backgroundColor: '#fff', flexShrink: 0 }, navPhone: { width: '100%', maxWidth: MAX_PHONE_WIDTH },
+  shell: { flex: 1 }, stack: { flex: 1, overflow: 'hidden' }, navOuter: { alignItems: 'center', backgroundColor: colors.background, flexShrink: 0 }, navPhone: { width: '100%', maxWidth: MAX_PHONE_WIDTH },
 });

@@ -2,15 +2,6 @@
   "version": 1,
   "violations": [
     {
-      "file": "src/app/settings.tsx",
-      "line": 43,
-      "column": 1,
-      "nodeType": "FunctionDeclaration",
-      "name": "SettingsRow",
-      "complexity": 11,
-      "sourceHash": "5e2e47adeea748ae0361bb12c97a12f27ff024bc78750c6c6a6b116bfb6e408f"
-    },
-    {
       "file": "src/domain/career-readiness.ts",
       "line": 31,
       "column": 8,

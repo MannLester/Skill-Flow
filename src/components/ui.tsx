@@ -8,8 +8,9 @@ import { Svg, Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { UserRole } from '@/context/session';
-import { colors, font, MAX_PHONE_WIDTH, shadow } from '@/constants/theme';
+import { authColors, colors, font, MAX_PHONE_WIDTH, shadow } from '@/constants/theme';
 import { OptimizedArtwork, optimizedArtwork } from '@/components/optimized-artwork';
+import { translateNode, useTranslation } from '@/localization';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type BottomNavProps = {
@@ -19,13 +20,14 @@ type BottomNavProps = {
 type BottomNavItem = { key: BottomNavProps['active']; label: string; icon: IconName; action?: () => void; dot?: boolean };
 
 export function AppText({ children, weight = 'regular', style, ...props }: ComponentProps<typeof Text> & { weight?: keyof typeof font }) {
-  return <Text maxFontSizeMultiplier={1.5} {...props} style={[{ color: colors.ink, fontFamily: font[weight] }, style]}>{children}</Text>;
+  const { language } = useTranslation();
+  return <Text maxFontSizeMultiplier={1.5} {...props} style={[{ color: colors.ink, fontFamily: font[weight] }, style]}>{translateNode(children, language)}</Text>;
 }
 
-export function MobilePage({ children, backgroundColor = colors.white }: { children: ReactNode; backgroundColor?: string }) {
+export function MobilePage({ children, backgroundColor = colors.background }: { children: ReactNode; backgroundColor?: import('react-native').ColorValue }) {
   return (
     <View style={[styles.outer, { backgroundColor }]}> 
-      <View style={styles.phone}>{children}</View>
+      <View style={[styles.phone, { backgroundColor }]}>{children}</View>
     </View>
   );
 }
@@ -83,7 +85,7 @@ export function AppHeader({ title, onBack, right, red = true }: { title: string;
   const insets = useSafeAreaInsets();
   const color = red ? colors.white : colors.ink;
   return (
-    <View style={[styles.header, { paddingTop: insets.top, height: 58 + insets.top, backgroundColor: red ? colors.red : colors.white }]}> 
+    <View style={[styles.header, { paddingTop: insets.top, height: 58 + insets.top, backgroundColor: red ? colors.red : colors.background }]}>
       <View style={styles.headerSide}>
         {onBack ? <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} hitSlop={12}><Ionicons name="arrow-back" size={29} color={color} /></Pressable> : null}
       </View>
@@ -101,41 +103,46 @@ export function PrimaryButton({ title, onPress, style, textStyle, disabled = fal
   );
 }
 
-export function FormField({ icon, secureTextEntry, style, ...props }: TextInputProps & { icon: IconName; style?: StyleProp<ViewStyle> }) {
+export function FormField({ icon, secureTextEntry, light = false, style, ...props }: TextInputProps & { icon: IconName; light?: boolean; style?: StyleProp<ViewStyle> }) {
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
+  const { t } = useTranslation();
+  const appearance = formFieldAppearance(light);
   return (
-    <View style={[styles.field, style]}>
-      <Ionicons name={icon} size={18} color={colors.burgundy} />
+    <View style={[styles.field, appearance.field, style]}>
+      <Ionicons name={icon} size={18} color={appearance.accent} />
       <TextInput
         {...props}
-        placeholderTextColor="#9b9b9b"
+        accessibilityLabel={typeof props.accessibilityLabel === 'string' ? t(props.accessibilityLabel) : props.accessibilityLabel}
+        accessibilityHint={typeof props.accessibilityHint === 'string' ? t(props.accessibilityHint) : props.accessibilityHint}
+        placeholder={props.placeholder ? t(props.placeholder) : undefined}
+        placeholderTextColor={appearance.placeholder}
         secureTextEntry={secureTextEntry ? hidden : false}
-        style={styles.input}
+        style={[styles.input, appearance.input]}
         selectionColor={colors.red}
       />
       {secureTextEntry ? (
         <Pressable accessibilityRole="button" accessibilityLabel={hidden ? 'Show password' : 'Hide password'} onPress={() => setHidden((value) => !value)} hitSlop={10}>
-          <Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={19} color={colors.muted} />
+          <Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={19} color={appearance.eye} />
         </Pressable>
       ) : null}
     </View>
   );
 }
 
-export function RoleSelector({ value, onChange }: { value: UserRole; onChange: (value: UserRole) => void }) {
+export function RoleSelector({ value, onChange, light = false }: { value: UserRole; onChange: (value: UserRole) => void; light?: boolean }) {
   return (
     <View style={styles.roleSelector}>
-      <RoleButton label="Student Designer" icon="school" active={value === 'student'} onPress={() => onChange('student')} />
-      <RoleButton label="Client" icon="people-outline" active={value === 'client'} onPress={() => onChange('client')} />
+      <RoleButton label="Student Designer" icon="school" active={value === 'student'} light={light} onPress={() => onChange('student')} />
+      <RoleButton label="Client" icon="people-outline" active={value === 'client'} light={light} onPress={() => onChange('client')} />
     </View>
   );
 }
 
-function RoleButton({ label, icon, active, onPress }: { label: string; icon: IconName; active: boolean; onPress: () => void }) {
+function RoleButton({ label, icon, active, light, onPress }: { label: string; icon: IconName; active: boolean; light: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={[styles.roleButton, active && styles.roleButtonActive]}>
-      <Ionicons name={icon} size={17} color={active ? colors.white : colors.burgundy} />
-      <AppText weight="medium" style={{ color: active ? colors.white : colors.burgundy, fontSize: 11 }}>{label}</AppText>
+      <Ionicons name={icon} size={17} color={active ? colors.white : light ? authColors.accent : colors.burgundy} />
+      <AppText weight="medium" style={{ color: active ? colors.white : light ? authColors.accent : colors.burgundy, fontSize: 11 }}>{label}</AppText>
     </Pressable>
   );
 }
@@ -161,12 +168,32 @@ export function BottomNav(props: BottomNavProps) {
 }
 
 function BottomNavButton({ item, selected, plus }: { item: BottomNavItem; selected: boolean; plus: boolean }) {
-  const iconColor = plus ? colors.white : selected ? colors.red : '#555';
+  const iconColor = plus ? colors.white : selected ? colors.red : colors.muted;
   return <Pressable accessibilityRole="button" accessibilityLabel={bottomNavLabel(item, plus)} accessibilityState={{ disabled: !item.action, selected }} disabled={!item.action} onPress={item.action} style={styles.navItem}><View style={styles.navIconWrap}><BottomNavIcon item={item} plus={plus} color={iconColor} /></View>{plus ? null : <AppText weight={selected ? 'medium' : 'regular'} style={[styles.navLabel, selected && { color: colors.red }]}>{item.label}</AppText>}</Pressable>;
 }
 
+function formFieldAppearance(light: boolean) {
+  return {
+    field: light ? styles.lightField : null,
+    input: light ? styles.lightInput : null,
+    accent: light ? authColors.accent : colors.burgundy,
+    placeholder: light ? authColors.muted : '#9b9b9b',
+    eye: light ? authColors.muted : colors.muted,
+  };
+}
+
+export function LocalizedTextInput(props: TextInputProps) {
+  const { t } = useTranslation();
+  return <TextInput
+    {...props}
+    accessibilityLabel={typeof props.accessibilityLabel === 'string' ? t(props.accessibilityLabel) : props.accessibilityLabel}
+    accessibilityHint={typeof props.accessibilityHint === 'string' ? t(props.accessibilityHint) : props.accessibilityHint}
+    placeholder={props.placeholder ? t(props.placeholder) : undefined}
+  />;
+}
+
 function bottomNavLabel(item: BottomNavItem, plus: boolean) { return plus ? (item.icon === 'search' ? 'Discover' : 'Create') : item.label; }
-function BottomNavIcon({ item, plus, color }: { item: BottomNavItem; plus: boolean; color: string }) {
+function BottomNavIcon({ item, plus, color }: { item: BottomNavItem; plus: boolean; color: ComponentProps<typeof Ionicons>['color'] }) {
   if (plus) return <View style={styles.plusOuter}><View style={styles.plusButton}><Ionicons name={item.icon} size={item.icon === 'search' ? 28 : 40} color={colors.white} /></View></View>;
   return <><View><Ionicons name={item.icon} size={27} color={color} /></View>{item.dot ? <View style={styles.messageDot} /> : null}</>;
 }
@@ -180,36 +207,43 @@ export function QuickAction({ icon, label, onPress }: { icon: IconName; label: s
   );
 }
 
-export function AppLogo({ compact = false }: { compact?: boolean }) {
+export function AppLogo({ compact = false, light = false }: { compact?: boolean; light?: boolean }) {
   const logoSize = compact ? 43 : 110;
+  const textColors = logoTextColors(light);
   return (
     <View style={[compact ? styles.logoRow : styles.logoStack, compact && { gap: 4 }]}>
       <OptimizedArtwork source={optimizedArtwork.skillflowLogo} style={{ width: logoSize, height: logoSize, borderRadius: compact ? 10 : 14 }} />
       <View style={{ alignItems: 'center' }}>
-        <AppText weight="bold" style={{ fontSize: compact ? 20 : 32, color: colors.ink }}>Skill Flow</AppText>
-        {!compact ? <AppText weight="medium" style={{ fontSize: 11, color: colors.muted }}>Showcase Your Skills, Connect with Clients.</AppText> : null}
+        <AppText weight="bold" style={{ fontSize: compact ? 20 : 32, color: textColors.title }}>Skill Flow</AppText>
+        {!compact ? <AppText weight="medium" style={{ fontSize: 11, color: textColors.subtitle }}>Showcase Your Skills, Connect with Clients.</AppText> : null}
       </View>
     </View>
   );
 }
 
+function logoTextColors(light: boolean) {
+  return { title: light ? authColors.text : colors.ink, subtitle: light ? authColors.muted : colors.muted };
+}
+
 const styles = StyleSheet.create({
   outer: { flex: 1, alignItems: 'center' },
-  phone: { flex: 1, width: '100%', maxWidth: MAX_PHONE_WIDTH, backgroundColor: colors.white, overflow: 'hidden' },
+  phone: { flex: 1, width: '100%', maxWidth: MAX_PHONE_WIDTH, backgroundColor: colors.background, overflow: 'hidden' },
   header: { width: '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
   headerSide: { width: 40 },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 19 },
   primaryButton: { minHeight: 52, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.red, ...shadow },
   primaryButtonText: { color: colors.white, fontSize: 15 },
-  field: { minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white },
+  field: { minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.background },
+  lightField: { borderColor: authColors.border, backgroundColor: authColors.field },
   input: { flex: 1, minHeight: 50, color: colors.ink, fontFamily: font.regular, fontSize: 13, paddingVertical: 0 },
+  lightInput: { color: authColors.text, backgroundColor: authColors.field },
   roleSelector: { flexDirection: 'row', borderWidth: 1, borderColor: '#e3a9ae', borderRadius: 20, overflow: 'hidden', minHeight: 39 },
   roleButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   roleButtonActive: { backgroundColor: colors.red },
-  bottomNav: { backgroundColor: colors.white, flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: 20, borderTopRightRadius: 20, ...shadow },
+  bottomNav: { backgroundColor: colors.background, flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: 20, borderTopRightRadius: 20, ...shadow },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
   navIconWrap: { height: 30, alignItems: 'center', justifyContent: 'center' },
-  navLabel: { color: '#555', fontSize: 10 },
+  navLabel: { color: colors.muted, fontSize: 10 },
   plusOuter: { width: 82, height: 82, borderRadius: 41, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', marginTop: -33, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 6 },
   plusButton: { width: 68, height: 68, borderRadius: 34, backgroundColor: colors.red, alignItems: 'center', justifyContent: 'center' },
   messageDot: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: colors.red, right: -1, top: 0 },

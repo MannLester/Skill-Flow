@@ -61,7 +61,7 @@ function ProfileVerificationBadge({ isStudent, verification }: { isStudent: bool
 }
 
 function verificationBadgeText(isVerified: boolean, status?: StudentVerification['status']) {
-  return isVerified ? 'Verified Student' : `Verification: ${(status ?? 'not submitted').replace('_', ' ')}`;
+  return isVerified ? 'Demo Verified Student' : `Verification: ${(status ?? 'not submitted').replace('_', ' ')}`;
 }
 
 function ProfileDetails({ profile }: { profile?: UserProfile }) {
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   verification: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 15, paddingHorizontal: 11, paddingVertical: 6 },
   verified: { backgroundColor: colors.green, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, elevation: 4, shadowColor: colors.green, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6 },
   verificationText: { color: colors.white, fontSize: 10, textTransform: 'capitalize' },
-  card: { backgroundColor: colors.white, borderRadius: 14, padding: 17, ...shadow },
+  card: { backgroundColor: colors.background, borderRadius: 14, padding: 17, ...shadow },
   readiness: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.blush, borderRadius: 14, padding: 16 },
   readinessScore: { flexDirection: 'row', alignItems: 'baseline' },
   readinessTitle: { fontSize: 15 },
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   skill: { backgroundColor: colors.blush, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   skillText: { color: colors.burgundy, fontSize: 10 },
   stats: { flexDirection: 'row', gap: 8 },
-  stat: { flex: 1, alignItems: 'center', backgroundColor: colors.white, borderRadius: 12, paddingVertical: 14, ...shadow },
+  stat: { flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 12, paddingVertical: 14, ...shadow },
   statValue: { fontSize: 16 },
   small: { color: colors.muted, fontSize: 9, textTransform: 'capitalize', marginTop: 2 },
   link: { color: colors.burgundy, fontSize: 12 },

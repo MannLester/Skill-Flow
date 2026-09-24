@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppHeader, AppText, MobilePage } from '@/components/ui';
+import { AppHeader, AppText, MobilePage, LocalizedTextInput } from '@/components/ui';
 import { ImageUploader } from '@/components/image-uploader';
 import { MediaGallery } from '@/components/media-gallery';
 import { colors, contentPadding, font } from '@/constants/theme';
@@ -45,7 +45,7 @@ export default function ProjectMessagesScreen() {
       <AppHeader title={booking.title} onBack={() => router.back()} right={<Pressable accessibilityRole="button" accessibilityLabel="Open project" onPress={() => router.push({ pathname: '/projects/[projectId]', params: { projectId: booking.id } })}><Ionicons name="briefcase-outline" size={25} color={colors.white} /></Pressable>} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList data={thread} keyExtractor={messageKeyExtractor} renderItem={renderItem} contentContainerStyle={styles.list} initialNumToRender={12} maxToRenderPerBatch={12} windowSize={7} removeClippedSubviews={Platform.OS === 'android'} ListEmptyComponent={ConversationEmptyState} />
-        <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 9) }]}><ImageUploader purpose="message_image" value={images} onChange={setImages} max={1} label="Image Attachment" defaultAltText="Message image attachment" /><View style={styles.composer}><TextInput value={body} onChangeText={setBody} placeholder="Write a message…" placeholderTextColor={colors.muted} style={styles.input} onSubmitEditing={submit} /><Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!body.trim() && !images.length} onPress={submit} style={[styles.send, !body.trim() && !images.length && { opacity: 0.45 }]}><Ionicons name="send" size={20} color={colors.white} /></Pressable></View></View>
+        <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 9) }]}><ImageUploader purpose="message_image" value={images} onChange={setImages} max={1} label="Image Attachment" defaultAltText="Message image attachment" /><View style={styles.composer}><LocalizedTextInput value={body} onChangeText={setBody} placeholder="Write a message…" placeholderTextColor={colors.muted} style={styles.input} onSubmitEditing={submit} /><Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!body.trim() && !images.length} onPress={submit} style={[styles.send, !body.trim() && !images.length && { opacity: 0.45 }]}><Ionicons name="send" size={20} color={colors.white} /></Pressable></View></View>
       </KeyboardAvoidingView>
     </MobilePage>
   );

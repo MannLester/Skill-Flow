@@ -7,7 +7,7 @@ type BaseContext = {
 };
 
 const committedSuppressions = jest.requireActual('../eslint-suppressions.json') as SuppressionMap;
-const suppressionPath = 'src/app/settings.tsx';
+const suppressionPath = 'src/domain/career-readiness.ts';
 const {
   parseBaseState,
   requireExpectedBaseSha,
@@ -86,8 +86,8 @@ describe('ESLint suppression trust anchor', () => {
   it('permits pruning and rejects ratcheting back above the base', () => {
     const suppressions = cloneBaseline();
     const ceiling = cloneBaseline();
-    delete suppressions['src/app/settings.tsx'];
-    delete ceiling['src/app/settings.tsx'];
+    delete suppressions[suppressionPath];
+    delete ceiling[suppressionPath];
     expect(validateSuppressionState(suppressions, ceiling, baseContext())).toEqual([]);
 
     const context = baseContext();
