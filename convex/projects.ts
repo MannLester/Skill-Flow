@@ -134,10 +134,11 @@ export const createBooking = mutation({
 });
 
 type Action = "accept" | "decline" | "cancel" | "fund" | "start" | "submit" | "request_revision" | "approve" | "review";
-type ActionArgs = { action: Action; note?: string; rating?: number; comment?: string; deliveryImages?: { uploadedFileId: Id<"uploadedFiles">; altText: string }[] };
+type DemoPaymentMethod = "demo_wallet" | "demo_bank" | "demo_cash";
+type ActionArgs = { action: Action; note?: string; rating?: number; comment?: string; demoPaymentMethod?: DemoPaymentMethod; deliveryImages?: { uploadedFileId: Id<"uploadedFiles">; altText: string }[] };
 
 export const actOnBooking = mutation({
-  args: { bookingId: v.id("projectBookings"), action: v.union(v.literal("accept"), v.literal("decline"), v.literal("cancel"), v.literal("fund"), v.literal("start"), v.literal("submit"), v.literal("request_revision"), v.literal("approve"), v.literal("review")), note: v.optional(v.string()), rating: v.optional(v.number()), comment: v.optional(v.string()), deliveryImages: v.optional(v.array(mediaInput)) },
+  args: { bookingId: v.id("projectBookings"), action: v.union(v.literal("accept"), v.literal("decline"), v.literal("cancel"), v.literal("fund"), v.literal("start"), v.literal("submit"), v.literal("request_revision"), v.literal("approve"), v.literal("review")), note: v.optional(v.string()), rating: v.optional(v.number()), comment: v.optional(v.string()), demoPaymentMethod: v.optional(v.union(v.literal("demo_wallet"), v.literal("demo_bank"), v.literal("demo_cash"))), deliveryImages: v.optional(v.array(mediaInput)) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const actor = await requireProfile(ctx);
@@ -155,8 +156,8 @@ async function applyBookingAction(ctx: MutationCtx, actor: Doc<"profiles">, book
   const handlers: Record<Action, () => Promise<void>> = {
     accept: () => transition(ctx, actor._id, booking, isStudent && booking.status === "requested", "accepted", "Request accepted", booking.clientProfileId, now),
     decline: () => transition(ctx, actor._id, booking, isStudent && booking.status === "requested", "declined", "Request declined", booking.clientProfileId, now),
-    cancel: () => cancelBooking(ctx, actor._id, booking, isClient && ["requested", "accepted"].includes(booking.status), now),
-    fund: () => fundBooking(ctx, actor._id, booking, isClient && booking.status === "accepted", now),
+    cancel: () => cancelBooking(ctx, actor._id, booking, isClient && ["requested", "accepted", "demo_funded"].includes(booking.status), now),
+    fund: () => fundBooking(ctx, actor._id, booking, isClient && booking.status === "accepted", args.demoPaymentMethod, now),
     start: () => transition(ctx, actor._id, booking, isStudent && booking.status === "demo_funded", "in_progress", "Work started", booking.clientProfileId, now),
     submit: () => submitDelivery(ctx, actor._id, booking, isStudent && ["in_progress", "revision_requested"].includes(booking.status), args.note, args.deliveryImages, now),
     request_revision: () => requestRevision(ctx, actor._id, booking, isClient && booking.status === "submitted", args.note, now),
@@ -174,14 +175,21 @@ async function transition(ctx: MutationCtx, actorId: Id<"profiles">, booking: Do
 
 async function cancelBooking(ctx: MutationCtx, actorId: Id<"profiles">, booking: Doc<"projectBookings">, allowed: boolean, now: number) {
   if (!allowed) throw new Error("This action is not available for the current account or project status.");
+  if (booking.status === "demo_funded") {
+    const hold = await ctx.db.query("ledgerEntries").withIndex("by_booking_type", (q) => q.eq("bookingId", booking._id).eq("type", "hold")).unique();
+    if (!hold) throw new Error("The demo hold is missing. This project cannot be refunded.");
+    const refund = await ctx.db.query("ledgerEntries").withIndex("by_booking_type", (q) => q.eq("bookingId", booking._id).eq("type", "refund")).unique();
+    if (!refund) await ctx.db.insert("ledgerEntries", { ownerProfileId: booking.clientProfileId, bookingId: booking._id, type: "refund", amount: hold.amount, isSimulated: true, createdAt: now });
+  }
   await ctx.db.patch(booking._id, { status: "cancelled", version: booking.version + 1, updatedAt: now, cancelledAt: now, lastCommand: "cancel", lastActorProfileId: actorId });
   await notifyBooking(ctx, { recipientProfileId: booking.studentProfileId, bookingId: booking._id, kind: "project", title: "Request cancelled", detail: booking.title, eventKey: `booking:${booking._id}:cancelled` });
 }
 
-async function fundBooking(ctx: MutationCtx, actorId: Id<"profiles">, booking: Doc<"projectBookings">, allowed: boolean, now: number) {
+async function fundBooking(ctx: MutationCtx, actorId: Id<"profiles">, booking: Doc<"projectBookings">, allowed: boolean, demoPaymentMethod: DemoPaymentMethod | undefined, now: number) {
   if (!allowed) throw new Error("This action is not available for the current account or project status.");
+  if (!demoPaymentMethod) throw new Error("Choose a simulated payment method.");
   const prior = await ctx.db.query("ledgerEntries").withIndex("by_booking_type", (q) => q.eq("bookingId", booking._id).eq("type", "hold")).unique();
-  if (!prior) await ctx.db.insert("ledgerEntries", { ownerProfileId: booking.clientProfileId, bookingId: booking._id, type: "hold", amount: booking.budget, isSimulated: true, createdAt: now });
+  if (!prior) await ctx.db.insert("ledgerEntries", { ownerProfileId: booking.clientProfileId, bookingId: booking._id, type: "hold", amount: booking.budget, demoPaymentMethod, isSimulated: true, createdAt: now });
   await ctx.db.patch(booking._id, { status: "demo_funded", version: booking.version + 1, updatedAt: now, fundedAt: now, lastCommand: "fund", lastActorProfileId: actorId });
   await notifyBooking(ctx, { recipientProfileId: booking.studentProfileId, bookingId: booking._id, kind: "payment", title: "Demo funds reserved", detail: booking.title, eventKey: `booking:${booking._id}:funded` });
 }

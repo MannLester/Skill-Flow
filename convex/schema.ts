@@ -102,7 +102,7 @@ export default defineSchema({
     .index("by_service", ["serviceId"]).index("by_post", ["projectPostId"]).index("by_proposal", ["proposalId"])
     .index("by_client_request", ["clientProfileId", "requestKey"]).index("by_seed", ["seedNamespace", "seedKey"]),
 
-  ledgerEntries: defineTable({ ownerProfileId: v.id("profiles"), bookingId: v.id("projectBookings"), type: v.union(v.literal("hold"), v.literal("refund"), v.literal("release")), amount: v.number(), isSimulated: v.literal(true), createdAt: v.number(), ...seedFields })
+  ledgerEntries: defineTable({ ownerProfileId: v.id("profiles"), bookingId: v.id("projectBookings"), type: v.union(v.literal("hold"), v.literal("refund"), v.literal("release")), amount: v.number(), demoPaymentMethod: v.optional(v.union(v.literal("demo_wallet"), v.literal("demo_bank"), v.literal("demo_cash"))), isSimulated: v.literal(true), createdAt: v.number(), ...seedFields })
     .index("by_booking_type", ["bookingId", "type"]).index("by_owner", ["ownerProfileId", "createdAt"]).index("by_seed", ["seedNamespace", "seedKey"]),
 
   reviews: defineTable({ bookingId: v.id("projectBookings"), clientProfileId: v.id("profiles"), studentProfileId: v.id("profiles"), rating: v.number(), comment: v.string(), createdAt: v.number(), ...seedFields })
@@ -132,7 +132,7 @@ export default defineSchema({
   studentVerifications: defineTable({
     studentProfileId: v.id("profiles"), status: verificationStatus, school: v.string(), studentNumberMasked: v.string(), program: v.string(), gradeLevel: v.string(),
     graduationYear: v.optional(v.number()), sampleDocumentName: v.optional(v.string()), rejectionReason: v.optional(v.string()), version: v.number(), isSimulated: v.literal(true),
-    submittedAt: v.optional(v.number()), reviewedAt: v.optional(v.number()), updatedAt: v.number(), ...seedFields,
+    submittedAt: v.optional(v.number()), reviewedAt: v.optional(v.number()), checkScheduledAt: v.optional(v.number()), updatedAt: v.number(), ...seedFields,
   }).index("by_student", ["studentProfileId"]).index("by_status", ["status"]).index("by_seed", ["seedNamespace", "seedKey"]),
 
   mentorThreads: defineTable({ studentProfileId: v.id("profiles"), agentThreadId: v.string(), createdAt: v.number(), updatedAt: v.number() })
@@ -153,11 +153,11 @@ export default defineSchema({
     stage: v.union(v.literal("discovery"), v.literal("guidance")), createdAt: v.number(), updatedAt: v.number(),
   }).index("by_conversation", ["conversationId"]).index("by_student_updated", ["studentProfileId", "updatedAt"]),
 
-  mentorMessages: defineTable({ studentProfileId: v.id("profiles"), conversationId: v.optional(v.id("mentorConversations")), turnId: v.string(), role: v.union(v.literal("user"), v.literal("mentor")), sequence: v.union(v.literal(0), v.literal(1)), body: v.string(), turnKey: v.string(), question: v.optional(mentorQuestion), ruleVersion: v.optional(v.string()), source: v.optional(v.union(v.literal("simulated"), v.literal("opencode_zen"))), model: v.optional(v.string()), isSimulated: v.optional(v.literal(true)), createdAt: v.number(), ...seedFields })
+  mentorMessages: defineTable({ studentProfileId: v.id("profiles"), conversationId: v.optional(v.id("mentorConversations")), turnId: v.string(), role: v.union(v.literal("user"), v.literal("mentor")), sequence: v.union(v.literal(0), v.literal(1)), body: v.string(), turnKey: v.string(), question: v.optional(mentorQuestion), ruleVersion: v.optional(v.string()), source: v.optional(v.union(v.literal("simulated"), v.literal("opencode_zen"), v.literal("opencode_go"))), model: v.optional(v.string()), isSimulated: v.optional(v.literal(true)), createdAt: v.number(), ...seedFields })
     .index("by_student", ["studentProfileId", "createdAt"]).index("by_student_turn_key", ["studentProfileId", "turnKey"])
     .index("by_conversation_and_createdAt", ["conversationId", "createdAt"])
     .index("by_turn", ["turnId", "sequence"]).index("by_seed", ["seedNamespace", "seedKey"]),
 
-  preferences: defineTable({ profileId: v.id("profiles"), notificationBadgesEnabled: v.boolean(), language: v.literal("en"), settingsDarkMode: v.boolean(), schemaVersion: v.number(), revision: v.number(), createdAt: v.number(), updatedAt: v.number(), ...seedFields })
+  preferences: defineTable({ profileId: v.id("profiles"), notificationBadgesEnabled: v.boolean(), language: v.union(v.literal("en"), v.literal("fil")), settingsDarkMode: v.boolean(), schemaVersion: v.number(), revision: v.number(), createdAt: v.number(), updatedAt: v.number(), ...seedFields })
     .index("by_profile", ["profileId"]).index("by_seed", ["seedNamespace", "seedKey"]),
 });

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-export const mentorSource = v.union(v.literal("simulated"), v.literal("opencode_zen"));
+export const mentorSource = v.union(v.literal("simulated"), v.literal("opencode_zen"), v.literal("opencode_go"));
 export const mentorQuestionTopic = v.union(
   v.literal("goal"), v.literal("audience"), v.literal("problem"), v.literal("constraints"),
   v.literal("deliverable"), v.literal("successCriterion"),

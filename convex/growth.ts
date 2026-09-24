@@ -1,11 +1,13 @@
 import { v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { internalMutation, mutation } from "./_generated/server";
 import { assertText, requireProfile, requireRole } from "./lib/auth";
 import { copyAttachments, replaceAttachments } from "./media";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
 const mediaInput = v.object({ uploadedFileId: v.id("uploadedFiles"), altText: v.string() });
+const DEMO_CHECK_DELAY_MS = 2500;
 
 export const submitVerification = mutation({
   args: { school: v.string(), studentNumber: v.string(), program: v.string(), gradeLevel: v.string(), graduationYear: v.optional(v.number()), sampleDocumentName: v.optional(v.string()), evidenceImage: v.array(mediaInput) }, returns: v.null(),
@@ -15,23 +17,37 @@ export const submitVerification = mutation({
     if (normalized.length < 6) throw new Error("Enter a student number with at least 6 characters.");
     const current = await ctx.db.query("studentVerifications").withIndex("by_student", (q) => q.eq("studentProfileId", student._id)).unique();
     const now = Date.now();
-    const fields = { status: "pending" as const, school: assertText(args.school, "School", 160), studentNumberMasked: `${normalized.slice(0, 4)}-****-${normalized.slice(-4)}`, program: assertText(args.program, "Program", 120), gradeLevel: assertText(args.gradeLevel, "Grade level", 80), graduationYear: args.graduationYear, sampleDocumentName: assertText(args.sampleDocumentName ?? "", "Sample student ID", 160), version: (current?.version ?? 0) + 1, isSimulated: true as const, submittedAt: now, reviewedAt: undefined, rejectionReason: undefined, updatedAt: now };
+    const fields = { status: "pending" as const, school: assertText(args.school, "School", 160), studentNumberMasked: `${normalized.slice(0, 4)}-****-${normalized.slice(-4)}`, program: assertText(args.program, "Program", 120), gradeLevel: assertText(args.gradeLevel, "Grade level", 80), graduationYear: args.graduationYear, sampleDocumentName: assertText(args.sampleDocumentName ?? "", "Sample student ID", 160), version: (current?.version ?? 0) + 1, isSimulated: true as const, submittedAt: now, reviewedAt: undefined, rejectionReason: undefined, checkScheduledAt: now, updatedAt: now };
     const verificationId = current ? current._id : await ctx.db.insert("studentVerifications", { studentProfileId: student._id, ...fields });
     if (current) await ctx.db.patch(current._id, fields);
     await replaceAttachments(ctx, student._id, "verification", verificationId, "verification_sample", "owner", args.evidenceImage, 1, 1);
     await ctx.db.patch(student._id, { school: fields.school, program: fields.program, gradeLevel: fields.gradeLevel, graduationYear: fields.graduationYear, updatedAt: now });
+    await ctx.scheduler.runAfter(DEMO_CHECK_DELAY_MS, internal.growth.completeDemoVerification, { verificationId, submittedVersion: fields.version });
     return null;
   },
 });
 
-export const simulateVerificationReview = mutation({
-  args: { approved: v.boolean(), rejectionReason: v.optional(v.string()) }, returns: v.null(),
-  handler: async (ctx, args) => {
+export const ensureDemoVerificationCheck = mutation({
+  args: {}, returns: v.null(),
+  handler: async (ctx) => {
     const student = await requireRole(ctx, "student");
     const current = await ctx.db.query("studentVerifications").withIndex("by_student", (q) => q.eq("studentProfileId", student._id)).unique();
-    if (!current || current.status !== "pending") throw new Error("Submit verification before running the simulated review.");
-    if (!args.approved && !args.rejectionReason?.trim()) throw new Error("Select a simulated rejection reason.");
-    await ctx.db.patch(current._id, { status: args.approved ? "verified" : "rejected", rejectionReason: args.approved ? undefined : args.rejectionReason?.trim().slice(0, 500), reviewedAt: Date.now(), updatedAt: Date.now(), version: current.version + 1 });
+    if (!current || current.status !== "pending") return null;
+    const now = Date.now();
+    if (current.checkScheduledAt && now - current.checkScheduledAt < 30_000) return null;
+    await ctx.db.patch(current._id, { checkScheduledAt: now });
+    await ctx.scheduler.runAfter(DEMO_CHECK_DELAY_MS, internal.growth.completeDemoVerification, { verificationId: current._id, submittedVersion: current.version });
+    return null;
+  },
+});
+
+export const completeDemoVerification = internalMutation({
+  args: { verificationId: v.id("studentVerifications"), submittedVersion: v.number() }, returns: v.null(),
+  handler: async (ctx, args) => {
+    const current = await ctx.db.get(args.verificationId);
+    if (!current || current.status !== "pending" || current.version !== args.submittedVersion || !current.isSimulated) return null;
+    const now = Date.now();
+    await ctx.db.patch(current._id, { status: "verified", rejectionReason: undefined, reviewedAt: now, updatedAt: now, version: current.version + 1 });
     return null;
   },
 });
@@ -78,13 +94,13 @@ export const addCertification = mutation({
 });
 
 export const updatePreferences = mutation({
-  args: { notificationBadgesEnabled: v.optional(v.boolean()), settingsDarkMode: v.optional(v.boolean()) }, returns: v.null(),
+  args: { notificationBadgesEnabled: v.optional(v.boolean()), settingsDarkMode: v.optional(v.boolean()), language: v.optional(v.union(v.literal("en"), v.literal("fil"))) }, returns: v.null(),
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
     const current = await ctx.db.query("preferences").withIndex("by_profile", (q) => q.eq("profileId", profile._id)).unique();
     const now = Date.now();
-    if (current) await ctx.db.patch(current._id, { notificationBadgesEnabled: args.notificationBadgesEnabled ?? current.notificationBadgesEnabled, settingsDarkMode: args.settingsDarkMode ?? current.settingsDarkMode, revision: current.revision + 1, updatedAt: now });
-    else await ctx.db.insert("preferences", { profileId: profile._id, notificationBadgesEnabled: args.notificationBadgesEnabled ?? true, settingsDarkMode: args.settingsDarkMode ?? false, language: "en", schemaVersion: 1, revision: 1, createdAt: now, updatedAt: now });
+    if (current) await ctx.db.patch(current._id, { notificationBadgesEnabled: args.notificationBadgesEnabled ?? current.notificationBadgesEnabled, settingsDarkMode: args.settingsDarkMode ?? current.settingsDarkMode, language: args.language ?? current.language, revision: current.revision + 1, updatedAt: now });
+    else await ctx.db.insert("preferences", { profileId: profile._id, notificationBadgesEnabled: args.notificationBadgesEnabled ?? true, settingsDarkMode: args.settingsDarkMode ?? false, language: args.language ?? "en", schemaVersion: 1, revision: 1, createdAt: now, updatedAt: now });
     return null;
   },
 });

@@ -32,9 +32,8 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly MENTOR_MOCK_FAILURE: string | undefined;
   readonly MENTOR_MOCK_REPLY: string | undefined;
-  readonly OPENCODE_ZEN_API_KEY: string | undefined;
-  readonly OPENCODE_ZEN_CHAT_MODEL: string | undefined;
-  readonly OPENCODE_ZEN_MODEL: string | undefined;
+  readonly OPENCODE_GO_API_KEY: string | undefined;
+  readonly OPENCODE_GO_MODEL: string | undefined;
 };
 
 /**

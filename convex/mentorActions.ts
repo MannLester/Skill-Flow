@@ -12,7 +12,7 @@ import type { Id } from "./_generated/dataModel";
 import { action, env, type ActionCtx } from "./_generated/server";
 import { containsQuestion, isFactSupportedByMessage, maxDiscoveryQuestions, mentorOutputViolation, mentorSource, requestsSensitiveInformation } from "./lib/mentor";
 
-const defaultModel = "muse-spark-1.2-contributor-free";
+const defaultModel = "gpt-5.6-luna";
 const instructions = `You are SkillFlow's project mentor for student designers. Work like a thoughtful Socratic mentor, not a grader or questionnaire.
 
 Read the conversation and the current project brief before replying. Treat only the student's messages and the stored brief as project facts. Never invent research, user feedback, requirements, constraints, visual observations, or personal details. Label an inference as a working assumption. If the student's latest message adds or corrects a concrete fact, use updateProjectBrief and copy the supporting words exactly from that message. If one missing or conflicting detail prevents useful advice, use askStudent and ask exactly one focused question. Give two to four concrete, mutually exclusive answer choices and mark the choice you think is best as recommended. The student can still write a different answer. Do not ask for information the student already gave, and do not force every brief field to be filled. Once you understand the goal, the intended audience, and the real problem, state your working understanding in plain language and give a concrete recommendation. When the brief says the stage is guidance, do not ask another question unless the student explicitly asks you to clarify something.
@@ -30,7 +30,7 @@ type Brief = {
 type QuestionTopic = "goal" | "audience" | "problem" | "constraints" | "deliverable" | "successCriterion";
 type QuestionOption = { label: string; description?: string; recommended: boolean };
 type Question = { topic: QuestionTopic; text: string; options: QuestionOption[] };
-type MentorReply = { response: string; source: "opencode_zen"; model: string; question: Question | null };
+type MentorReply = { response: string; source: "opencode_go"; model: string; question: Question | null };
 type PreparedTurn = {
   kind: "ready"; body: string; studentProfileId: Id<"profiles">;
   conversationId: Id<"mentorConversations">; agentThreadId: string | null; brief: Brief;
@@ -74,9 +74,7 @@ function questionFromToolCalls(toolCalls: readonly { toolName: string; input: un
 }
 
 function configuredModel() {
-  return env.OPENCODE_ZEN_MODEL?.trim()
-    || env.OPENCODE_ZEN_CHAT_MODEL?.trim()
-    || defaultModel;
+  return env.OPENCODE_GO_MODEL?.trim() || defaultModel;
 }
 
 function mentorTools(conversationId: Id<"mentorConversations">, latestStudentBody: string, allowQuestions: boolean): ToolSet {
@@ -113,28 +111,36 @@ function mentorTools(conversationId: Id<"mentorConversations">, latestStudentBod
   };
 }
 
-function requireZenApiKey(): string {
-  const apiKey = env.OPENCODE_ZEN_API_KEY?.trim();
+function requireGoApiKey(): string {
+  const apiKey = env.OPENCODE_GO_API_KEY?.trim();
   if (!apiKey) throw new Error("The AI mentor is not set up yet. Please try again later.");
   return apiKey;
 }
 
-// Test-only seam: MENTOR_MOCK_REPLY answers with canned text and
-// MENTOR_MOCK_FAILURE answers with a provider failure so automated tests can
-// exercise the success, policy, and failure paths without network access.
-function mentorLanguageModel(apiKey: string, model: string) {
-  const mockReply = env.MENTOR_MOCK_REPLY;
-  if (mockReply !== undefined) return mockModel({ content: [{ type: "text", text: mockReply }] });
-  if (env.MENTOR_MOCK_FAILURE === "1") return mockModel({ fail: { error: "Mock Zen failure" } });
+// Automated tests can exercise policy and failure paths without network access.
+// Deployed actions always use OpenCode Go, even if mock variables are present.
+function mentorLanguageModel(apiKey: string, model: string, conversationId?: Id<"mentorConversations">) {
+  if (process.env.NODE_ENV === "test") {
+    const mockReply = env.MENTOR_MOCK_REPLY;
+    if (mockReply !== undefined) return mockModel({ content: [{ type: "text", text: mockReply }] });
+    if (env.MENTOR_MOCK_FAILURE && env.MENTOR_MOCK_FAILURE !== "0") {
+      const error = env.MENTOR_MOCK_FAILURE === "1" ? "Mock Go failure" : env.MENTOR_MOCK_FAILURE;
+      return mockModel({ fail: { error } });
+    }
+  }
   return createOpenAI({
-    name: "opencode-zen",
-    baseURL: "https://opencode.ai/zen/v1",
+    name: "opencode-go",
+    baseURL: "https://opencode.ai/zen/go/v1",
     apiKey,
+    headers: {
+      "x-opencode-session": conversationId ?? "skillflow-mentor-maintenance",
+      "User-Agent": "skillflow-ai-mentor/1.0",
+    },
   }).responses(model);
 }
 
 function createMentorAgent(apiKey: string, model: string, conversationId?: Id<"mentorConversations">, brief?: Brief, latestStudentBody?: string): Agent<object, ToolSet> {
-  const languageModel = mentorLanguageModel(apiKey, model);
+  const languageModel = mentorLanguageModel(apiKey, model, conversationId);
   const briefContext = brief ? `\n\nCurrent project brief stored by SkillFlow:\n${brief.summary}\nOpen question: ${brief.openQuestion ?? "none"}` : "";
   return new Agent(components.agent, {
     name: "SkillFlow AI Project Mentor",
@@ -182,31 +188,47 @@ function assertReplyAllowed(generated: string, question: Question | null, accept
 function finalizeGeneratedReply(generated: string, question: Question | null, brief: Brief, model: string): MentorReply {
   const acceptedQuestion = recordedQuestion(question, brief);
   assertReplyAllowed(generated, question, acceptedQuestion);
-  return { response: generated, source: "opencode_zen", model, question: question && acceptedQuestion ? question : null };
+  return { response: generated, source: "opencode_go", model, question: question && acceptedQuestion ? question : null };
+}
+
+function providerStatusCode(error: unknown) {
+  if (!error || typeof error !== "object") return undefined;
+  return "statusCode" in error ? error.statusCode : undefined;
+}
+
+function mentorRequestError(error: unknown): Error {
+  if (error instanceof Error && error.message === withheldReplyMessage) return error;
+  const reason = error instanceof Error ? error.message : "Unknown provider error";
+  const statusCode = providerStatusCode(error);
+  console.warn(`OpenCode Go mentor request failed. ${reason}`);
+  if (statusCode === 402 || /insufficient account funds|payment required|\b402\b/i.test(reason)) {
+    return new Error("The AI mentor's OpenCode Go plan has no available usage. Your message was not sent, so you can try again later.");
+  }
+  if (statusCode === 403 || /FreeTierError|free tier can only be used|\b403\b/i.test(reason)) {
+    return new Error("This AI model cannot be used from SkillFlow. Your message was not sent, so you can try again later.");
+  }
+  return new Error("The AI mentor is unavailable right now. Your message was not sent, so you can try again.");
 }
 
 async function generateMentorReply(ctx: ActionCtx, prepared: PreparedTurn, threadId: string, promptMessageId: string): Promise<MentorReply> {
-  const apiKey = requireZenApiKey();
+  const apiKey = requireGoApiKey();
   const model = configuredModel();
   try {
     const result = await createMentorAgent(apiKey, model, prepared.conversationId, prepared.brief, prepared.body).generateText(
       ctx,
       { threadId, userId: prepared.studentProfileId },
-      { promptMessageId, maxOutputTokens: 2_000, abortSignal: AbortSignal.timeout(12_000) },
+      { promptMessageId, maxOutputTokens: 2_000, abortSignal: AbortSignal.timeout(45_000) },
     );
     const generated = cleanMentorVoice(result.text.trim());
     if (!generated) {
       const tools = result.toolCalls.map((call) => call.toolName).join(", ") || "none";
-      throw new Error(`Zen returned no text (finish: ${result.finishReason}; tools: ${tools}; steps: ${result.steps.length}).`);
+      throw new Error(`Go returned no text (finish: ${result.finishReason}; tools: ${tools}; steps: ${result.steps.length}).`);
     }
     const currentBrief: Brief = await ctx.runQuery(internal.mentor.readBrief, { conversationId: prepared.conversationId });
     const question = questionFromToolCalls(result.toolCalls);
     return finalizeGeneratedReply(generated, question, currentBrief, model);
   } catch (error) {
-    if (error instanceof Error && error.message === withheldReplyMessage) throw error;
-    const reason = error instanceof Error ? error.message : "Unknown provider error";
-    console.warn(`OpenCode Zen mentor request failed. ${reason}`);
-    throw new Error("The AI mentor is unavailable right now. Your message was not sent, so you can try again.");
+    throw mentorRequestError(error);
   }
 }
 
@@ -221,15 +243,15 @@ async function stagePromptOnce(ctx: ActionCtx, threadId: string, studentProfileI
 export const sendMentorMessage = action({
   args: { body: v.string(), turnKey: v.string(), conversationId: v.optional(v.id("mentorConversations")) },
   returns: v.object({ source: mentorSource, model: v.string() }),
-  handler: async (ctx, args): Promise<{ source: "opencode_zen"; model: string }> => {
+  handler: async (ctx, args): Promise<{ source: "opencode_go"; model: string }> => {
     // Refuse before touching any state: prepareTurn ingests brief facts and
     // the thread/prompt staging below cannot be rolled back.
-    requireZenApiKey();
+    requireGoApiKey();
     if (requestsSensitiveInformation(args.body)) {
       throw new Error("I do not need your email address or payment details to mentor this project. Share only the project goal and constraints that affect the work.");
     }
     const prepared = await ctx.runMutation(internal.mentor.prepareTurn, args);
-    if (prepared.kind === "duplicate") return { source: "opencode_zen" as const, model: configuredModel() };
+    if (prepared.kind === "duplicate") return { source: "opencode_go" as const, model: configuredModel() };
     const threadId = await ensureAgentThread(ctx, prepared);
     const promptMessageId = await stagePromptOnce(ctx, threadId, prepared.studentProfileId, prepared.body);
     const reply: MentorReply = await generateMentorReply(ctx, prepared, threadId, promptMessageId);
@@ -253,7 +275,7 @@ export const deleteMentorConversation = action({
     const threadId = await ctx.runQuery(internal.mentor.prepareDeleteConversation, args);
     if (threadId) {
       try {
-        await createMentorAgent(env.OPENCODE_ZEN_API_KEY?.trim() || "delete-only", configuredModel())
+        await createMentorAgent(env.OPENCODE_GO_API_KEY?.trim() || "delete-only", configuredModel())
           .deleteThreadAsync(ctx, { threadId });
       } catch {
         console.warn("The Agent thread could not be deleted; deleting the SkillFlow chat record.");
@@ -273,7 +295,7 @@ export const clearMentor = action({
     const threadIds = await ctx.runQuery(internal.mentor.prepareClear, {});
     for (const threadId of threadIds) {
       try {
-        await createMentorAgent(env.OPENCODE_ZEN_API_KEY?.trim() || "clear-only", defaultModel)
+        await createMentorAgent(env.OPENCODE_GO_API_KEY?.trim() || "clear-only", defaultModel)
           .deleteThreadAsync(ctx, { threadId });
       } catch {
         console.warn("The Agent thread could not be deleted; clearing the SkillFlow mentor record.");
