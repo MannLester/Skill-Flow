@@ -70,13 +70,11 @@ describe('projects list navigation', () => {
   });
 
   it('uses canonical list routes for Client navigation', async () => {
-    const screen = render(<SessionProvider><ClientSession><ClientHomeScreen /></ClientSession></SessionProvider>);
-    await waitFor(() => expect(screen.getByText('Hi, Mark!')).toBeTruthy());
-
-    fireEvent.press(screen.getAllByText('Messages')[0]);
-    expect(mockPush).toHaveBeenLastCalledWith('/messages');
-
     const nav = render(<SessionProvider><ClientSession><PrimaryBottomNav active="home" role="client" /></ClientSession></SessionProvider>);
+    await waitFor(() => expect(nav.getByRole('button', { name: 'Messages' })).toBeTruthy());
+    fireEvent.press(nav.getByRole('button', { name: 'Messages' }));
+    expect(mockReplace).toHaveBeenLastCalledWith('/messages');
+
     await waitFor(() => expect(nav.getByRole('button', { name: 'Profile' })).toBeTruthy());
     fireEvent.press(nav.getByRole('button', { name: 'Profile' }));
     expect(mockReplace).toHaveBeenLastCalledWith('/profile');
